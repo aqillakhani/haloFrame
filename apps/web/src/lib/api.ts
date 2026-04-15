@@ -77,11 +77,14 @@ export async function segmentImage(
 // -----------------------------------------------------------------------------
 // Apply template
 // -----------------------------------------------------------------------------
+export type ApplyResolution = 'preview' | 'final';
+
 export interface ApplyResult {
   imageUrl: string;
   prompt: string;
-  templateId: string;
+  templateIds: string[];
   intensity: 'low' | 'medium' | 'high';
+  resolution: ApplyResolution;
   skipped?: boolean;
 }
 
@@ -92,7 +95,11 @@ export interface ApplySubjectContext {
 
 export async function applyTemplate(args: {
   imageUrl: string;
-  templateId: string;
+  /**
+   * One or more template IDs. Multiple IDs are combined into ONE API call on
+   * the backend so cost is constant regardless of how many styles are stacked.
+   */
+  templateIds: string[];
   intensity: 'low' | 'medium' | 'high';
   subjectName?: string;
   isPet: boolean;
@@ -102,6 +109,8 @@ export async function applyTemplate(args: {
   selectedSubjectIndex?: number;
   imageWidth?: number;
   imageHeight?: number;
+  /** 'preview' = 1K (fast, used for in-editor previews and mixing). 'final' = 2K (default, what users save/print). */
+  resolution?: ApplyResolution;
 }): Promise<ApplyResult> {
   return postJson('/apply', args);
 }
@@ -112,15 +121,16 @@ export async function applyTemplate(args: {
 export interface MergeResult {
   imageUrl: string;
   prompt: string;
-  placement: 'left' | 'right' | 'behind' | 'center';
+  placement: 'left' | 'right' | 'behind' | 'front';
 }
 
 export async function mergePhotos(args: {
   mainPhotoUrl: string;
   lovedOnePhotoUrl: string;
-  placement: 'left' | 'right' | 'behind' | 'center';
+  placement: 'left' | 'right' | 'behind' | 'front';
   subjectName?: string;
   isPet: boolean;
+  sizeAdjustment?: number;
 }): Promise<MergeResult> {
   return postJson('/merge', args);
 }
@@ -131,4 +141,20 @@ export async function mergePhotos(args: {
 export async function fetchTemplates(): Promise<TributeTemplate[]> {
   const data = await getJson<{ templates: TributeTemplate[] }>('/templates');
   return data.templates;
+}
+
+// Warm the browser cache for static FLUX style thumbs so they paint instantly
+// when the gallery mounts inside the Editor. Without this, the gallery first
+// paints with empty tile gradients and the thumbs trickle in over a few
+// hundred ms — looks broken because the thumbs are the entire point of the
+// tile. Idempotent: the browser dedupes by URL, so calling it from both flows
+// is fine.
+export function preloadSampleImages(templates: TributeTemplate[]): void {
+  if (typeof window === 'undefined') return;
+  for (const t of templates) {
+    if (!t.sampleImageUrl) continue;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = t.sampleImageUrl;
+  }
 }

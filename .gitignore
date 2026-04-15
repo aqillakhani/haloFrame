@@ -56,6 +56,14 @@ spike-results/
 docs/spike-results/*.png
 docs/spike-results/*.jpg
 
+# Benchmark dumps (large per-model comparison renders, regen with benchmark-edit-models.ts)
+apps/web/public/samples/_bench_*.png
+
+# Local Claude/IDE state and Playwright MCP artifacts
+.claude/
+.playwright-mcp/
+verify-*.png
+
 # Supabase local
 supabase/.branches
 supabase/.temp

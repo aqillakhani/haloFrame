@@ -1,28 +1,51 @@
 /* =============================================================================
-   EternalFrame web — warm memorial palette, mobile-first
+   EternalFrame v1.2 — warm, inviting memorial palette
    ============================================================================= */
 
 :root {
-  --midnight-blue: #1a1a3e;
-  --midnight-blue-2: #2a2a52;
-  --warm-gold: #d4a847;
-  --warm-gold-hover: #e0b554;
-  --warm-gold-soft: rgba(212, 168, 71, 0.18);
-  --soft-cream: #faf5eb;
-  --muted-lavender: #b8a9c9;
-  --warm-white: #f8f4ef;
-  --text-primary: #1a1a3e;
-  --text-secondary: #5a5675;
-  --text-tertiary: #8a86a3;
-  --border: rgba(26, 26, 62, 0.12);
-  --border-strong: rgba(26, 26, 62, 0.22);
-  --error: #b85c5c;
-  --error-soft: rgba(184, 92, 92, 0.1);
-  --shadow-soft: 0 2px 12px rgba(26, 26, 62, 0.08);
-  --shadow-lift: 0 8px 28px rgba(26, 26, 62, 0.16);
-  --shadow-overlay: 0 16px 48px rgba(26, 26, 62, 0.22);
-  --radius: 14px;
-  --radius-lg: 22px;
+  /* Primary palette */
+  --primary: #4A6FA5;
+  --primary-light: #6B8FC5;
+  --primary-dark: #345A8A;
+
+  /* Warm accents */
+  --gold: #D4A853;
+  --gold-light: #E8C97A;
+  --gold-soft: #F5E6C4;
+
+  /* Backgrounds */
+  --bg-primary: #FAF7F2;
+  --bg-secondary: #F0EBE3;
+  --bg-card: #FFFFFF;
+  --bg-dark: #1C2541;
+
+  /* Text */
+  --text-primary: #2D3142;
+  --text-secondary: #5C6378;
+  --text-light: #8E95A7;
+  --text-on-dark: #FAF7F2;
+  --text-gold: #B8892E;
+
+  /* Emotional accents */
+  --warm-glow: #FFF3E0;
+  --sky-blue: #E3F2FD;
+  --lavender: #E8E0F0;
+  --rose-gold: #E8C4B8;
+
+  /* Functional */
+  --success: #4CAF7D;
+  --error: #D4605A;
+  --error-bg: #FFF0EF;
+  --disabled: #C8CCD6;
+  --border: #E2DDD5;
+  --border-strong: #D1CBC3;
+  --shadow-soft: 0 2px 12px rgba(44, 49, 66, 0.08);
+  --shadow-lift: 0 8px 24px rgba(44, 49, 66, 0.13);
+  --shadow-overlay: 0 16px 48px rgba(44, 49, 66, 0.18);
+
+  /* Layout */
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
   --radius-pill: 999px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -37,6 +60,7 @@ body,
   margin: 0;
   padding: 0;
   min-height: 100%;
+  height: 100%;
 }
 
 html {
@@ -46,10 +70,28 @@ html {
 
 body {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(180deg, var(--soft-cream) 0%, #f3ead9 100%);
+  background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: contain;
+}
+
+/* Global text overflow prevention */
+h1, h2, h3, h4, p, span, label, a {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 h1,
@@ -57,51 +99,56 @@ h2,
 h3,
 h4,
 .serif {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--midnight-blue);
+  color: var(--text-primary);
   margin: 0;
 }
 
 h1 {
-  font-size: 1.9rem;
-  line-height: 1.1;
+  font-size: 1.75rem;
+  line-height: 1.15;
 }
 
 h2 {
-  font-size: 1.45rem;
+  font-size: 1.375rem;
   line-height: 1.2;
   margin-bottom: 0.4rem;
 }
 
 h3 {
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   margin-bottom: 0.35rem;
 }
 
 h4 {
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 p {
   color: var(--text-secondary);
   line-height: 1.55;
   margin: 0;
+  font-size: 1rem;
 }
 
 p.muted {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
+  color: var(--text-light);
+  font-size: 0.875rem;
 }
 
 .tagline {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-style: italic;
   color: var(--text-secondary);
-  font-size: 1.05rem;
+  font-size: 1rem;
   margin-top: 0.25rem;
 }
+
+/* =============================================================================
+   Buttons
+   ============================================================================= */
 
 button {
   font-family: inherit;
@@ -118,27 +165,31 @@ button:disabled {
 }
 
 button.primary {
-  background: var(--midnight-blue);
-  color: var(--soft-cream);
+  background: var(--primary);
+  color: #FFFFFF;
   padding: 0.85rem 1.5rem;
   border-radius: var(--radius);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   box-shadow: var(--shadow-soft);
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--midnight-blue-2);
+  background: var(--primary-dark);
   box-shadow: var(--shadow-lift);
+}
+
+button.primary:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button.gold,
 a.gold {
-  background: var(--warm-gold);
-  color: var(--midnight-blue);
+  background: var(--gold);
+  color: #FFFFFF;
   padding: 0.85rem 1.5rem;
   border-radius: var(--radius);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   box-shadow: var(--shadow-soft);
   text-decoration: none;
@@ -150,42 +201,56 @@ a.gold {
 
 button.gold:hover:not(:disabled),
 a.gold:hover {
-  background: var(--warm-gold-hover);
+  background: var(--gold-light);
   box-shadow: var(--shadow-lift);
+}
+
+button.gold:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button.ghost {
   background: transparent;
-  color: var(--text-primary);
+  color: var(--primary);
   padding: 0.7rem 1.1rem;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid var(--primary);
   font-size: 0.9rem;
 }
 
 button.ghost:hover:not(:disabled) {
-  background: rgba(26, 26, 62, 0.04);
-  border-color: var(--border-strong);
+  background: rgba(74, 111, 165, 0.06);
+  border-color: var(--primary-dark);
 }
+
+button.ghost:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* =============================================================================
+   Inputs
+   ============================================================================= */
 
 input[type='text'],
 input[type='email'],
+textarea,
 select {
   font-family: inherit;
   padding: 0.75rem 0.95rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: var(--warm-white);
-  font-size: 0.95rem;
+  background: var(--bg-card);
+  font-size: 1rem;
   color: var(--text-primary);
   width: 100%;
 }
 
 input:focus,
+textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--warm-gold);
-  box-shadow: 0 0 0 3px var(--warm-gold-soft);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.2);
 }
 
 /* =============================================================================
@@ -195,20 +260,178 @@ select:focus {
 .app-shell {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 1.5rem 1rem calc(2rem + var(--safe-bottom));
+  padding: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
   text-align: center;
-  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.25rem 0;
 }
 
-/* Persistent flow tabs — visible across every state */
+/* Screen header with back button */
+.screen-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.screen-header h2 {
+  margin: 0;
+  flex: 1;
+}
+
+/* Screen content area */
+.screen-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* =============================================================================
+   Home screen — two full-viewport cards
+   ============================================================================= */
+
+.home-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  gap: 1rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.5rem;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid var(--border);
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.home-card:hover {
+  box-shadow: var(--shadow-lift);
+}
+
+.home-card:active {
+  transform: scale(0.97);
+}
+
+.home-card .card-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.home-card .card-icon-svg {
+  flex-shrink: 0;
+}
+
+.home-card h2 {
+  font-size: 1.375rem;
+  margin: 0;
+}
+
+.home-card p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 280px;
+  margin: 0;
+}
+
+/* =============================================================================
+   Bottom tab bar
+   ============================================================================= */
+
+.bottom-tab-bar {
+  display: flex;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  padding: 0.5rem 0 calc(0.5rem + var(--safe-bottom));
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+}
+
+.bottom-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.bottom-tab .tab-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.bottom-tab.active {
+  color: var(--primary);
+}
+
+.bottom-tab:hover:not(.active) {
+  color: var(--text-secondary);
+}
+
+/* =============================================================================
+   Back button
+   ============================================================================= */
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.back-button:hover {
+  background: var(--bg-secondary);
+}
+
+/* =============================================================================
+   Flow tabs (legacy, kept for flow-level navigation)
+   ============================================================================= */
+
 .flow-tabs {
   display: flex;
   gap: 0.5rem;
   padding: 0.4rem;
-  background: var(--warm-white);
+  background: var(--bg-secondary);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-soft);
   margin: 0 auto 1.5rem;
@@ -227,13 +450,17 @@ select:focus {
 }
 
 .flow-tab.active {
-  background: var(--midnight-blue);
-  color: var(--soft-cream);
+  background: var(--primary);
+  color: #FFFFFF;
   box-shadow: var(--shadow-soft);
 }
 
+/* =============================================================================
+   Cards
+   ============================================================================= */
+
 .card {
-  background: var(--warm-white);
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   box-shadow: var(--shadow-soft);
@@ -253,19 +480,43 @@ select:focus {
    ============================================================================= */
 
 .upload-zone {
+  display: block;
+  position: relative;
   border: 2px dashed var(--border-strong);
   border-radius: var(--radius-lg);
   padding: 2rem 1.25rem;
   text-align: center;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
-  background: var(--warm-white);
+  background: var(--bg-card);
+}
+
+.upload-zone.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Native <input type=file> stretched invisibly over the zone so the browser
+   itself handles the click → file picker transition. No JS click-dispatch,
+   no React synthetic re-fire loop. */
+.upload-zone-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.upload-zone.is-disabled .upload-zone-input {
+  cursor: not-allowed;
 }
 
 .upload-zone:hover,
 .upload-zone:focus-within {
-  border-color: var(--warm-gold);
-  background: #fffbf2;
+  border-color: var(--gold);
+  background: var(--warm-glow);
 }
 
 .upload-zone.has-image {
@@ -299,7 +550,7 @@ select:focus {
 .checkbox-row input[type='checkbox'] {
   width: 18px;
   height: 18px;
-  accent-color: var(--warm-gold);
+  accent-color: var(--gold);
 }
 
 /* =============================================================================
@@ -326,44 +577,57 @@ select:focus {
 .subject-canvas .dim-layer {
   position: absolute;
   inset: 0;
-  background: rgba(26, 26, 62, 0.5);
+  background: rgba(44, 49, 66, 0.45);
   pointer-events: none;
 }
 
-.subject-target {
+/* Numbered circle badges centered on each subject */
+.subject-badge {
   position: absolute;
-  border: 3px solid var(--warm-gold);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
-  background: rgba(212, 168, 71, 0.15);
-  pointer-events: auto;
-}
-
-.subject-target:hover {
-  background: rgba(212, 168, 71, 0.28);
-}
-
-.subject-target.selected {
-  background: rgba(212, 168, 71, 0.45);
-  border-width: 4px;
-  box-shadow: 0 0 0 4px rgba(212, 168, 71, 0.35);
-}
-
-.subject-target .badge {
-  position: absolute;
-  top: -14px;
-  left: -14px;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--warm-gold);
-  color: var(--midnight-blue);
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid var(--primary);
+  color: var(--primary);
   font-weight: 700;
+  font-size: 1.1rem;
   display: grid;
   place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  pointer-events: auto;
   box-shadow: var(--shadow-soft);
-  font-size: 0.95rem;
+  padding: 0;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.subject-badge:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-lift);
+}
+
+.subject-badge.selected {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(212, 168, 83, 0.3);
+}
+
+/* Golden highlight outline around selected subject */
+.subject-highlight {
+  position: absolute;
+  border: 3px solid var(--gold);
+  border-radius: 8px;
+  background: rgba(212, 168, 83, 0.15);
+  pointer-events: none;
+  animation: highlightPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes highlightPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* =============================================================================
@@ -377,18 +641,35 @@ select:focus {
 }
 
 .editor-stage {
-  background: var(--warm-white);
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 0.75rem;
   box-shadow: var(--shadow-soft);
   position: relative;
 }
 
+/* Small status pill shown when a preview-quality image is on screen while the
+   2K final is still rendering in the background. */
+.finalizing-pill {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+
 .image-viewport {
   position: relative;
   width: 100%;
   min-height: 260px;
-  background: var(--midnight-blue);
+  background: var(--bg-dark);
   border-radius: var(--radius);
   overflow: hidden;
   display: grid;
@@ -396,19 +677,40 @@ select:focus {
   touch-action: pinch-zoom pan-x pan-y;
 }
 
-.image-viewport img {
+.image-viewport .image-stack {
+  position: relative;
+  display: inline-block;
+  transform-origin: center center;
+}
+
+.image-viewport .image-base {
   max-width: 100%;
   max-height: 60vh;
   display: block;
   user-select: none;
   -webkit-user-drag: none;
-  transform-origin: center center;
   transition: opacity 0.25s ease;
 }
 
-.image-viewport.loading img {
+.image-viewport.loading .image-base {
   opacity: 0.35;
   filter: blur(1.5px);
+}
+
+.image-viewport .preview-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+
+.image-viewport.loading .preview-overlay {
+  opacity: 0;
 }
 
 .image-viewport .loading-shade {
@@ -420,7 +722,7 @@ select:focus {
 }
 
 .image-viewport .loading-shade .loading-pill {
-  background: rgba(250, 245, 235, 0.95);
+  background: rgba(250, 247, 242, 0.95);
   color: var(--text-primary);
   padding: 0.6rem 1.1rem;
   border-radius: var(--radius-pill);
@@ -456,44 +758,18 @@ select:focus {
 }
 
 .stage-toolbar button.chip.active {
-  background: var(--midnight-blue);
-  color: var(--soft-cream);
-  border-color: var(--midnight-blue);
+  background: var(--primary);
+  color: #FFFFFF;
+  border-color: var(--primary);
 }
 
 .stage-toolbar button.chip:hover:not(:disabled) {
   border-color: var(--border-strong);
 }
 
-/* Intensity pills — tight, visual */
-.intensity-row {
-  display: flex;
-  gap: 0.5rem;
-  background: var(--warm-white);
-  padding: 0.4rem;
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-soft);
-}
-
-.intensity-pill {
-  flex: 1;
-  padding: 0.7rem 0.6rem;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.intensity-pill.active {
-  background: var(--warm-gold);
-  color: var(--midnight-blue);
-  box-shadow: var(--shadow-soft);
-}
-
-/* Template gallery — responsive grid */
+/* Template gallery */
 .template-section {
-  background: var(--warm-white);
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
   box-shadow: var(--shadow-soft);
@@ -512,7 +788,7 @@ select:focus {
 
 .template-section-header .helper {
   font-size: 0.8rem;
-  color: var(--text-tertiary);
+  color: var(--text-light);
 }
 
 .template-grid {
@@ -522,7 +798,7 @@ select:focus {
 }
 
 .template-card {
-  background: var(--soft-cream);
+  background: var(--bg-secondary);
   border-radius: var(--radius);
   padding: 0.9rem;
   border: 2px solid transparent;
@@ -543,16 +819,16 @@ select:focus {
 }
 
 .template-card.selected {
-  border-color: var(--warm-gold);
-  background: #fffbf2;
-  box-shadow: 0 0 0 3px var(--warm-gold-soft);
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.2);
 }
 
 .template-card h4 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Playfair Display', Georgia, serif;
   margin: 0;
-  font-size: 1.1rem;
-  color: var(--midnight-blue);
+  font-size: 1.05rem;
+  color: var(--text-primary);
 }
 
 .template-card p {
@@ -567,7 +843,7 @@ select:focus {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--warm-gold);
+  color: var(--text-gold);
   font-weight: 700;
 }
 
@@ -578,17 +854,70 @@ select:focus {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--warm-gold);
-  color: var(--midnight-blue);
+  background: var(--gold);
+  color: #FFFFFF;
   display: grid;
   place-items: center;
   font-weight: 800;
   font-size: 0.75rem;
   box-shadow: var(--shadow-soft);
+  z-index: 1;
+}
+
+.template-tile-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: calc(var(--radius) * 0.6);
+  display: block;
+  background: linear-gradient(135deg, var(--bg-primary), var(--gold-soft));
+  margin-bottom: 0.15rem;
+}
+
+.template-tile-thumb-empty {
+  background: linear-gradient(135deg, var(--bg-primary), var(--gold-soft));
+}
+
+.template-card.not-ready {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.template-card.not-ready .template-tile-thumb {
+  filter: grayscale(0.4) brightness(0.95);
+}
+
+.template-card .tile-loading {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-soft);
+  z-index: 1;
+}
+
+.preload-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--gold-soft);
+  color: var(--text-primary);
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 0.1rem;
 }
 
 /* =============================================================================
-   Action bar — sticky on mobile
+   Action bar
    ============================================================================= */
 
 .action-bar {
@@ -596,7 +925,7 @@ select:focus {
   gap: 0.5rem;
   flex-wrap: wrap;
   padding: 1rem;
-  background: var(--warm-white);
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
 }
@@ -612,6 +941,62 @@ select:focus {
 }
 
 /* =============================================================================
+   Placement live-preview overlay
+   ============================================================================= */
+
+.placement-photo-preview {
+  margin-bottom: 1rem;
+}
+
+.placement-photo-frame {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.placement-main-photo {
+  width: 100%;
+  display: block;
+  border-radius: var(--radius);
+}
+
+/* Small context thumbnail shown before the user picks a placement */
+.placement-corner-thumb {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+  object-fit: cover;
+  box-shadow: var(--shadow-soft);
+}
+
+/* Live size-preview overlay. Positioned via a per-placement anchor class; the
+   inline transform adds the user's size-slider scale on top of the translate
+   that centres the image on its anchor point. Purely client-side — no API. */
+.placement-live-overlay {
+  position: absolute;
+  width: 28%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 3px solid var(--gold);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transform-origin: center center;
+  transition: left 0.2s ease, top 0.2s ease, right 0.2s ease;
+  pointer-events: none;
+  background: var(--bg-card);
+}
+
+.placement-overlay-left  { left: 16%; top: 55%; }
+.placement-overlay-right { left: 84%; top: 55%; }
+.placement-overlay-behind { left: 50%; top: 25%; width: 22%; opacity: 0.85; }
+.placement-overlay-front { left: 50%; top: 70%; width: 32%; }
+
+/* =============================================================================
    Placement picker
    ============================================================================= */
 
@@ -624,8 +1009,8 @@ select:focus {
 .placement-card {
   padding: 1.2rem 0.8rem;
   border-radius: var(--radius);
-  background: var(--soft-cream);
-  border: 2px solid transparent;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
   cursor: pointer;
   text-align: center;
   font-weight: 600;
@@ -639,9 +1024,43 @@ select:focus {
 }
 
 .placement-card.selected {
-  border-color: var(--warm-gold);
-  background: #fffbf2;
-  box-shadow: 0 0 0 3px var(--warm-gold-soft);
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.2);
+}
+
+/* =============================================================================
+   Size slider
+   ============================================================================= */
+
+.size-slider {
+  padding: 1rem 0;
+}
+
+.size-slider label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.size-slider-track {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.size-slider-track span {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+.size-slider input[type='range'] {
+  flex: 1;
+  accent-color: var(--gold);
+  height: 6px;
 }
 
 /* =============================================================================
@@ -652,8 +1071,8 @@ select:focus {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 3px solid rgba(212, 168, 71, 0.25);
-  border-top-color: var(--warm-gold);
+  border: 3px solid rgba(212, 168, 83, 0.25);
+  border-top-color: var(--gold);
   border-radius: 50%;
   animation: spin 0.9s linear infinite;
 }
@@ -670,6 +1089,11 @@ select:focus {
   }
 }
 
+@keyframes warmPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .loading-overlay {
   display: flex;
   flex-direction: column;
@@ -677,19 +1101,202 @@ select:focus {
   gap: 1rem;
   padding: 3rem 2rem;
   text-align: center;
-  background: var(--warm-white);
+  background: var(--warm-glow);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
 }
 
+.loading-overlay h3 {
+  animation: warmPulse 2s ease-in-out infinite;
+}
+
+.loading-overlay p {
+  color: var(--text-secondary);
+}
+
 .error-banner {
-  background: var(--error-soft);
+  background: var(--error-bg);
   border: 1px solid var(--error);
   color: var(--error);
   padding: 0.85rem 1rem;
   border-radius: var(--radius);
   margin-bottom: 1rem;
   font-size: 0.9rem;
+}
+
+.error-banner .error-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* =============================================================================
+   Merge review screen
+   ============================================================================= */
+
+.merge-review {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0 1.25rem;
+}
+
+.merge-review .review-image {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+.merge-review .review-image img {
+  width: 100%;
+  display: block;
+}
+
+.merge-review .review-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.merge-review .review-actions button {
+  flex: 1;
+}
+
+/* =============================================================================
+   Toggle switch
+   ============================================================================= */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  gap: 0.75rem;
+}
+
+.toggle-row label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  background: var(--disabled);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: none;
+  padding: 0;
+}
+
+.toggle-switch.active {
+  background: var(--primary);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.toggle-switch.active::after {
+  transform: translateX(20px);
+}
+
+/* =============================================================================
+   Collapsed text section
+   ============================================================================= */
+
+.text-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.text-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 0.75rem;
+}
+
+.text-fields input,
+.text-fields textarea {
+  font-size: 0.9rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.text-fields textarea {
+  resize: none;
+  min-height: 64px;
+}
+
+/* Border option row */
+.border-options {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+}
+
+.border-option {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.12s ease;
+}
+
+.border-option.selected {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  color: var(--text-primary);
+}
+
+/* Font picker row */
+.font-options {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.font-option {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  transition: all 0.12s ease;
+}
+
+.font-option.selected {
+  border-color: var(--gold);
+  background: var(--gold-soft);
 }
 
 /* =============================================================================
@@ -710,18 +1317,59 @@ select:focus {
 }
 
 /* =============================================================================
+   Empty state
+   ============================================================================= */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  flex: 1;
+  gap: 1rem;
+}
+
+.empty-state .empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+.empty-state h2 {
+  margin: 0;
+}
+
+.empty-state p {
+  max-width: 280px;
+}
+
+/* =============================================================================
+   Sticky bottom action
+   ============================================================================= */
+
+.sticky-bottom-action {
+  position: sticky;
+  bottom: 0;
+  padding: 1rem 1.25rem calc(1rem + var(--safe-bottom));
+  background: linear-gradient(transparent, var(--bg-primary) 20%);
+  z-index: 50;
+}
+
+.sticky-bottom-action button {
+  width: 100%;
+}
+
+/* =============================================================================
    Tablet / desktop breakpoints
    ============================================================================= */
 
 @media (min-width: 640px) {
-  .app-shell {
-    padding: 2rem 1.5rem;
-  }
   h1 {
-    font-size: 2.4rem;
+    font-size: 2.25rem;
   }
   h2 {
-    font-size: 1.65rem;
+    font-size: 1.5rem;
   }
   .template-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -731,6 +1379,12 @@ select:focus {
   }
   .placement-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+  .home-screen {
+    flex-direction: row;
+  }
+  .home-card {
+    min-height: 300px;
   }
 }
 
@@ -759,7 +1413,7 @@ select:focus {
   .template-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  .image-viewport img {
+  .image-viewport .image-base {
     max-height: 70vh;
   }
 }
@@ -769,4 +1423,3 @@ select:focus {
     grid-template-columns: repeat(3, 1fr);
   }
 }
-

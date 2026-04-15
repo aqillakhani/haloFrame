@@ -30,7 +30,7 @@ async function main() {
         category: tpl.category,
         prompt_template: tpl.promptTemplate,
         prompt_modifiers: tpl.promptModifiers,
-        preview_image_url: tpl.previewImageUrl,
+        preview_image_url: tpl.sampleImageUrl,
         is_pet_compatible: tpl.isPetCompatible,
         is_human_compatible: tpl.isHumanCompatible,
         sort_order: tpl.sortOrder,

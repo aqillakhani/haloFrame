@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 
 interface UploadZoneProps {
   label: string;
@@ -15,7 +15,6 @@ export function UploadZone({
   disabled,
   previewUrl,
 }: UploadZoneProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -23,22 +22,21 @@ export function UploadZone({
     if (!file) return;
     setLocalPreview(URL.createObjectURL(file));
     onFileSelected(file);
+    // Reset so the same file can be picked again if the parent resets state
+    event.target.value = '';
   };
 
   const display = previewUrl ?? localPreview;
 
   return (
-    <div
-      className={`upload-zone${display ? ' has-image' : ''}`}
-      onClick={() => !disabled && inputRef.current?.click()}
-    >
+    <div className={`upload-zone${display ? ' has-image' : ''}${disabled ? ' is-disabled' : ''}`}>
       <input
-        ref={inputRef}
+        className="upload-zone-input"
         type="file"
-        accept="image/jpeg,image/png,image/webp"
-        style={{ display: 'none' }}
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         onChange={handleChange}
         disabled={disabled}
+        aria-label={label}
       />
       {display ? (
         <img className="upload-preview" src={display} alt="preview" />

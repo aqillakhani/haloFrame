@@ -376,9 +376,14 @@ tributeRouter.post(
     try {
       const userId = req.user!.id;
       const tributeId = req.params.id!;
-      const { templateId, intensity } = req.body as ReturnType<
+      const { templateIds, intensity } = req.body as ReturnType<
         typeof applyTemplateRequestSchema.parse
       >;
+      // v1.3 supports stacking multiple styles, but the full-product tribute
+      // route still resolves a primary template for DB persistence. The
+      // combiner in services/templateCombiner runs on the spike route; when
+      // this route is re-enabled, swap to combine all resolved templates.
+      const primaryTemplateId = templateIds[0]!;
       const tribute = await loadTribute(userId, tributeId);
 
       // Re-check entitlement immediately before the cost-bearing call
@@ -393,7 +398,7 @@ tributeRouter.post(
       const { data: tpl, error: tplError } = await supabaseAdmin
         .from('tribute_templates')
         .select('*')
-        .eq('id', templateId)
+        .eq('id', primaryTemplateId)
         .eq('is_active', true)
         .single();
       if (tplError || !tpl) throw errors.templateNotFound();
@@ -405,7 +410,7 @@ tributeRouter.post(
         category: tpl.category,
         promptTemplate: tpl.prompt_template,
         promptModifiers: tpl.prompt_modifiers ?? {},
-        previewImageUrl: tpl.preview_image_url,
+        sampleImageUrl: tpl.preview_image_url,
         isPetCompatible: tpl.is_pet_compatible,
         isHumanCompatible: tpl.is_human_compatible,
         sortOrder: tpl.sort_order,
@@ -431,7 +436,7 @@ tributeRouter.post(
           intensity,
         });
       } catch (err) {
-        logger.warn({ err, templateId }, 'primary apply failed, trying pro fallback');
+        logger.warn({ err, templateId: primaryTemplateId }, 'primary apply failed, trying pro fallback');
         result = await applyMemorialEffectPro({
           photoUrl: sourceSigned,
           template,
@@ -444,13 +449,13 @@ tributeRouter.post(
         sourceUrl: result.imageUrl,
         userId,
         tributeId,
-        filename: `templated-${templateId}-${intensity}.png`,
+        filename: `templated-${primaryTemplateId}-${intensity}.png`,
         bucket: 'source',
       });
 
       const newState: TributeState = {
         ...tribute.state,
-        templateId,
+        templateIds,
         effectIntensity: intensity,
         templatedPhotoUrl: rehosted.storagePath,
       };
@@ -526,9 +531,13 @@ tributeRouter.post('/:id/hd', async (req, res, next) => {
       throw errors.upgradeRequired('HD downloads require a subscription');
     }
 
-    if (!tribute.state.templateId || !tribute.state.templatedPhotoUrl) {
+    if (tribute.state.templateIds.length === 0 || !tribute.state.templatedPhotoUrl) {
       throw errors.invalidRequest('Tribute has no template applied yet');
     }
+    // HD render uses the first selected template as the representative style.
+    // Combined-prompt HD rendering is handled by the spike route; when this
+    // full route is re-enabled, mirror the combiner logic here.
+    const hdTemplateId = tribute.state.templateIds[0]!;
 
     const sourcePath = tribute.state.mergedPhotoUrl ?? tribute.state.mainPhotoUrl;
     if (!sourcePath) throw errors.invalidRequest('No source photo available');
@@ -537,7 +546,7 @@ tributeRouter.post('/:id/hd', async (req, res, next) => {
     const { data: tpl } = await supabaseAdmin
       .from('tribute_templates')
       .select('*')
-      .eq('id', tribute.state.templateId)
+      .eq('id', hdTemplateId)
       .single();
     if (!tpl) throw errors.templateNotFound();
 
@@ -548,7 +557,7 @@ tributeRouter.post('/:id/hd', async (req, res, next) => {
       category: tpl.category,
       promptTemplate: tpl.prompt_template,
       promptModifiers: tpl.prompt_modifiers ?? {},
-      previewImageUrl: tpl.preview_image_url,
+      sampleImageUrl: tpl.preview_image_url,
       isPetCompatible: tpl.is_pet_compatible,
       isHumanCompatible: tpl.is_human_compatible,
       sortOrder: tpl.sort_order,

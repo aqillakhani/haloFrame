@@ -28,7 +28,7 @@ function dbToTemplate(row: DbTemplate): TributeTemplate {
     category: row.category,
     promptTemplate: row.prompt_template,
     promptModifiers: row.prompt_modifiers ?? {},
-    previewImageUrl: row.preview_image_url,
+    sampleImageUrl: row.preview_image_url,
     isPetCompatible: row.is_pet_compatible,
     isHumanCompatible: row.is_human_compatible,
     sortOrder: row.sort_order,

@@ -12,7 +12,9 @@
     "spike:sam3": "tsx scripts/spike-sam3.ts",
     "spike:templates": "tsx scripts/spike-templates.ts",
     "spike:merge": "tsx scripts/spike-merge.ts",
-    "seed:templates": "tsx scripts/seed-templates.ts"
+    "seed:templates": "tsx scripts/seed-templates.ts",
+    "generate:samples": "tsx scripts/generate-samples.ts",
+    "benchmark:models": "tsx scripts/benchmark-edit-models.ts"
   },
   "dependencies": {
     "@eternalframe/shared": "*",

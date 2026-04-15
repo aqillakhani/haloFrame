@@ -40,7 +40,7 @@ export type TributeStep =
   | 'finalized'
   | 'failed';
 
-export type Placement = 'left' | 'right' | 'behind' | 'center';
+export type Placement = 'left' | 'right' | 'behind' | 'front';
 
 export type EffectIntensity = 'low' | 'medium' | 'high';
 
@@ -110,8 +110,9 @@ export interface TributeState {
   placement: Placement | null;
   mergedPhotoUrl: string | null;
 
-  // Memorial effect
-  templateId: string | null;
+  // Memorial effect — v1.3+: users can stack multiple styles, so this is an
+  // array of template IDs. Empty array means no effect selected yet.
+  templateIds: string[];
   effectIntensity: EffectIntensity;
   templatedPhotoUrl: string | null;
 
@@ -141,7 +142,7 @@ export interface TributeTemplate {
   /** Prompt template with {subject_description} placeholder. Use 'NO_EFFECT' to skip the AI call. */
   promptTemplate: string;
   promptModifiers: Partial<Record<EffectIntensity, string>>;
-  previewImageUrl: string | null;
+  sampleImageUrl: string | null;
   isPetCompatible: boolean;
   isHumanCompatible: boolean;
   sortOrder: number;

@@ -11,9 +11,8 @@ interface SubjectSelectorProps {
 }
 
 /**
- * Renders the source image with bounding-box tap targets overlaid for each
- * detected subject. Tap targets are scaled to the rendered image size, not
- * the original pixel coordinates.
+ * Renders the source image with numbered circle badges centered on each
+ * detected subject's bounding box. Tap the number to select.
  */
 export function SubjectSelector({
   imageUrl,
@@ -58,21 +57,43 @@ export function SubjectSelector({
       {renderedSize &&
         subjects.map((s, i) => {
           const [x1, y1, x2, y2] = s.bbox;
-          const left = x1 * scaleX;
-          const top = y1 * scaleY;
-          const width = (x2 - x1) * scaleX;
-          const height = (y2 - y1) * scaleY;
+          const isSelected = selectedIndex === i;
+          // Center the badge on the bounding box center
+          const cx = ((x1 + x2) / 2) * scaleX;
+          const cy = ((y1 + y2) / 2) * scaleY;
+          // Also draw a highlight outline around the bbox when selected
+          const bboxLeft = x1 * scaleX;
+          const bboxTop = y1 * scaleY;
+          const bboxWidth = (x2 - x1) * scaleX;
+          const bboxHeight = (y2 - y1) * scaleY;
           return (
-            <button
-              key={s.maskId}
-              type="button"
-              className={`subject-target${selectedIndex === i ? ' selected' : ''}`}
-              style={{ left, top, width, height }}
-              onClick={() => onSelect(i)}
-              aria-label={`Select subject ${i + 1}`}
-            >
-              <span className="badge">{i + 1}</span>
-            </button>
+            <div key={s.maskId}>
+              {/* Highlight outline when selected */}
+              {isSelected && (
+                <div
+                  className="subject-highlight"
+                  style={{
+                    left: bboxLeft,
+                    top: bboxTop,
+                    width: bboxWidth,
+                    height: bboxHeight,
+                  }}
+                />
+              )}
+              {/* Numbered circle badge */}
+              <button
+                type="button"
+                className={`subject-badge${isSelected ? ' selected' : ''}`}
+                style={{
+                  left: cx - 18,
+                  top: cy - 18,
+                }}
+                onClick={() => onSelect(i)}
+                aria-label={`Select person ${i + 1}`}
+              >
+                {i + 1}
+              </button>
+            </div>
           );
         })}
     </div>

@@ -18,7 +18,7 @@ export const flowTypeSchema = z.enum([
   'pet_reunite',
 ]);
 
-export const placementSchema = z.enum(['left', 'right', 'behind', 'center']);
+export const placementSchema = z.enum(['left', 'right', 'behind', 'front']);
 
 export const effectIntensitySchema = z.enum(['low', 'medium', 'high']);
 
@@ -71,7 +71,8 @@ export const mergeRequestSchema = z.object({
 export type MergeRequest = z.infer<typeof mergeRequestSchema>;
 
 export const applyTemplateRequestSchema = z.object({
-  templateId: z.string().min(1),
+  /** v1.3+: one or more template IDs combined into a single Nano Banana call. */
+  templateIds: z.array(z.string().min(1)).min(1),
   intensity: effectIntensitySchema.default('medium'),
 });
 export type ApplyTemplateRequest = z.infer<typeof applyTemplateRequestSchema>;

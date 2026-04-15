@@ -28,29 +28,33 @@ interface SpikeResult {
   error?: string;
 }
 
+async function callSam3(imageUrl: string, prompt: string) {
+  const result = await fal.subscribe('fal-ai/sam-3/image', {
+    input: {
+      image_url: imageUrl,
+      prompt,
+      return_multiple_masks: true,
+      max_masks: 10,
+      include_scores: true,
+      apply_mask: true,
+      output_format: 'png',
+    },
+    logs: false,
+  });
+  const data = result.data as { masks?: Array<{ url: string }>; scores?: number[] };
+  return { masks: data.masks ?? [], scores: data.scores ?? [] };
+}
+
 async function runOne(localPath: string, detectPets: boolean): Promise<SpikeResult> {
   const filename = basename(localPath);
   const start = Date.now();
   try {
     const uploadedUrl = await uploadToFal(localPath);
-    const result = await fal.subscribe('fal-ai/sam-3/image', {
-      input: {
-        image_url: uploadedUrl,
-        prompt: detectPets ? 'person, dog, cat, pet, animal' : 'person',
-        return_multiple_masks: true,
-        max_masks: 10,
-        include_scores: true,
-        apply_mask: true,
-        output_format: 'png',
-      },
-      logs: false,
-    });
-    const data = result.data as {
-      masks?: Array<{ url: string }>;
-      scores?: number[];
-    };
-    const masks = data.masks ?? [];
-    const scores = data.scores ?? [];
+    // SAM 3 is single-concept per call — multi-term prompts return nothing.
+    const prompts = detectPets ? ['person', 'dog', 'cat'] : ['person'];
+    const results = await Promise.all(prompts.map((p) => callSam3(uploadedUrl, p)));
+    const masks = results.flatMap((r) => r.masks);
+    const scores = results.flatMap((r) => r.scores);
 
     // Save the first mask alongside the source for visual review
     if (masks[0]?.url) {

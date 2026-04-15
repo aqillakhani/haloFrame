@@ -86,28 +86,53 @@ const PLACEMENT_INSTRUCTIONS: Record<Placement, string> = {
     'Place the person from the second image on the right side of the group in the first image',
   behind:
     'Place the person from the second image standing behind the group in the first image, slightly visible between or above other people',
-  center:
-    'Place the person from the second image in the center of the group in the first image, naturally integrated among the other people',
+  front:
+    'Place the person from the second image in the foreground, in front of the group in the first image, closer to the camera than the other people. They should be positioned in the front-center of the image, slightly in front of and between the existing people. They must NOT be behind anyone — they are the closest person to the camera.',
 };
+
+function getScaleInstruction(scaleValue: number): string {
+  if (scaleValue < 0.85) {
+    return 'Make the added person noticeably smaller than they appear in their original photo, as if they are standing slightly further back or are shorter than the others.';
+  }
+  if (scaleValue < 0.95) {
+    return 'Make the added person slightly smaller than they appear in their original photo.';
+  }
+  if (scaleValue > 1.15) {
+    return 'Make the added person noticeably larger than they appear in their original photo, as if they are closer to the camera or taller than the others.';
+  }
+  if (scaleValue > 1.05) {
+    return 'Make the added person slightly larger than they appear in their original photo.';
+  }
+  return '';
+}
 
 export async function mergePhotos(args: {
   mainPhotoUrl: string;
   lovedOnePhotoUrl: string;
   placement: Placement;
   subjectDescription: string;
+  sizeAdjustment?: number;
   resolution?: '2K' | '4K';
 }): Promise<{ imageUrl: string }> {
   const { mainPhotoUrl, lovedOnePhotoUrl, placement, subjectDescription } = args;
   const resolution = args.resolution ?? '2K';
+  const sizeAdjustment = args.sizeAdjustment ?? 1.0;
 
-  const prompt = [
+  const promptParts = [
     'Take the first image as the main scene.',
     `Take ${subjectDescription} from the second image and naturally integrate them into the first image.`,
     `${PLACEMENT_INSTRUCTIONS[placement]}.`,
     'Match the lighting, color temperature, perspective, and scale so the person looks like they were genuinely present in the original photo.',
     'Preserve everyone else in the main photo exactly as they are.',
     'The result should look like a natural, authentic photograph.',
-  ].join(' ');
+  ];
+
+  const scaleInstruction = getScaleInstruction(sizeAdjustment);
+  if (scaleInstruction) {
+    promptParts.push(scaleInstruction);
+  }
+
+  const prompt = promptParts.join(' ');
 
   try {
     const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
