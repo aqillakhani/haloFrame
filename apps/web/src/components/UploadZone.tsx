@@ -64,8 +64,8 @@ export function UploadZone({ label, hint, onFileSelected, disabled, previewUrl }
         <div className="upload-zone-empty">
           <Icon name="upload" size={28} className="upload-zone-icon" />
           <p className="t-label-md">{label}</p>
-          {hint && <p className="t-body-sm t-faint">{hint}</p>}
-          <p className="t-body-sm t-faint upload-zone-hint">JPG &middot; PNG &middot; HEIC</p>
+          {hint && <p className="t-body-sm t-muted">{hint}</p>}
+          <p className="t-body-sm t-muted upload-zone-hint">JPG &middot; PNG &middot; HEIC</p>
         </div>
       )}
     </label>

@@ -111,10 +111,10 @@ export function ImageViewer({ src, alt, loading, loadingLabel, overlays }: Image
         ))}
       </div>
       {loading && (
-        <div className="loading-shade">
+        <div className="loading-shade" role="status" aria-live="polite">
           <div className="loading-pill">
             <span className="spinner small" />
-            <span>{loadingLabel ?? 'Creating your tribute…'}</span>
+            <span>{loadingLabel ?? 'Creating your tribute\u2026'}</span>
           </div>
         </div>
       )}
