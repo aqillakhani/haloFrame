@@ -1,4 +1,5 @@
 import { useNavigation } from '../lib/navigation';
+import { Icon } from './icons/Icon';
 
 interface BackButtonProps {
   /** Override the default pop behavior */
@@ -14,11 +15,11 @@ export function BackButton({ onClick, label = 'Go back' }: BackButtonProps) {
   return (
     <button
       type="button"
-      className="back-button"
+      className="btn-icon back-btn"
       onClick={onClick ?? nav.pop}
       aria-label={label}
     >
-      &#8592;
+      <Icon name="back" size={20} />
     </button>
   );
 }

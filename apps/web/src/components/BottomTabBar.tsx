@@ -1,30 +1,35 @@
 import { useNavigation, type Tab } from '../lib/navigation';
-import { COPY } from '../lib/copy';
+import { Icon, type IconName } from './icons/Icon';
 
-const TABS: { id: Tab; icon: string; label: string }[] = [
-  { id: 'HOME', icon: '\u2302', label: COPY.tabs.home },
-  { id: 'MY_TRIBUTES', icon: '\u2661', label: COPY.tabs.myTributes },
-  { id: 'SETTINGS', icon: '\u2699', label: COPY.tabs.settings },
-  { id: 'PRINT_SHOP', icon: '\u2399', label: COPY.tabs.print },
+const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
+  { id: 'HOME',        label: 'Home',     icon: 'home' },
+  { id: 'MY_TRIBUTES', label: 'Tributes', icon: 'images' },
+  { id: 'PRINT_SHOP',  label: 'Prints',   icon: 'printer' },
+  { id: 'SETTINGS',    label: 'Settings', icon: 'settings' },
 ];
 
 export function BottomTabBar() {
   const { activeTab, setTab } = useNavigation();
 
   return (
-    <nav className="bottom-tab-bar" aria-label="Main navigation">
-      {TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          className={`bottom-tab${activeTab === t.id ? ' active' : ''}`}
-          onClick={() => setTab(t.id)}
-          aria-current={activeTab === t.id ? 'page' : undefined}
-        >
-          <span className="tab-icon" aria-hidden>{t.icon}</span>
-          <span>{t.label}</span>
-        </button>
-      ))}
+    <nav className="tab-bar" aria-label="Primary">
+      {TABS.map(t => {
+        const active = activeTab === t.id;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            className={`tab-item${active ? ' tab-item--active' : ''}`}
+            aria-current={active ? 'page' : undefined}
+            aria-label={t.label}
+            onClick={() => setTab(t.id)}
+          >
+            <Icon name={t.icon} size={22} />
+            <span className="tab-item-label">{t.label}</span>
+            <span className="tab-item-underline" aria-hidden />
+          </button>
+        );
+      })}
     </nav>
   );
 }

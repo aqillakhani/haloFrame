@@ -1,5 +1,6 @@
 import type { TributeTemplate } from '@eternalframe/shared';
 import { COPY } from '../lib/copy';
+import { Icon } from './icons/Icon';
 
 interface TemplateGalleryProps {
   templates: TributeTemplate[];
@@ -12,7 +13,7 @@ interface TemplateGalleryProps {
   onToggle: (id: string) => void;
   /**
    * IDs whose 1K preview render has landed. Tiles not in this set render
-   * with a loading shimmer and are not tappable.
+   * with a soft rose pulse and are not tappable.
    */
   readyIds?: Set<string>;
   /** Globally disable the gallery (e.g., while a final render is saving). */
@@ -27,20 +28,21 @@ export function TemplateGallery({
   disabled,
 }: TemplateGalleryProps) {
   return (
-    <div className="template-section">
-      <div className="template-section-header">
-        <h3>{COPY.editor.styleHeading}</h3>
-        <span className="helper">{COPY.editor.styleHelper}</span>
-      </div>
-      <div className="template-grid" role="group" aria-label="Tribute styles">
+    <section className="template-section">
+      <header className="template-section-header">
+        <h3 className="t-display-md">{COPY.editor.styleHeading}</h3>
+        <hr className="hairline-short" aria-hidden />
+        <p className="t-body-sm t-muted">{COPY.editor.styleHelper}</p>
+      </header>
+      <div className="template-grid" role="radiogroup" aria-label="Tribute styles">
         {templates.map((t) => {
-          const isSelected = selectedIds.includes(t.id);
-          const isReady = !readyIds || readyIds.has(t.id);
-          const isDisabled = !!disabled || !isReady;
+          const selected = selectedIds.includes(t.id);
+          const ready = !readyIds || readyIds.has(t.id);
+          const isDisabled = !!disabled || !ready;
           const classes = [
-            'template-card',
-            isSelected ? 'selected' : '',
-            !isReady ? 'not-ready' : '',
+            'template-tile',
+            selected ? 'template-tile--selected' : '',
+            ready ? '' : 'template-tile--pending',
           ]
             .filter(Boolean)
             .join(' ');
@@ -48,39 +50,42 @@ export function TemplateGallery({
             <button
               key={t.id}
               type="button"
-              aria-pressed={isSelected}
-              aria-busy={!isReady}
+              role="radio"
+              aria-checked={selected}
+              aria-label={t.name}
+              aria-busy={!ready}
+              disabled={isDisabled}
               className={classes}
               onClick={() => onToggle(t.id)}
-              disabled={isDisabled}
             >
-              {isSelected && <span className="card-check" aria-hidden>&#x2713;</span>}
-              {t.sampleImageUrl ? (
-                <img
-                  src={t.sampleImageUrl}
-                  alt=""
-                  className="template-tile-thumb"
-                  decoding="async"
-                  // @ts-expect-error fetchpriority is valid HTML but missing
-                  // from React's DOM types in this version. Drops first paint
-                  // delay on these tiny static thumbs noticeably.
-                  fetchpriority="high"
-                />
-              ) : (
-                <div className="template-tile-thumb template-tile-thumb-empty" aria-hidden />
-              )}
-              {!isReady && (
-                <span className="tile-loading" aria-hidden>
-                  <span className="spinner small" />
-                </span>
-              )}
-              <h4>{t.name}</h4>
-              <p className="template-desc">{t.description}</p>
-              <span className="category-tag">{t.category}</span>
+              <div className="template-tile-photo">
+                {t.sampleImageUrl ? (
+                  <img
+                    src={t.sampleImageUrl}
+                    alt=""
+                    decoding="async"
+                    // @ts-expect-error fetchpriority is valid HTML but missing
+                    // from React DOM types in this version.
+                    fetchpriority="high"
+                  />
+                ) : (
+                  <div className="template-tile-photo-empty" aria-hidden />
+                )}
+                {selected && (
+                  <span className="template-tile-check" aria-hidden>
+                    <Icon name="check" size={14} />
+                  </span>
+                )}
+                {!ready && <span className="template-tile-dot" aria-hidden />}
+              </div>
+              <div className="template-tile-meta">
+                <p className="t-label-sm t-muted">{t.category}</p>
+                <p className="t-label-md">{t.name}</p>
+              </div>
             </button>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

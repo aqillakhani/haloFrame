@@ -11,8 +11,9 @@ interface SubjectSelectorProps {
 }
 
 /**
- * Renders the source image with numbered circle badges centered on each
- * detected subject's bounding box. Tap the number to select.
+ * Renders the source image with a bronze ring around each detected
+ * subject's bounding box, plus a rose pill in the top-left corner of the
+ * ring labeled "Person N" / "Pet N". Tap anywhere in the ring to select.
  */
 export function SubjectSelector({
   imageUrl,
@@ -28,10 +29,7 @@ export function SubjectSelector({
   useEffect(() => {
     const updateSize = () => {
       if (imgRef.current) {
-        setRenderedSize({
-          w: imgRef.current.clientWidth,
-          h: imgRef.current.clientHeight,
-        });
+        setRenderedSize({ w: imgRef.current.clientWidth, h: imgRef.current.clientHeight });
       }
     };
     updateSize();
@@ -47,53 +45,37 @@ export function SubjectSelector({
       <img
         ref={imgRef}
         src={imageUrl}
-        alt="source"
+        alt=""
+        className="subject-image"
         onLoad={(e) => {
           const t = e.currentTarget;
           setRenderedSize({ w: t.clientWidth, h: t.clientHeight });
         }}
       />
-      {renderedSize && <div className="dim-layer" />}
       {renderedSize &&
-        subjects.map((s, i) => {
-          const [x1, y1, x2, y2] = s.bbox;
+        subjects.map((subj, i) => {
+          const [x1, y1, x2, y2] = subj.bbox;
           const isSelected = selectedIndex === i;
-          // Center the badge on the bounding box center
-          const cx = ((x1 + x2) / 2) * scaleX;
-          const cy = ((y1 + y2) / 2) * scaleY;
-          // Also draw a highlight outline around the bbox when selected
-          const bboxLeft = x1 * scaleX;
-          const bboxTop = y1 * scaleY;
-          const bboxWidth = (x2 - x1) * scaleX;
-          const bboxHeight = (y2 - y1) * scaleY;
+          const kind = subj.label === 'pet' ? 'Pet' : 'Person';
+          const label = `${kind} ${i + 1}`;
+          const style = {
+            left: x1 * scaleX + 8,
+            top: y1 * scaleY + 8,
+            width: (x2 - x1) * scaleX,
+            height: (y2 - y1) * scaleY,
+          };
           return (
-            <div key={s.maskId}>
-              {/* Highlight outline when selected */}
-              {isSelected && (
-                <div
-                  className="subject-highlight"
-                  style={{
-                    left: bboxLeft,
-                    top: bboxTop,
-                    width: bboxWidth,
-                    height: bboxHeight,
-                  }}
-                />
-              )}
-              {/* Numbered circle badge */}
-              <button
-                type="button"
-                className={`subject-badge${isSelected ? ' selected' : ''}`}
-                style={{
-                  left: cx - 18,
-                  top: cy - 18,
-                }}
-                onClick={() => onSelect(i)}
-                aria-label={`Select person ${i + 1}`}
-              >
-                {i + 1}
-              </button>
-            </div>
+            <button
+              key={subj.maskId}
+              type="button"
+              className={`subject-ring${isSelected ? ' subject-ring--active' : ''}`}
+              style={style}
+              onClick={() => onSelect(i)}
+              aria-label={`Select ${label}`}
+              aria-pressed={isSelected}
+            >
+              <span className="subject-pill">{label}</span>
+            </button>
           );
         })}
     </div>
