@@ -16,6 +16,8 @@
 
 ### Task 0.1: Clone Impeccable repo
 
+> **COMPLETED 2026-04-15.** Actual paths differed from README — corrected below.
+
 **Step 1: Clone.**
 
 Run:
@@ -23,51 +25,47 @@ Run:
 git clone https://github.com/pbakaus/impeccable.git /tmp/impeccable
 ```
 
-Expected: clones successfully, `/tmp/impeccable/dist/claude-code/.claude/` directory exists.
+**Step 2: Verify structure.**
 
-**Step 2: Verify dist structure.**
-
-Run:
+The skill files are at the repo root (NOT `dist/claude-code/`):
 ```bash
-ls /tmp/impeccable/dist/claude-code/.claude/skills/
-ls /tmp/impeccable/dist/claude-code/.claude/commands/
+ls /tmp/impeccable/.claude/skills/    # 18 skill directories
+ls /tmp/impeccable/.claude/agents/    # 1 agent file (anti-patterns.md)
 ```
-
-Expected: skill files and command files listed. If `dist/` doesn't exist, check `README.md` for updated install path.
 
 ---
 
 ### Task 0.2: Install Impeccable skill files globally
 
+> **COMPLETED 2026-04-15.** 18 skills + 1 agent installed. CLI v2.1.7 installed globally.
+
 **Step 1: Copy skill files.**
 
 Run:
 ```bash
-cp -r /tmp/impeccable/dist/claude-code/.claude/skills/* ~/.claude/skills/
+cp -r /tmp/impeccable/.claude/skills/* ~/.claude/skills/
 ```
 
-**Step 2: Copy command files.**
+**Step 2: Copy agent files.**
 
 Run:
 ```bash
-cp -r /tmp/impeccable/dist/claude-code/.claude/commands/* ~/.claude/commands/
+mkdir -p ~/.claude/agents
+cp /tmp/impeccable/.claude/agents/* ~/.claude/agents/
 ```
 
 **Step 3: Verify files landed.**
 
 Run:
 ```bash
-ls ~/.claude/skills/ | grep -i impeccable
-ls ~/.claude/commands/ | grep -i audit
+ls ~/.claude/skills/ | grep -E "audit|critique|polish|typeset|colorize|layout"
 ```
 
-Expected: impeccable skill directory listed; audit command file listed.
+Expected: all six directories listed.
 
 **Step 4: Restart Claude Code session.**
 
-The user must exit and re-enter Claude Code for the new skills/commands to load. After restart, confirm `/audit` appears in the available skills/commands list (check the system-reminder skills section).
-
-If `/audit` does NOT appear: check that the files are in the right location. Impeccable may use a different directory structure — read `/tmp/impeccable/README.md` for the correct paths.
+The user must exit and re-enter Claude Code for the new skills to load. After restart, confirm `audit`, `critique`, `polish`, `typeset`, `colorize`, `layout` appear in the available skills list.
 
 ---
 
