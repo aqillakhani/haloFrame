@@ -11,6 +11,8 @@ import { COPY } from '../lib/copy';
 import { useNavigation } from '../lib/navigation';
 import { BackButton } from '../components/BackButton';
 import { UploadZone } from '../components/UploadZone';
+import { LoadingOverlay } from '../components/LoadingOverlay';
+import { Icon } from '../components/icons/Icon';
 import { Editor } from './Editor';
 
 type Placement = 'left' | 'right' | 'behind' | 'front';
@@ -62,7 +64,7 @@ export function ReuniteFlow() {
         setTemplates(t);
         preloadSampleImages(t);
       })
-      .catch((err) => setError(`Couldn't load styles. ${err.message}`));
+      .catch((err) => setError(`Couldn't load styles. ${err.message} (tag: fetch-templates)`));
   }, []);
 
   const handleBack = () => {
@@ -91,7 +93,7 @@ export function ReuniteFlow() {
       const upload = await uploadFile(file);
       setMainUrl(upload.url);
     } catch (err) {
-      setError(`Couldn't receive the main photo. ${(err as Error).message}`);
+      setError(`Couldn't receive the main photo. ${(err as Error).message} (tag: main-upload)`);
     }
   };
 
@@ -100,22 +102,18 @@ export function ReuniteFlow() {
     try {
       const upload = await uploadFile(file);
       setLovedUrl(upload.url);
-      // Probe the loved-one photo to see if they uploaded a pet. SAM 3 labels
-      // are "person"/"dog"/"cat" — the dominant subject tells us which
-      // template set to show in the editor later on.
       try {
         const seg = await segmentImage(upload.url, true);
         const dominant = seg.subjects[0]?.label?.toLowerCase();
         setLovedIsPet(dominant ? PET_LABELS.has(dominant) : false);
       } catch {
-        setLovedIsPet(false); // Safe default — human templates.
+        setLovedIsPet(false);
       }
     } catch (err) {
-      setError(`Couldn't receive the photo. ${(err as Error).message}`);
+      setError(`Couldn't receive the photo. ${(err as Error).message} (tag: loved-upload)`);
     }
   };
 
-  // Single API call with both placement AND size
   const handleBringTogether = async () => {
     if (!mainUrl || !lovedUrl || !placement) return;
     setError(null);
@@ -133,7 +131,7 @@ export function ReuniteFlow() {
     } catch (err) {
       console.error('[ReuniteFlow] merge failed', err);
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`${COPY.reunite.mergeFailed} (merge: ${msg})`);
+      setError(`${COPY.reunite.mergeFailed} (tag: merge: ${msg})`);
       setStep('placement');
     }
   };
@@ -141,7 +139,6 @@ export function ReuniteFlow() {
   const handleTryAgain = () => {
     setMergedUrl(null);
     setStep('placement');
-    // Keep placement and size selections so user can tweak
   };
 
   const handleLooksGood = () => {
@@ -160,27 +157,28 @@ export function ReuniteFlow() {
   };
 
   return (
-    <div className="screen-content">
+    <div className="reunite">
       {step !== 'merging' && (
-        <div className="screen-header">
+        <header className="flow-header">
           <BackButton onClick={handleBack} />
-          <h2>
+          <span className="app-header-title">
             {step === 'upload' && COPY.reunite.upload.heading}
             {step === 'placement' && COPY.reunite.placement.heading}
             {step === 'review' && COPY.reunite.review.heading}
             {step === 'editor' && COPY.home.reunite.title}
-          </h2>
-        </div>
+          </span>
+          <span className="flow-header-spacer" aria-hidden />
+        </header>
       )}
 
       {error && (
-        <div className="error-banner" style={{ margin: '0 1.25rem 1rem' }}>
-          {error}
-          <div className="error-actions">
-            <button type="button" className="ghost" onClick={handleBack}>
+        <div className="flow-error" role="alert">
+          <p className="t-body-md">{error}</p>
+          <div className="flow-error-actions">
+            <button type="button" className="btn btn-ghost" onClick={handleBack}>
               {COPY.errors.mergeWrong.goBack}
             </button>
-            <button type="button" className="primary" onClick={() => setError(null)}>
+            <button type="button" className="btn btn-primary" onClick={() => setError(null)}>
               {COPY.errors.general.button}
             </button>
           </div>
@@ -188,175 +186,149 @@ export function ReuniteFlow() {
       )}
 
       {step === 'upload' && (
-        <div style={{ padding: '0 1.25rem' }}>
-          <div className="card">
-            <p>{COPY.reunite.upload.subtext}</p>
-            <div className="dual-upload">
-              <div>
-                <p style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                  {COPY.reunite.upload.heading}
-                </p>
-                <UploadZone
-                  label={COPY.reunite.upload.heading}
-                  hint={COPY.reunite.upload.subtext}
-                  onFileSelected={handleMainUpload}
-                />
-              </div>
-              <div>
-                <p style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                  {COPY.reunite.upload.lovedHeading}
-                </p>
-                <UploadZone
-                  label={COPY.reunite.upload.lovedHeading}
-                  hint={COPY.reunite.upload.lovedSubtext}
-                  onFileSelected={handleLovedUpload}
-                />
-              </div>
+        <section className="flow-pane reunite-upload">
+          <p className="t-body-lg t-muted reunite-helper">{COPY.reunite.upload.subtext}</p>
+          <div className="reunite-dual">
+            <div className="reunite-dual-slot">
+              <h3 className="t-display-md reunite-slot-label">{COPY.reunite.upload.heading}</h3>
+              <UploadZone
+                label={COPY.reunite.upload.heading}
+                hint={COPY.reunite.upload.subtext}
+                onFileSelected={handleMainUpload}
+                previewUrl={mainUrl}
+              />
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '1rem',
-                flexWrap: 'wrap',
-                marginTop: '1rem',
-              }}
-            >
-              <span className="muted">
-                {mainUrl ? '\u2713 Main photo' : '\u25CB Main photo'}
-                {' \u00b7 '}
-                {lovedUrl ? '\u2713 Their photo' : '\u25CB Their photo'}
-              </span>
-              <button
-                className="primary"
-                disabled={!mainUrl || !lovedUrl}
-                onClick={() => setStep('placement')}
-              >
-                {COPY.reunite.upload.continueButton}
-              </button>
+            <div className="reunite-dual-slot">
+              <h3 className="t-display-md reunite-slot-label">{COPY.reunite.upload.lovedHeading}</h3>
+              <UploadZone
+                label={COPY.reunite.upload.lovedHeading}
+                hint={COPY.reunite.upload.lovedSubtext}
+                onFileSelected={handleLovedUpload}
+                previewUrl={lovedUrl}
+              />
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Combined placement + size screen with reference photo and live overlay */}
-      {step === 'placement' && (
-        <div style={{ padding: '0 1.25rem' }}>
-          <div className="card">
-            {/* Main photo. Before a placement is picked, show a small corner
-                thumbnail for context. After a placement is picked, render a
-                larger overlay anchored to that region and scale it live with
-                the size slider — no API call on drag. */}
-            <div className="placement-photo-preview">
-              {mainUrl && (
-                <div className="placement-photo-frame">
-                  <img src={mainUrl} alt="Main photo" className="placement-main-photo" />
-                  {lovedUrl && !placement && (
-                    <img
-                      src={lovedUrl}
-                      alt="Loved one"
-                      className="placement-corner-thumb"
-                    />
-                  )}
-                  {lovedUrl && placement && (
-                    <img
-                      src={lovedUrl}
-                      alt="Loved one preview"
-                      className={`placement-live-overlay placement-overlay-${placement}`}
-                      style={{ transform: `translate(-50%, -50%) scale(${sizeAdjustment})` }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="placement-grid" role="radiogroup" aria-label="Placement">
-              {PLACEMENT_KEYS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={placement === p}
-                  className={`placement-card${placement === p ? ' selected' : ''}`}
-                  onClick={() => setPlacement(p)}
-                >
-                  {COPY.reunite.placement.options[p]}
-                </button>
-              ))}
-            </div>
-
-            <div className="size-slider">
-              <label>{COPY.reunite.placement.sizeLabel}</label>
-              <div className="size-slider-track">
-                <span>{COPY.reunite.placement.sizeSmaller}</span>
-                <input
-                  type="range"
-                  min="0.7"
-                  max="1.4"
-                  step="0.05"
-                  value={sizeAdjustment}
-                  disabled={!placement}
-                  onChange={(e) => setSizeAdjustment(parseFloat(e.target.value))}
-                  aria-label={COPY.reunite.placement.sizeLabel}
-                />
-                <span>{COPY.reunite.placement.sizeLarger}</span>
-              </div>
-            </div>
-
+          <div className="sticky-action">
             <button
               type="button"
-              className="primary"
-              style={{ width: '100%' }}
+              className="btn btn-primary"
+              disabled={!mainUrl || !lovedUrl}
+              onClick={() => setStep('placement')}
+            >
+              {COPY.reunite.upload.continueButton} <Icon name="chevronRight" size={16} />
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === 'placement' && (
+        <section className="flow-pane reunite-placement">
+          {mainUrl && (
+            <div className="placement-photo-frame">
+              <img src={mainUrl} alt="Main photo" className="placement-main-photo" />
+              {lovedUrl && !placement && (
+                <img src={lovedUrl} alt="" className="placement-corner-thumb" aria-hidden />
+              )}
+              {lovedUrl && placement && (
+                <img
+                  src={lovedUrl}
+                  alt=""
+                  aria-hidden
+                  className={`placement-live-overlay placement-overlay-${placement}`}
+                  style={{ transform: `translate(-50%, -50%) scale(${sizeAdjustment})` }}
+                />
+              )}
+            </div>
+          )}
+
+          <div className="placement-grid" role="radiogroup" aria-label="Placement">
+            {PLACEMENT_KEYS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="radio"
+                aria-checked={placement === p}
+                className={`placement-pill${placement === p ? ' placement-pill--active' : ''}`}
+                onClick={() => setPlacement(p)}
+              >
+                {COPY.reunite.placement.options[p]}
+              </button>
+            ))}
+          </div>
+
+          <div className="placement-size">
+            <label className="t-label-md placement-size-label">
+              {COPY.reunite.placement.sizeLabel}
+            </label>
+            <div className="placement-size-track">
+              <span className="t-body-sm t-muted">{COPY.reunite.placement.sizeSmaller}</span>
+              <input
+                type="range"
+                min="0.7"
+                max="1.4"
+                step="0.05"
+                value={sizeAdjustment}
+                disabled={!placement}
+                onChange={(e) => setSizeAdjustment(parseFloat(e.target.value))}
+                aria-label={COPY.reunite.placement.sizeLabel}
+                className="placement-size-range"
+              />
+              <span className="t-body-sm t-muted">{COPY.reunite.placement.sizeLarger}</span>
+            </div>
+          </div>
+
+          <div className="sticky-action">
+            <button
+              type="button"
+              className="btn btn-primary"
               disabled={!placement}
               onClick={handleBringTogether}
             >
-              {COPY.reunite.placement.confirmButton}
+              {COPY.reunite.placement.confirmButton} <Icon name="chevronRight" size={16} />
             </button>
           </div>
-        </div>
+        </section>
       )}
 
       {step === 'merging' && (
-        <div className="loading-overlay" style={{ margin: '2rem 1.25rem' }}>
-          <div className="spinner" />
-          <h3>{COPY.reunite.merging.message}</h3>
-          <p className="muted">{COPY.reunite.merging.hint}</p>
-        </div>
+        <section className="flow-pane reunite-merging">
+          <LoadingOverlay
+            message={COPY.reunite.merging.message}
+            hint={COPY.reunite.merging.hint}
+          />
+        </section>
       )}
 
       {step === 'review' && mergedUrl && (
-        <div className="merge-review">
-          <div className="review-image">
-            <img src={mergedUrl} alt="Merged result" />
+        <section className="flow-pane reunite-review">
+          <div className="reunite-review-frame">
+            <img src={mergedUrl} alt="Merged result" className="reunite-review-image" />
           </div>
-          <div className="review-actions">
-            <button type="button" className="ghost" onClick={handleTryAgain}>
+          <div className="reunite-review-actions">
+            <button type="button" className="btn btn-ghost" onClick={handleTryAgain}>
               {COPY.reunite.review.tryDifferent}
             </button>
-            <button type="button" className="primary" onClick={handleLooksGood}>
-              {COPY.reunite.review.looksGood}
+            <button type="button" className="btn btn-primary" onClick={handleLooksGood}>
+              {COPY.reunite.review.looksGood} <Icon name="chevronRight" size={16} />
             </button>
           </div>
-        </div>
+        </section>
       )}
 
       {step === 'editor' && mergedUrl && (
-        <div style={{ padding: '0 1.25rem' }}>
-          <Editor
-            baseImageUrl={mergedUrl}
-            templates={templates}
-            isPet={lovedIsPet}
-            subjectName={
-              placement
-                ? PLACEMENT_SUBJECT_DESCRIPTION[placement][lovedIsPet ? 'pet' : 'person']
-                : undefined
-            }
-            onStartOver={handleStartOver}
-            onTryDifferentPosition={handleTryAgain}
-            onBack={handleBack}
-          />
-        </div>
+        <Editor
+          baseImageUrl={mergedUrl}
+          templates={templates}
+          isPet={lovedIsPet}
+          subjectName={
+            placement
+              ? PLACEMENT_SUBJECT_DESCRIPTION[placement][lovedIsPet ? 'pet' : 'person']
+              : undefined
+          }
+          onStartOver={handleStartOver}
+          onTryDifferentPosition={handleTryAgain}
+          onBack={handleBack}
+        />
       )}
     </div>
   );

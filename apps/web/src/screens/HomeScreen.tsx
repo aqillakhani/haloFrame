@@ -1,50 +1,83 @@
-import { useNavigation } from '../lib/navigation';
-import { COPY } from '../lib/copy';
+import { motion } from 'framer-motion';
+import { useNavigation, type Screen } from '../lib/navigation';
+import { heroText, cardReveal } from '../lib/motion';
+import { HaloGlyph } from '../components/icons/HaloGlyph';
+import { Icon } from '../components/icons/Icon';
+
+interface FlowCard {
+  id: string;
+  screen: Screen;
+  title: string;
+  subtitle: string;
+  sample: string;
+}
+
+const CARDS: FlowCard[] = [
+  {
+    id: 'enhance',
+    screen: 'ENHANCE_FLOW',
+    title: 'Honor a photo',
+    subtitle: 'Restore and adorn one you already have.',
+    sample: '/samples/heavens_light.jpg',
+  },
+  {
+    id: 'reunite',
+    screen: 'REUNITE_FLOW',
+    title: 'Bring them back',
+    subtitle: 'Add a loved one into a photo they\u2019d belong in.',
+    sample: '/samples/halo_and_wings.jpg',
+  },
+];
 
 export function HomeScreen() {
   const nav = useNavigation();
 
   return (
-    <>
-      <header className="app-header">
-        <h1>{COPY.appName}</h1>
-        <p className="tagline">{COPY.tagline}</p>
+    <div className="home">
+      <header className="home-mark" aria-label="EternalFrame">
+        <HaloGlyph size={28} />
       </header>
 
-      <div className="home-screen">
-        <button
-          type="button"
-          className="home-card"
-          onClick={() => nav.push('ENHANCE_FLOW')}
-        >
-          <span className="card-icon" aria-hidden>&#x2728;</span>
-          <h2>{COPY.home.enhance.title}</h2>
-          <p>{COPY.home.enhance.subtitle}</p>
-        </button>
+      <motion.section
+        className="home-hero"
+        variants={heroText}
+        initial="initial"
+        animate="animate"
+      >
+        <p className="t-display-lg t-italic t-muted home-eyebrow">In loving memory.</p>
+        <h1 className="t-display-xl">
+          Create a tribute that holds the feeling, not just the photo.
+        </h1>
+        <hr className="hairline-short home-hr" aria-hidden />
+      </motion.section>
 
-        <button
-          type="button"
-          className="home-card"
-          onClick={() => nav.push('REUNITE_FLOW')}
-        >
-          {/* Family silhouette with halo — SVG icon */}
-          <svg className="card-icon-svg" width="48" height="40" viewBox="0 0 48 40" aria-hidden="true">
-            {/* Halo */}
-            <ellipse cx="32" cy="6" rx="5" ry="3" fill="none" stroke="var(--gold)" strokeWidth="1.5" />
-            {/* Person 1 (left) */}
-            <circle cx="12" cy="18" r="4" fill="var(--text-primary)" />
-            <path d="M6 38 Q6 26 12 26 Q18 26 18 38" fill="var(--text-primary)" />
-            {/* Person 2 (center, taller) */}
-            <circle cx="24" cy="16" r="4.5" fill="var(--text-primary)" />
-            <path d="M17 38 Q17 24 24 24 Q31 24 31 38" fill="var(--text-primary)" />
-            {/* Person 3 (right, with halo) */}
-            <circle cx="32" cy="14" r="4" fill="var(--gold)" opacity="0.7" />
-            <path d="M26 38 Q26 22 32 22 Q38 22 38 38" fill="var(--gold)" opacity="0.7" />
-          </svg>
-          <h2>{COPY.home.reunite.title}</h2>
-          <p>{COPY.home.reunite.subtitle}</p>
-        </button>
+      <div className="home-cards">
+        {CARDS.map((c, i) => (
+          <motion.button
+            key={c.id}
+            type="button"
+            className="home-card"
+            variants={cardReveal}
+            initial="initial"
+            animate="animate"
+            custom={i}
+            onClick={() => nav.push(c.screen)}
+          >
+            <div
+              className="home-card-photo"
+              style={{ backgroundImage: `url(${c.sample})` }}
+              aria-hidden
+            />
+            <div className="home-card-body">
+              <h2 className="t-display-md">{c.title}</h2>
+              <p className="t-body-md t-muted">{c.subtitle}</p>
+              <span className="home-card-cta">
+                Begin <Icon name="chevronRight" size={16} />
+              </span>
+            </div>
+          </motion.button>
+        ))}
       </div>
-    </>
+    </div>
   );
 }

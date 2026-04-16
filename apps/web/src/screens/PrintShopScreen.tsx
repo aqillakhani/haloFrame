@@ -1,14 +1,15 @@
+import { FrameIllustration } from '../components/illustrations/FrameIllustration';
+
 export function PrintShopScreen() {
   return (
-    <div className="screen-content">
-      <div className="screen-header">
-        <h2>Print & Frame</h2>
-      </div>
-      <div className="empty-state">
-        <span className="empty-icon" aria-hidden>&#x1F5BC;</span>
-        <h2>Print Shop</h2>
-        <p>Beautiful printed tributes coming soon.</p>
-      </div>
+    <div className="empty">
+      <hr className="hairline-short" aria-hidden />
+      <div className="empty-illustration"><FrameIllustration /></div>
+      <hr className="hairline-short" aria-hidden />
+      <h1 className="t-display-lg empty-headline">Prints are coming.</h1>
+      <p className="t-body-md t-muted empty-body">
+        Your tributes, framed and ready for a mantelpiece. Details soon.
+      </p>
     </div>
   );
 }

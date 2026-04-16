@@ -13,6 +13,8 @@ import { useNavigation } from '../lib/navigation';
 import { BackButton } from '../components/BackButton';
 import { UploadZone } from '../components/UploadZone';
 import { SubjectSelector } from '../components/SubjectSelector';
+import { LoadingOverlay } from '../components/LoadingOverlay';
+import { Icon } from '../components/icons/Icon';
 import { Editor } from './Editor';
 
 type Step = 'upload' | 'segmenting' | 'select_subject' | 'editor';
@@ -41,7 +43,7 @@ export function EnhanceFlow() {
         setTemplates(t);
         preloadSampleImages(t);
       })
-      .catch((err) => setError(`Couldn't load styles. ${err.message}`));
+      .catch((err) => setError(`Couldn't load styles. ${err.message} (tag: fetch-templates)`));
   }, []);
 
   const handleBack = () => {
@@ -70,11 +72,10 @@ export function EnhanceFlow() {
     try {
       const upload = await uploadFile(file);
       setUploadedUrl(upload.url);
-      // Always detect both people and animals
       const segResult = await segmentImage(upload.url, true);
       setSegmentation(segResult);
       if (segResult.subjects.length === 0) {
-        setError(COPY.enhance.noFaces);
+        setError(`${COPY.enhance.noFaces} (tag: no-faces)`);
         setStep('upload');
         return;
       }
@@ -87,7 +88,7 @@ export function EnhanceFlow() {
     } catch (err) {
       console.error('[EnhanceFlow] upload/segment failed', err);
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`${COPY.enhance.segmentFailed} (upload-or-detect: ${msg})`);
+      setError(`${COPY.enhance.segmentFailed} (tag: upload-or-detect: ${msg})`);
       setStep('upload');
     }
   };
@@ -111,26 +112,27 @@ export function EnhanceFlow() {
   };
 
   return (
-    <div className="screen-content">
+    <div className="enhance">
       {step !== 'segmenting' && (
-        <div className="screen-header">
+        <header className="flow-header">
           <BackButton onClick={handleBack} />
-          <h2>
+          <span className="app-header-title">
             {step === 'upload' && COPY.enhance.upload.heading}
             {step === 'select_subject' && COPY.enhance.selectSubject.heading}
             {step === 'editor' && COPY.home.enhance.title}
-          </h2>
-        </div>
+          </span>
+          <span className="flow-header-spacer" aria-hidden />
+        </header>
       )}
 
       {error && (
-        <div className="error-banner" style={{ margin: '0 1.25rem 1rem' }}>
-          {error}
-          <div className="error-actions">
-            <button type="button" className="ghost" onClick={handleBack}>
+        <div className="flow-error" role="alert">
+          <p className="t-body-md">{error}</p>
+          <div className="flow-error-actions">
+            <button type="button" className="btn btn-ghost" onClick={handleBack}>
               {COPY.errors.mergeWrong.goBack}
             </button>
-            <button type="button" className="primary" onClick={() => setError(null)}>
+            <button type="button" className="btn btn-primary" onClick={() => setError(null)}>
               {COPY.errors.general.button}
             </button>
           </div>
@@ -138,70 +140,70 @@ export function EnhanceFlow() {
       )}
 
       {step === 'upload' && (
-        <div style={{ padding: '0 1.25rem' }}>
-          <div className="card">
-            <p>{COPY.enhance.upload.subtext}</p>
-            <UploadZone
-              label={COPY.enhance.upload.uploadLabel}
-              hint={COPY.enhance.upload.uploadHint}
-              onFileSelected={handleUpload}
-            />
-          </div>
-        </div>
+        <section className="flow-pane enhance-upload">
+          <h1 className="t-display-lg enhance-headline">{COPY.enhance.upload.heading}</h1>
+          <hr className="hairline-short" aria-hidden />
+          <p className="t-body-lg t-muted enhance-helper">{COPY.enhance.upload.subtext}</p>
+          <UploadZone
+            label={COPY.enhance.upload.uploadLabel}
+            hint={COPY.enhance.upload.uploadHint}
+            onFileSelected={handleUpload}
+          />
+        </section>
       )}
 
       {step === 'segmenting' && (
-        <div className="loading-overlay" style={{ margin: '2rem 1.25rem' }}>
-          <div className="spinner" />
-          <h3>{COPY.enhance.segmenting.message}</h3>
-          <p className="muted">{COPY.enhance.segmenting.hint}</p>
-        </div>
+        <section className="flow-pane enhance-segmenting">
+          {uploadedUrl && (
+            <img src={uploadedUrl} alt="" className="enhance-segmenting-photo" aria-hidden />
+          )}
+          <LoadingOverlay
+            message={COPY.enhance.segmenting.message}
+            hint={COPY.enhance.segmenting.hint}
+          />
+        </section>
       )}
 
       {step === 'select_subject' && segmentation && uploadedUrl && (
-        <div style={{ padding: '0 1.25rem' }}>
-          <div className="card">
-            <p>{COPY.enhance.selectSubject.subtext}</p>
-            <div style={{ textAlign: 'center', margin: '1.5rem 0' }}>
-              <SubjectSelector
-                imageUrl={uploadedUrl}
-                imageWidth={segmentation.imageWidth}
-                imageHeight={segmentation.imageHeight}
-                subjects={segmentation.subjects}
-                selectedIndex={selectedSubjectIndex}
-                onSelect={handleSubjectSelect}
-              />
-            </div>
+        <section className="flow-pane enhance-select">
+          <p className="t-body-md t-muted enhance-helper">
+            {COPY.enhance.selectSubject.subtext}
+          </p>
+          <div className="enhance-select-canvas">
+            <SubjectSelector
+              imageUrl={uploadedUrl}
+              imageWidth={segmentation.imageWidth}
+              imageHeight={segmentation.imageHeight}
+              subjects={segmentation.subjects}
+              selectedIndex={selectedSubjectIndex}
+              onSelect={handleSubjectSelect}
+            />
+          </div>
+          <div className="sticky-action">
             <button
               type="button"
-              className="primary"
-              style={{ width: '100%' }}
+              className="btn btn-primary"
               disabled={selectedSubjectIndex === null}
               onClick={handleContinue}
             >
-              Continue
+              Continue <Icon name="chevronRight" size={16} />
             </button>
           </div>
-        </div>
+        </section>
       )}
 
       {step === 'editor' && uploadedUrl && segmentation && (
-        <div style={{ padding: '0 1.25rem' }}>
-          <Editor
-            baseImageUrl={uploadedUrl}
-            subjects={segmentation.subjects.map((s) => ({
-              centroid: s.centroid,
-              bbox: s.bbox,
-            }))}
-            selectedSubjectIndex={selectedSubjectIndex ?? 0}
-            imageWidth={segmentation.imageWidth}
-            imageHeight={segmentation.imageHeight}
-            templates={templates}
-            isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
-            onStartOver={handleStartOver}
-            onBack={handleBack}
-          />
-        </div>
+        <Editor
+          baseImageUrl={uploadedUrl}
+          subjects={segmentation.subjects.map((s) => ({ centroid: s.centroid, bbox: s.bbox }))}
+          selectedSubjectIndex={selectedSubjectIndex ?? 0}
+          imageWidth={segmentation.imageWidth}
+          imageHeight={segmentation.imageHeight}
+          templates={templates}
+          isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
+          onStartOver={handleStartOver}
+          onBack={handleBack}
+        />
       )}
     </div>
   );

@@ -1,14 +1,15 @@
+import { EnvelopeIllustration } from '../components/illustrations/EnvelopeIllustration';
+
 export function SettingsScreen() {
   return (
-    <div className="screen-content">
-      <div className="screen-header">
-        <h2>Settings</h2>
-      </div>
-      <div className="empty-state">
-        <span className="empty-icon" aria-hidden>&#x2699;</span>
-        <h2>Settings</h2>
-        <p>Account and subscription settings coming soon.</p>
-      </div>
+    <div className="empty">
+      <hr className="hairline-short" aria-hidden />
+      <div className="empty-illustration"><EnvelopeIllustration /></div>
+      <hr className="hairline-short" aria-hidden />
+      <h1 className="t-display-lg empty-headline">Quiet for now.</h1>
+      <p className="t-body-md t-muted empty-body">
+        Account and subscription settings will live here once they land.
+      </p>
     </div>
   );
 }

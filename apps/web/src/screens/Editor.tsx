@@ -9,6 +9,7 @@ import {
 import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
+import { BackButton } from '../components/BackButton';
 
 export interface EditorProps {
   baseImageUrl: string;
@@ -63,7 +64,6 @@ async function triggerDownload(url: string): Promise<void> {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    // Give the browser a tick to start the download before revoking.
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   } catch (err) {
     console.error('[Editor] download failed, opening in new tab', err);
@@ -89,7 +89,6 @@ export function Editor({
   const [showOriginal, setShowOriginal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Bump to force re-derivation of ready-state UI when cache mutates.
   const [bumpCount, bump] = useState(0);
 
   const cacheRef = useRef<Record<string, CacheEntry>>({});
@@ -115,21 +114,14 @@ export function Editor({
   const writeCache = useCallback(
     (key: string, tier: 'preview' | 'final', url: string) => {
       const prev = cacheRef.current[key] ?? {};
-      cacheRef.current = {
-        ...cacheRef.current,
-        [key]: { ...prev, [tier]: url },
-      };
+      cacheRef.current = { ...cacheRef.current, [key]: { ...prev, [tier]: url } };
       bump((n) => n + 1);
     },
     [],
   );
 
   const fetchRender = useCallback(
-    (
-      ids: string[],
-      int: Intensity,
-      tier: 'preview' | 'final',
-    ): Promise<string | null> => {
+    (ids: string[], int: Intensity, tier: 'preview' | 'final'): Promise<string | null> => {
       if (ids.length === 0) return Promise.resolve(null);
       const key = comboKey(ids, int);
       const existing = cacheRef.current[key]?.[tier];
@@ -184,7 +176,6 @@ export function Editor({
     ],
   );
 
-  // Reset everything when the base photo changes.
   useEffect(() => {
     setSelectedIds([]);
     setStyledUrl(null);
@@ -196,10 +187,6 @@ export function Editor({
     userInteractedRef.current = false;
   }, [baseImageUrl]);
 
-  // Preload every visible single at 1K (preview tier) on mount. This is the
-  // one up-front wait — after it completes, tapping tiles is instant. Since
-  // the editor is single-select now, every option is a single-template render
-  // and the preload covers every choice the user can make.
   useEffect(() => {
     if (visibleTemplates.length === 0) return;
     visibleTemplates.forEach((t) => {
@@ -208,9 +195,6 @@ export function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseImageUrl, visibleTemplates.length]);
 
-  // Auto-select the first-by-sortOrder style as soon as its preview lands,
-  // unless the user has already interacted. Lets the user land on a styled
-  // image rather than staring at their plain photo while preloads run.
   useEffect(() => {
     if (userInteractedRef.current) return;
     if (selectedIds.length > 0) return;
@@ -223,8 +207,6 @@ export function Editor({
     }
   }, [bumpCount, selectedIds.length, visibleTemplates, comboKey]);
 
-  // Derived state ------------------------------------------------------------
-  // Single-select: selectedIds is always length 0 or 1.
   const activeSelection = selectedIds;
   const currentKey = activeSelection.length > 0 ? comboKey(activeSelection, INTENSITY) : null;
   const currentEntry = currentKey ? cacheRef.current[currentKey] : undefined;
@@ -233,14 +215,8 @@ export function Editor({
   const currentFinalInflight =
     !!currentKey && inflightRef.current.has(`final:${currentKey}`);
 
-  // Show the best cached tier for the current selection; fall back to any
-  // previously-shown styledUrl for visual continuity during combo renders;
-  // finally fall back to the base image.
   const bestCached = currentEntry?.final ?? currentEntry?.preview ?? null;
 
-  // Update styledUrl whenever the cache produces a new best for the current
-  // selection. Preserve the previous styledUrl if nothing is cached yet so
-  // the viewer doesn't flicker back to the plain photo while a combo renders.
   useEffect(() => {
     if (!currentKey) {
       setStyledUrl(null);
@@ -252,30 +228,21 @@ export function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey, bestCached]);
 
-  // Preload progress counters — a tile is "ready" once its 1K preview render
-  // is cached. The banner that uses these goes away once every tile is ready.
   const preloadTotal = visibleTemplates.length;
   const preloadDone = visibleTemplates.filter(
     (t) => !!cacheRef.current[comboKey([t.id], INTENSITY)]?.preview,
   ).length;
   const preloading = preloadTotal > 0 && preloadDone < preloadTotal;
 
-  // Per-tile readiness for the gallery — a tile is tappable once its preview
-  // is cached. Tiles not yet ready show a spinner and are disabled.
   const readyIds = useMemo(() => {
     const s = new Set<string>();
     for (const t of visibleTemplates) {
-      if (cacheRef.current[comboKey([t.id], INTENSITY)]?.preview) {
-        s.add(t.id);
-      }
+      if (cacheRef.current[comboKey([t.id], INTENSITY)]?.preview) s.add(t.id);
     }
     return s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bumpCount, visibleTemplates, comboKey]);
 
-  // UI handlers --------------------------------------------------------------
-  // Single-select: tapping the active tile clears the selection, tapping any
-  // other tile replaces it.
   const handleTemplateToggle = (templateId: string) => {
     userInteractedRef.current = true;
     setShowOriginal(false);
@@ -311,16 +278,15 @@ export function Editor({
     if (url) {
       void triggerDownload(url);
     } else {
-      setError(`${COPY.editor.styleFailed} (${lastRenderErrorRef.current ?? 'apply-failed'})`);
+      setError(
+        `${COPY.editor.styleFailed} (tag: ${lastRenderErrorRef.current ?? 'apply-failed'})`,
+      );
     }
   };
 
-  // Display ------------------------------------------------------------------
   const displayUrl = showOriginal ? baseImageUrl : (styledUrl ?? baseImageUrl);
   const hasStyled = !!styledUrl && styledUrl !== baseImageUrl;
 
-  // Viewer shows a loading pill while the active selection's preview is
-  // rendering and we have nothing cached to display yet for it.
   const viewerLoading =
     (!!currentKey && !currentEntry?.preview && !currentEntry?.final && currentPreviewInflight) ||
     isSaving ||
@@ -330,7 +296,6 @@ export function Editor({
     ? COPY.loading.makingPerfect
     : COPY.editor.creating;
 
-  // Save button state machine.
   const hasSelection = activeSelection.length > 0;
   const hasPreview = !!currentEntry?.preview;
   const hasFinal = !!currentEntry?.final;
@@ -350,15 +315,28 @@ export function Editor({
     saveLabel = COPY.editor.saveButton;
     saveDisabled = false;
   }
-  // If the final is cached (user already saved this combo once), clicking
-  // again should re-trigger the download — keep the button enabled.
   if (hasFinal && !isSaving) {
     saveDisabled = false;
     saveLabel = COPY.editor.saveButton;
   }
 
+  const finalizing = isSaving || currentFinalInflight;
+
   return (
     <div className="editor">
+      <header className="flow-header editor-header">
+        {onBack && <BackButton onClick={onBack} />}
+        <span className="app-header-title">Editing tribute</span>
+        <button
+          type="button"
+          className="btn btn-primary editor-save"
+          onClick={handleSave}
+          disabled={saveDisabled}
+        >
+          {saveLabel}
+        </button>
+      </header>
+
       <div className="editor-stage">
         <ImageViewer
           src={displayUrl}
@@ -366,11 +344,13 @@ export function Editor({
           loading={viewerLoading}
           loadingLabel={viewerLoadingLabel}
         />
-        <div className="stage-toolbar">
-          <div className="stage-toolbar-group">
+        <div className="editor-stage-toolbar">
+          <div className="editor-chips" role="tablist" aria-label="View">
             <button
               type="button"
-              className={`chip${!showOriginal ? ' active' : ''}`}
+              role="tab"
+              aria-selected={!showOriginal}
+              className={`editor-chip${!showOriginal ? ' editor-chip--active' : ''}`}
               onClick={() => setShowOriginal(false)}
               disabled={!hasStyled}
             >
@@ -378,25 +358,29 @@ export function Editor({
             </button>
             <button
               type="button"
-              className={`chip${showOriginal ? ' active' : ''}`}
+              role="tab"
+              aria-selected={showOriginal}
+              className={`editor-chip${showOriginal ? ' editor-chip--active' : ''}`}
               onClick={() => setShowOriginal(true)}
               disabled={!hasStyled}
             >
               {COPY.editor.originalChip}
             </button>
           </div>
-          <span className="helper muted" style={{ fontSize: '0.75rem' }}>
-            {COPY.editor.viewerHint}
-          </span>
+          <span className="t-body-sm t-muted">{COPY.editor.viewerHint}</span>
         </div>
-        {error && <div className="error-banner" style={{ marginTop: '0.75rem' }}>{error}</div>}
+        {error && (
+          <div className="flow-error editor-error" role="alert">
+            <p className="t-body-md">{error}</p>
+          </div>
+        )}
       </div>
 
       <div className="editor-controls">
         {preloading && (
           <div className="preload-banner" role="status" aria-live="polite">
-            <span className="spinner small" aria-hidden />
-            <span>{COPY.editor.preparingStyles(preloadDone, preloadTotal)}</span>
+            <span className="preload-dot" aria-hidden />
+            <span className="t-body-sm">{COPY.editor.preparingStyles(preloadDone, preloadTotal)}</span>
           </div>
         )}
 
@@ -409,11 +393,17 @@ export function Editor({
         />
       </div>
 
-      <div className="action-bar editor-action-bar">
+      {finalizing && (
+        <div className="editor-finalizing" role="status" aria-live="polite">
+          <span className="finalizing-pill">{COPY.loading.makingPerfect}</span>
+        </div>
+      )}
+
+      <div className="editor-action-bar">
         {onTryDifferentPosition && (
           <button
             type="button"
-            className="ghost"
+            className="btn btn-ghost"
             onClick={onTryDifferentPosition}
             disabled={isSaving}
           >
@@ -422,13 +412,10 @@ export function Editor({
         )}
         <button
           type="button"
-          className="gold"
-          onClick={handleSave}
-          disabled={saveDisabled}
+          className="btn btn-ghost"
+          onClick={onStartOver}
+          disabled={isSaving}
         >
-          {saveLabel}
-        </button>
-        <button type="button" className="ghost" onClick={onStartOver} disabled={isSaving}>
           {COPY.editor.startOver}
         </button>
       </div>
