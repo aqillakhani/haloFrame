@@ -12,7 +12,7 @@ export const COPY = {
       subtitle: 'Add wings, halos, or heavenly light',
     },
     reunite: {
-      title: 'Add Someone to a Photo',
+      title: 'Add a Loved One to a Photo',
       subtitle: 'Bring a loved one into the picture',
     },
   },
@@ -57,15 +57,28 @@ export const COPY = {
       sizeSmaller: 'Smaller',
       sizeLarger: 'Larger',
       confirmButton: 'Bring Them Together',
+      previewBadge: 'Rough Preview',
+      previewHint: 'Final result will look natural \u2014 we\u2019ll blend the lighting and shadows after you continue.',
     },
     merging: {
-      message: 'Bringing them together\u2026',
-      hint: 'This takes about 10\u201320 seconds',
+      // Cycled every ~4s while the merge runs so a 20-second wait feels
+      // narrated, not silent. Keep each line short + warm.
+      messages: [
+        'Bringing them together\u2026',
+        'Matching the lighting\u2026',
+        'Adjusting the sunlight\u2026',
+        'Feathering the edges\u2026',
+        'Adding a natural shadow\u2026',
+        'Finishing touches\u2026',
+      ] as const,
+      hint: 'This takes about 60\u201390 seconds',
     },
     review: {
       heading: 'How does this look?',
       tryDifferent: 'Try Again',
       looksGood: 'Looks Good',
+      savePhoto: 'Save to Photos',
+      addStyles: 'Add Styles',
     },
     mergeFailed:
       'That didn\u2019t work \u2014 try again or pick a different spot.',
@@ -80,13 +93,12 @@ export const COPY = {
     creating: 'Creating your tribute\u2026',
     styleFailed:
       'Something went wrong \u2014 let\u2019s try again.',
-    saveButton: 'Save to Phone',
+    saveButton: 'Save to Photos',
+    orderCanvas: 'Order Canvas',
     startOver: 'Start Over',
     tryDifferentPosition: 'Try Again',
-    download: 'Save to Phone',
-    noSelection: 'Choose a style',
+    download: 'Save to Photos',
     seeTribute: 'See Your Tribute',
-    loadingPreview: 'Loading preview\u2026',
     preparingStyles: (done: number, total: number) =>
       `Preparing your styles\u2026 ${done}/${total} ready`,
   },
@@ -116,6 +128,20 @@ export const COPY = {
     emptyHeading: 'No tributes yet',
     emptySubtext: 'Your saved tributes will appear here',
     emptyCta: 'Create Your First Tribute',
+  },
+
+  saved: {
+    title: 'Saved to your photos',
+    subtitle: 'What would you like to do next?',
+    orderCanvas: 'Order Canvas',
+    startAnother: 'Start Another Photo',
+  },
+
+  printShop: {
+    heading: 'Order a Canvas',
+    subheading: 'Gallery-wrapped, ready to hang. Ships in 5\u20137 days.',
+    cta: 'Order',
+    comingSoon: 'Checkout is coming soon.',
   },
 
   tabs: {

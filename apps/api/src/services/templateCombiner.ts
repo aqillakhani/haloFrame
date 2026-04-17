@@ -9,6 +9,11 @@ import type { EffectIntensity, TributeTemplate } from '@eternalframe/shared';
 
 export const NO_EFFECT_SENTINEL = 'NO_EFFECT';
 
+/** Templates whose prompt mentions wings — these get a z-order override
+ *  when the Reunite flow passes placement="front". Keep in sync with the
+ *  shared template definitions in packages/shared/src/constants. */
+const WINGS_TEMPLATE_IDS = new Set(['angel_wings', 'halo_and_wings']);
+
 export interface CombineOptions {
   /** Resolved template objects (not just IDs). Order preserved in prompt. */
   templates: TributeTemplate[];
@@ -21,6 +26,13 @@ export interface CombineOptions {
    * other people/pets in the frame.
    */
   haveSubjectContext: boolean;
+  /**
+   * Optional placement context from the Reunite flow. When `front`, wings
+   * templates get an override: wings render IN FRONT of others (because the
+   * subject is closest to the camera). For any other value the default
+   * prompt wording — wings behind every other person — holds.
+   */
+  placement?: 'left' | 'right' | 'behind' | 'front';
 }
 
 /**
@@ -31,7 +43,7 @@ export interface CombineOptions {
  * source image unchanged.
  */
 export function combineTemplatePrompts(opts: CombineOptions): string {
-  const { templates, subjectDescription, intensity, haveSubjectContext } = opts;
+  const { templates, subjectDescription, intensity, haveSubjectContext, placement } = opts;
 
   // Skip the no-effect template — it's a UI-only sentinel, not a real effect.
   const active = templates.filter((t) => t.promptTemplate !== NO_EFFECT_SENTINEL);
@@ -40,14 +52,17 @@ export function combineTemplatePrompts(opts: CombineOptions): string {
     return NO_EFFECT_SENTINEL;
   }
 
+  const wingsFrontOverride = buildWingsFrontOverride(active, subjectDescription, placement);
+
   // Single-template fast path produces a tighter prompt than the multi-format.
   if (active.length === 1) {
-    return buildSingleTemplatePrompt(
+    const body = buildSingleTemplatePrompt(
       active[0]!,
       subjectDescription,
       intensity,
       haveSubjectContext,
     );
+    return wingsFrontOverride ? `${body}\n\n${wingsFrontOverride}` : body;
   }
 
   // Multi-template: produce a structured multi-effect prompt.
@@ -65,7 +80,19 @@ export function combineTemplatePrompts(opts: CombineOptions): string {
     ? `IMPORTANT: Apply ALL of the above effects together in a single cohesive result. Every effect must be visible and must complement the others. Apply the memorial effects ONLY to ${subjectDescription}. Do not add any memorial effects, glows, halos, wings, watercolor treatment, or overlays to any other people or pets in the photo. Preserve the original photo and all other people/pets exactly as they are.`
     : 'IMPORTANT: Apply ALL of the above effects together in a single cohesive result. Every effect must be visible and must complement the others. Preserve the original photo and everyone in it exactly as they are — only add the requested artistic effects.';
 
-  return [preamble, ...perEffect, coda].join('\n\n');
+  const parts = [preamble, ...perEffect, coda];
+  if (wingsFrontOverride) parts.push(wingsFrontOverride);
+  return parts.join('\n\n');
+}
+
+function buildWingsFrontOverride(
+  active: TributeTemplate[],
+  subjectDescription: string,
+  placement: CombineOptions['placement'],
+): string | null {
+  if (placement !== 'front') return null;
+  if (!active.some((t) => WINGS_TEMPLATE_IDS.has(t.id))) return null;
+  return `Z-ORDER OVERRIDE (wings in front): ${subjectDescription} is the FOREGROUND subject — closest to the camera. Override any "wings behind everyone" instruction from the effect descriptions above. The wings should extend FORWARD with the subject and render IN FRONT of any person, pet, or object standing behind ${subjectDescription} in the scene. Wings are attached to ${subjectDescription}'s back and must follow their depth in the image. The wings must still not cover ${subjectDescription}'s own face, and no other person's face should be wholly obscured — a small overlap of wingtip against another person's shoulder or side is acceptable when the subject is clearly in front.`;
 }
 
 function buildSingleTemplatePrompt(

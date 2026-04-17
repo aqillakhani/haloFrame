@@ -38,12 +38,20 @@ export function EnhanceFlow() {
   const [templates, setTemplates] = useState<TributeTemplate[]>([]);
 
   useEffect(() => {
-    fetchTemplates()
+    // Abort the template fetch + thumbnail preloads if the user leaves the
+    // flow before they resolve — stale connections block the next flow's
+    // uploads and waste bandwidth on previews the user will never see.
+    const controller = new AbortController();
+    fetchTemplates(controller.signal)
       .then((t) => {
         setTemplates(t);
         preloadSampleImages(t);
       })
-      .catch((err) => setError(`Couldn't load styles. ${err.message} (tag: fetch-templates)`));
+      .catch((err) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        setError(`Couldn't load styles. ${err.message} (tag: fetch-templates)`);
+      });
+    return () => controller.abort();
   }, []);
 
   const handleBack = () => {
@@ -103,23 +111,14 @@ export function EnhanceFlow() {
     }
   };
 
-  const handleStartOver = () => {
-    setStep('upload');
-    setUploadedUrl(null);
-    setSegmentation(null);
-    setSelectedSubjectIndex(null);
-    setError(null);
-  };
-
   return (
     <div className="enhance">
-      {step !== 'segmenting' && (
+      {step !== 'segmenting' && step !== 'editor' && (
         <header className="flow-header">
           <BackButton onClick={handleBack} />
           <span className="app-header-title">
             {step === 'upload' && COPY.enhance.upload.heading}
             {step === 'select_subject' && COPY.enhance.selectSubject.heading}
-            {step === 'editor' && COPY.home.enhance.title}
           </span>
           <span className="flow-header-spacer" aria-hidden />
         </header>
@@ -179,7 +178,7 @@ export function EnhanceFlow() {
               onSelect={handleSubjectSelect}
             />
           </div>
-          <div className="sticky-action">
+          <div className="flow-action">
             <button
               type="button"
               className="btn btn-primary"
@@ -195,13 +194,17 @@ export function EnhanceFlow() {
       {step === 'editor' && uploadedUrl && segmentation && (
         <Editor
           baseImageUrl={uploadedUrl}
-          subjects={segmentation.subjects.map((s) => ({ centroid: s.centroid, bbox: s.bbox }))}
+          subjects={segmentation.subjects.map((s) => ({
+            centroid: s.centroid,
+            bbox: s.bbox,
+            maskUrl: s.maskUrl,
+          }))}
           selectedSubjectIndex={selectedSubjectIndex ?? 0}
           imageWidth={segmentation.imageWidth}
           imageHeight={segmentation.imageHeight}
           templates={templates}
           isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
-          onStartOver={handleStartOver}
+          onOrderCanvas={() => nav.push('PRINT_SHOP')}
           onBack={handleBack}
         />
       )}

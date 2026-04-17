@@ -3,6 +3,7 @@ import { useNavigation, type Screen } from '../lib/navigation';
 import { heroText, cardReveal } from '../lib/motion';
 import { HaloGlyph } from '../components/icons/HaloGlyph';
 import { Icon } from '../components/icons/Icon';
+import { COPY } from '../lib/copy';
 
 interface FlowCard {
   id: string;
@@ -16,16 +17,16 @@ const CARDS: FlowCard[] = [
   {
     id: 'enhance',
     screen: 'ENHANCE_FLOW',
-    title: 'Honor a photo',
-    subtitle: 'Restore and adorn one you already have.',
+    title: COPY.home.enhance.title,
+    subtitle: COPY.home.enhance.subtitle,
     sample: '/samples/heavens_light.jpg',
   },
   {
     id: 'reunite',
     screen: 'REUNITE_FLOW',
-    title: 'Bring them back',
-    subtitle: 'Add a loved one into a photo they\u2019d belong in.',
-    sample: '/samples/halo_and_wings.jpg',
+    title: COPY.home.reunite.title,
+    subtitle: COPY.home.reunite.subtitle,
+    sample: '/samples/add_loved_one.jpg',
   },
 ];
 

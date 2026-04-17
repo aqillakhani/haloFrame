@@ -14,6 +14,7 @@
     "spike:merge": "tsx scripts/spike-merge.ts",
     "seed:templates": "tsx scripts/seed-templates.ts",
     "generate:samples": "tsx scripts/generate-samples.ts",
+    "generate:home-art": "tsx scripts/generate-home-art.ts",
     "benchmark:models": "tsx scripts/benchmark-edit-models.ts"
   },
   "dependencies": {

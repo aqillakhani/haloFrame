@@ -6,10 +6,13 @@ import {
   type ApplyResult,
   type ApplyResolution,
 } from '../lib/api';
+import { triggerDownload } from '../lib/download';
 import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
 import { BackButton } from '../components/BackButton';
+
+type Placement = 'left' | 'right' | 'behind' | 'front';
 
 export interface EditorProps {
   baseImageUrl: string;
@@ -18,8 +21,8 @@ export interface EditorProps {
   imageWidth?: number;
   imageHeight?: number;
   templates: TributeTemplate[];
-  onStartOver: () => void;
-  onTryDifferentPosition?: () => void;
+  /** Navigate to the Print Shop ("Order Canvas" button). */
+  onOrderCanvas: () => void;
   onBack?: () => void;
   /** True when the subject is a pet (driven by SAM 3 label). Drives template filtering. */
   isPet?: boolean;
@@ -30,6 +33,13 @@ export interface EditorProps {
    * on the far left of the photo"). Without it, the model picks randomly.
    */
   subjectName?: string;
+  /**
+   * Forwarded from the Reunite flow so the server can adjust wings z-order
+   * (behind everyone by default; in front when the subject is in the
+   * foreground). Absent in the Enhance flow — server treats missing as
+   * "default behind".
+   */
+  placement?: Placement;
 }
 
 type Intensity = 'low' | 'medium' | 'high';
@@ -48,29 +58,6 @@ const INTENSITY: Intensity = 'medium';
 // explicit no-op did.
 const HIDDEN_TEMPLATE_IDS = new Set(['natural_blend']);
 
-async function triggerDownload(url: string): Promise<void> {
-  // The `download` attribute is ignored on cross-origin URLs (fal.media),
-  // so the browser navigates instead of saving. Fetch the blob, create
-  // a same-origin object URL, and download that to force save-as.
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`download fetch -> ${r.status}`);
-    const blob = await r.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = 'eternalframe-tribute.png';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  } catch (err) {
-    console.error('[Editor] download failed, opening in new tab', err);
-    window.open(url, '_blank', 'noopener');
-  }
-}
-
 export function Editor({
   baseImageUrl,
   subjects,
@@ -78,11 +65,11 @@ export function Editor({
   imageWidth,
   imageHeight,
   templates,
-  onStartOver,
-  onTryDifferentPosition,
+  onOrderCanvas,
   onBack,
   isPet = false,
   subjectName,
+  placement,
 }: EditorProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [styledUrl, setStyledUrl] = useState<string | null>(null);
@@ -96,6 +83,28 @@ export function Editor({
   const requestIdRef = useRef(0);
   const userInteractedRef = useRef(false);
   const lastRenderErrorRef = useRef<string | null>(null);
+  // Shared abort controller for every preview/final apply call fired from
+  // this Editor mount. When the user navigates away (back button, tab
+  // switch, Start Over), the cleanup effect aborts all inflight requests
+  // so the browser's 6-connection pool to localhost isn't still saturated
+  // when they start a new flow.
+  //
+  // IMPORTANT: create the controller INSIDE the mount effect, paired with
+  // its cleanup. A render-body lazy init breaks in React 18 StrictMode:
+  // setup-cleanup-setup double-mount aborts the controller, and because
+  // render doesn't re-run on the synthetic re-mount, the lazy init never
+  // replaces it — every later fetch uses the dead signal and fails with
+  // AbortError. This variant pairs creation and abort on the same effect
+  // tick, so both strict-mode setups get a live controller.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    return () => {
+      controller.abort();
+      if (abortRef.current === controller) abortRef.current = null;
+    };
+  }, []);
 
   const visibleTemplates = useMemo(
     () =>
@@ -134,22 +143,31 @@ export function Editor({
       const promise = (async () => {
         try {
           const resolution: ApplyResolution = tier === 'preview' ? 'preview' : 'final';
-          const result: ApplyResult = await applyTemplate({
-            imageUrl: baseImageUrl,
-            templateIds: ids,
-            intensity: int,
-            isPet,
-            subjectName,
-            subjects,
-            selectedSubjectIndex,
-            imageWidth,
-            imageHeight,
-            resolution,
-          });
+          const result: ApplyResult = await applyTemplate(
+            {
+              imageUrl: baseImageUrl,
+              templateIds: ids,
+              intensity: int,
+              isPet,
+              subjectName,
+              subjects,
+              selectedSubjectIndex,
+              imageWidth,
+              imageHeight,
+              resolution,
+              placement,
+            },
+            abortRef.current?.signal,
+          );
           writeCache(key, tier, result.imageUrl);
           lastRenderErrorRef.current = null;
           return result.imageUrl;
         } catch (err) {
+          // Silently swallow aborts — they're triggered by our own unmount
+          // cleanup, not a real failure. Everything else bubbles up.
+          if ((err as { name?: string })?.name === 'AbortError') {
+            return null;
+          }
           const msg = err instanceof Error ? err.message : String(err);
           console.error('[Editor] apply failed', tier, ids, err);
           lastRenderErrorRef.current = `apply-${tier}:${ids.join('+')}: ${msg}`;
@@ -169,6 +187,7 @@ export function Editor({
       imageHeight,
       imageWidth,
       isPet,
+      placement,
       selectedSubjectIndex,
       subjectName,
       subjects,
@@ -259,7 +278,13 @@ export function Editor({
   };
 
   const handleSave = async () => {
-    if (activeSelection.length === 0) return;
+    // No style picked → save the original photo. A user tapping Save
+    // before a template is auto-selected (or while previews are still
+    // loading) still wants a file; don't leave them stuck.
+    if (activeSelection.length === 0) {
+      void triggerDownload(baseImageUrl);
+      return;
+    }
     const key = comboKey(activeSelection, INTENSITY);
     const cachedFinal = cacheRef.current[key]?.final;
     if (cachedFinal) {
@@ -296,45 +321,22 @@ export function Editor({
     ? COPY.loading.makingPerfect
     : COPY.editor.creating;
 
-  const hasSelection = activeSelection.length > 0;
-  const hasPreview = !!currentEntry?.preview;
-  const hasFinal = !!currentEntry?.final;
-
-  let saveLabel: string = COPY.editor.saveButton;
-  let saveDisabled = true;
-  if (!hasSelection) {
-    saveLabel = COPY.editor.noSelection;
-    saveDisabled = true;
-  } else if (isSaving || currentFinalInflight) {
-    saveLabel = COPY.loading.makingPerfect;
-    saveDisabled = true;
-  } else if (!hasPreview) {
-    saveLabel = COPY.editor.loadingPreview;
-    saveDisabled = true;
-  } else {
-    saveLabel = COPY.editor.saveButton;
-    saveDisabled = false;
-  }
-  if (hasFinal && !isSaving) {
-    saveDisabled = false;
-    saveLabel = COPY.editor.saveButton;
-  }
-
+  // Save button is always "Save to Photos" except while the save is in
+  // flight (then "Making it perfect…" and disabled). Tapping save with
+  // no style picked downloads the original photo — handleSave branches
+  // on activeSelection.length. Previous logic swapped in "Choose a
+  // style" / "Loading preview…" labels, but that made the button feel
+  // conditionally broken when users just wanted to save what they saw.
   const finalizing = isSaving || currentFinalInflight;
+  const saveLabel = finalizing ? COPY.loading.makingPerfect : COPY.editor.saveButton;
+  const saveDisabled = finalizing;
 
   return (
     <div className="editor">
       <header className="flow-header editor-header">
         {onBack && <BackButton onClick={onBack} />}
         <span className="app-header-title">Editing tribute</span>
-        <button
-          type="button"
-          className="btn btn-primary editor-save"
-          onClick={handleSave}
-          disabled={saveDisabled}
-        >
-          {saveLabel}
-        </button>
+        <span className="flow-header-spacer" aria-hidden />
       </header>
 
       <div className="editor-stage">
@@ -400,23 +402,21 @@ export function Editor({
       )}
 
       <div className="editor-action-bar">
-        {onTryDifferentPosition && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={onTryDifferentPosition}
-            disabled={isSaving}
-          >
-            {COPY.editor.tryDifferentPosition}
-          </button>
-        )}
         <button
           type="button"
           className="btn btn-ghost"
-          onClick={onStartOver}
+          onClick={onOrderCanvas}
           disabled={isSaving}
         >
-          {COPY.editor.startOver}
+          {COPY.editor.orderCanvas}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary editor-save"
+          onClick={handleSave}
+          disabled={saveDisabled}
+        >
+          {saveLabel}
         </button>
       </div>
     </div>
