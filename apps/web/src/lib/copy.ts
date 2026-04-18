@@ -142,9 +142,36 @@ export const COPY = {
   },
 
   subscription: {
-    // Plan-picker header
+    // Plan-picker header (calm / Settings-tab variant)
     heading: 'A quiet place to honor them',
     subheading: 'Every tribute you save uses one credit. Pick the plan that fits.',
+
+    // Paywall mid-flow variant (user hit Save with zero tributes remaining)
+    paywallHeading: 'Continue honoring them.',
+    paywallSubheadPlural: (n: number) =>
+      n === 1
+        ? 'You\u2019ve used your 1 tribute.'
+        : `You\u2019ve used your ${n} tributes.`,
+    paywallCloseAria: 'Close, return to your tribute',
+    paywallFooterLine1: 'Subscriptions renew automatically.',
+    paywallFooterLine2: 'Cancel anytime in Settings.',
+
+    // Settings-tab membership view
+    settingsHeading: 'Your membership',
+    currentPlanOnLabel: (planName: string) => `You\u2019re on ${planName}`,
+    extendCtaFree: 'Extend membership',
+    extendCtaKeepsake: 'Extend your Keepsake membership',
+    // extendCta already exists above for Heritage
+
+    // Per-plan CTA copy (keyed by SubscriptionPlanId)
+    planCta: {
+      free: 'Begin with Free',
+      keepsake_monthly: 'Begin Keepsake membership',
+      heritage_monthly: 'Begin Heritage membership',
+      heritage_annual: 'Begin Heritage Annual',
+      topup_4pack: 'Purchase 4-pack',
+      topup_single: 'Purchase single tribute',
+    } as Record<string, string>,
 
     // Tier labels (match SUBSCRIPTION_PLANS_UI names in shared constants)
     planFree: 'Free',
@@ -170,6 +197,13 @@ export const COPY = {
         : `${n} tributes remaining this month`,
     creditsLifetime: (n: number) =>
       n === 1 ? '1 tribute to get started' : `${n} tributes to get started`,
+
+    // Plan-card credit line (concise, fits in the card)
+    creditsPerCycle: (n: number, period: string) =>
+      period === '/month' ? `${n} tributes per month` : `${n} tributes a year`,
+
+    // Chip-sized balance string for flow headers
+    tributesShort: (n: number) => (n === 1 ? '1 tribute' : `${n} tributes`),
 
     // Empty-balance banner
     emptyBalance: 'You\u2019ve used your tributes for this month.',

@@ -7,6 +7,7 @@ import { ReuniteFlow } from './screens/ReuniteFlow';
 import { MyTributesScreen } from './screens/MyTributesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { PrintShopScreen } from './screens/PrintShopScreen';
+import { PaywallScreen } from './screens/PaywallScreen';
 import { BottomTabBar } from './components/BottomTabBar';
 
 export function App() {
@@ -25,7 +26,7 @@ export function App() {
           {renderScreen(screen)}
         </motion.main>
       </AnimatePresence>
-      <BottomTabBar />
+      {screen !== 'PAYWALL' && <BottomTabBar />}
     </div>
   );
 }
@@ -38,5 +39,6 @@ function renderScreen(screen: Screen) {
     case 'MY_TRIBUTES':  return <MyTributesScreen />;
     case 'SETTINGS':     return <SettingsScreen />;
     case 'PRINT_SHOP':   return <PrintShopScreen />;
+    case 'PAYWALL':      return <PaywallScreen />;
   }
 }

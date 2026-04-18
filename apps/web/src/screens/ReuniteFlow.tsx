@@ -381,6 +381,7 @@ export function ReuniteFlow() {
           }
           placement={placement}
           onOrderCanvas={() => nav.push('PRINT_SHOP')}
+          onPaywall={() => nav.push('PAYWALL')}
           onBack={handleBack}
         />
       )}

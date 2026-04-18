@@ -205,6 +205,7 @@ export function EnhanceFlow() {
           templates={templates}
           isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
           onOrderCanvas={() => nav.push('PRINT_SHOP')}
+          onPaywall={() => nav.push('PAYWALL')}
           onBack={handleBack}
         />
       )}

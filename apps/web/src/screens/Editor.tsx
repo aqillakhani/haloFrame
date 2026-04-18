@@ -8,6 +8,7 @@ import {
   type ApplyResolution,
 } from '../lib/api';
 import { triggerDownload } from '../lib/download';
+import { canAfford, MOCK_SUBSCRIPTION } from '../lib/mockSubscription';
 import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
@@ -24,6 +25,13 @@ export interface EditorProps {
   templates: TributeTemplate[];
   /** Navigate to the Print Shop ("Order Canvas" button). */
   onOrderCanvas: () => void;
+  /**
+   * Navigate to the Paywall. Called when the user taps Save and the current
+   * (mocked) credit balance can't cover the action. The real credits ledger
+   * will live server-side — when that lands, this prop stays; the balance
+   * check moves into a shared hook.
+   */
+  onPaywall: () => void;
   onBack?: () => void;
   /** True when the subject is a pet (driven by SAM 3 label). Drives template filtering. */
   isPet?: boolean;
@@ -67,6 +75,7 @@ export function Editor({
   imageHeight,
   templates,
   onOrderCanvas,
+  onPaywall,
   onBack,
   isPet = false,
   subjectName,
@@ -289,7 +298,15 @@ export function Editor({
     const key = comboKey(activeSelection, INTENSITY);
     const cachedFinal = cacheRef.current[key]?.final;
     if (cachedFinal) {
+      // Re-download of a tribute already paid for — no new credit charge.
       void triggerDownload(cachedFinal);
+      return;
+    }
+    // New 2K render = credited save. Gate on the mocked balance; when the
+    // server entitlement refactor lands, this call becomes a hook read.
+    const creditedAction = placement ? 'reunite_save' : 'enhance_save';
+    if (!canAfford(creditedAction)) {
+      onPaywall();
       return;
     }
     setError(null);
@@ -357,7 +374,9 @@ export function Editor({
       <header className="flow-header editor-header">
         {onBack && <BackButton onClick={onBack} />}
         <span className="app-header-title">Editing tribute</span>
-        <span className="flow-header-spacer" aria-hidden />
+        <span className="flow-header-badge t-label-md">
+          {COPY.subscription.tributesShort(MOCK_SUBSCRIPTION.creditsRemaining)}
+        </span>
       </header>
 
       <div className="editor-stage" ref={stageRef}>

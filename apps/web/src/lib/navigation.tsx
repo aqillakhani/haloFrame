@@ -9,7 +9,8 @@ export type Screen =
   | 'REUNITE_FLOW'
   | 'MY_TRIBUTES'
   | 'SETTINGS'
-  | 'PRINT_SHOP';
+  | 'PRINT_SHOP'
+  | 'PAYWALL';
 
 export type Tab = 'HOME' | 'MY_TRIBUTES' | 'SETTINGS' | 'PRINT_SHOP';
 
