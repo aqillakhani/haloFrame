@@ -8,14 +8,19 @@ interface CanvasOption {
   priceCents: number;
 }
 
-// Canvas pricing — shared with the companion golfmaps app (2026-04-18).
-// Real pricing wires in once the print provider integration lands. Kept inline
-// (not in shared constants) so the swap stays a single-file change.
+// Canvas pricing — kept inline (not in shared constants) so the swap to real
+// print-provider pricing stays a single-file change. Sizes + prices from the
+// approved pricing sheet (2026-04-18).
 const CANVAS_OPTIONS: CanvasOption[] = [
-  { id: 'canvas_12x16', name: 'Canvas 12\u201D \u00D7 16\u201D', description: 'Compact gallery-wrapped canvas',    priceCents: 4900 },
-  { id: 'canvas_18x24', name: 'Canvas 18\u201D \u00D7 24\u201D', description: 'Medium gallery-wrapped canvas',     priceCents: 7900 },
-  { id: 'canvas_24x36', name: 'Canvas 24\u201D \u00D7 36\u201D', description: 'Large gallery-wrapped canvas',      priceCents: 11900 },
-  { id: 'canvas_36x48', name: 'Canvas 36\u201D \u00D7 48\u201D', description: 'Statement gallery-wrapped canvas',  priceCents: 17900 },
+  { id: 'canvas_8x10',  name: 'Canvas 8\u201D \u00D7 10\u201D',  description: 'Gallery-wrapped canvas, ready to hang', priceCents: 4699 },
+  { id: 'canvas_8x12',  name: 'Canvas 8\u201D \u00D7 12\u201D',  description: 'Gallery-wrapped canvas, ready to hang', priceCents: 4799 },
+  { id: 'canvas_12x12', name: 'Canvas 12\u201D \u00D7 12\u201D', description: 'Gallery-wrapped canvas, ready to hang', priceCents: 5099 },
+  { id: 'canvas_12x16', name: 'Canvas 12\u201D \u00D7 16\u201D', description: 'Medium gallery-wrapped canvas',         priceCents: 5299 },
+  { id: 'canvas_16x16', name: 'Canvas 16\u201D \u00D7 16\u201D', description: 'Medium gallery-wrapped canvas',         priceCents: 5799 },
+  { id: 'canvas_16x20', name: 'Canvas 16\u201D \u00D7 20\u201D', description: 'Medium gallery-wrapped canvas',         priceCents: 6299 },
+  { id: 'canvas_16x24', name: 'Canvas 16\u201D \u00D7 24\u201D', description: 'Large gallery-wrapped canvas',          priceCents: 6699 },
+  { id: 'canvas_20x20', name: 'Canvas 20\u201D \u00D7 20\u201D', description: 'Large gallery-wrapped canvas',          priceCents: 7099 },
+  { id: 'canvas_20x24', name: 'Canvas 20\u201D \u00D7 24\u201D', description: 'Large gallery-wrapped canvas',          priceCents: 7299 },
 ];
 
 function formatPrice(cents: number): string {

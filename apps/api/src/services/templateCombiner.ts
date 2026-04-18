@@ -14,6 +14,21 @@ export const NO_EFFECT_SENTINEL = 'NO_EFFECT';
  *  shared template definitions in packages/shared/src/constants. */
 const WINGS_TEMPLATE_IDS = new Set(['angel_wings', 'halo_and_wings']);
 
+/**
+ * Solo-variant prompt overrides. Some templates assume the photo contains
+ * multiple people (the "selective color" / "selective effect" premise) and
+ * produce incorrect output when the subject is the only person in the
+ * frame. On a single-subject Enhance photo, NB2 reads "ONLY {subject}"
+ * narrowly as the face region, leaving clothing/body untouched. When
+ * there's no multi-subject context, swap in a prompt that treats the whole
+ * image as the subject so the selective constraint becomes trivial (and
+ * the model converts everything cleanly).
+ */
+const SOLO_PROMPT_OVERRIDES: Record<string, string> = {
+  classic_memorial:
+    'Convert this entire photo into an elegant high-contrast black-and-white monochrome memorial portrait. Every part of the image — the person\u2019s face, hair, skin, clothing, and the background — should be rendered in classic portrait black-and-white tones. Add a very subtle soft vignette around the edges. Preserve the composition, the person\u2019s pose, and their expression exactly as they are in the original photo. Do not introduce color anywhere.',
+};
+
 export interface CombineOptions {
   /** Resolved template objects (not just IDs). Order preserved in prompt. */
   templates: TributeTemplate[];
@@ -67,7 +82,9 @@ export function combineTemplatePrompts(opts: CombineOptions): string {
 
   // Multi-template: produce a structured multi-effect prompt.
   const perEffect = active.map((t, idx) => {
-    const base = t.promptTemplate.replace(/\{subject_description\}/g, subjectDescription);
+    const soloOverride = !haveSubjectContext ? SOLO_PROMPT_OVERRIDES[t.id] : undefined;
+    const baseTemplate = soloOverride ?? t.promptTemplate;
+    const base = baseTemplate.replace(/\{subject_description\}/g, subjectDescription);
     const modifier = t.promptModifiers[intensity];
     const withModifier = modifier ? `${base} Style note: ${modifier}.` : base;
     return `EFFECT ${idx + 1} — ${t.name}:\n${withModifier}`;
@@ -101,10 +118,13 @@ function buildSingleTemplatePrompt(
   intensity: EffectIntensity,
   haveSubjectContext: boolean,
 ): string {
-  const base = template.promptTemplate.replace(
-    /\{subject_description\}/g,
-    subjectDescription,
-  );
+  // Solo-variant override: selected-by-id templates that don't translate
+  // well to single-subject photos get their prompt swapped before any
+  // {subject_description} substitution or modifier append runs.
+  const soloOverride = !haveSubjectContext ? SOLO_PROMPT_OVERRIDES[template.id] : undefined;
+  const baseTemplate = soloOverride ?? template.promptTemplate;
+
+  const base = baseTemplate.replace(/\{subject_description\}/g, subjectDescription);
   const modifier = template.promptModifiers[intensity];
   const withModifier = modifier ? `${base} ${modifier}.` : base;
 
