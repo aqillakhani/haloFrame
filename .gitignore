@@ -79,3 +79,13 @@ apps/api/debug-*.png
 apps/api/debug-*.json
 test-*.mjs
 test-*.png
+
+# Quality-pass screenshots (qt-*, paywall-*, settings-*, badge-*, subhead-*
+# at repo root) + Playwright-uploaded test portraits. Keep the report, skip
+# the binaries.
+/qt-*.png
+/paywall-*.png
+/settings-*.png
+/badge-*.png
+/subhead-*.png
+apps/web/public/test-inputs/
