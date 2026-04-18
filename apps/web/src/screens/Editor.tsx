@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { TributeTemplate } from '@eternalframe/shared';
 import {
   applyTemplate,
@@ -303,14 +304,34 @@ export function Editor({
     if (url) {
       void triggerDownload(url);
     } else {
-      setError(
-        `${COPY.editor.styleFailed} (tag: ${lastRenderErrorRef.current ?? 'apply-failed'})`,
-      );
+      if (lastRenderErrorRef.current) {
+        console.error('[Editor] save failed', lastRenderErrorRef.current);
+      }
+      setError(COPY.editor.styleFailed);
     }
   };
 
   const displayUrl = showOriginal ? baseImageUrl : (styledUrl ?? baseImageUrl);
   const hasStyled = !!styledUrl && styledUrl !== baseImageUrl;
+
+  // Brief rose glow around the stage when a new styled preview first lands.
+  // Fires on every template change — the per-pick "this is the one" beat.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const prevStyledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!styledUrl || styledUrl === prevStyledRef.current) return;
+    prevStyledRef.current = styledUrl;
+    const el = stageRef.current;
+    if (!el) return;
+    el.classList.remove('editor-stage--revealing');
+    // Force reflow so the class can restart the CSS animation.
+    void el.offsetHeight;
+    el.classList.add('editor-stage--revealing');
+    const timer = setTimeout(() => {
+      el.classList.remove('editor-stage--revealing');
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [styledUrl]);
 
   const viewerLoading =
     (!!currentKey && !currentEntry?.preview && !currentEntry?.final && currentPreviewInflight) ||
@@ -339,7 +360,7 @@ export function Editor({
         <span className="flow-header-spacer" aria-hidden />
       </header>
 
-      <div className="editor-stage">
+      <div className="editor-stage" ref={stageRef}>
         <ImageViewer
           src={displayUrl}
           alt="Your tribute"
@@ -400,6 +421,20 @@ export function Editor({
           <span className="finalizing-pill">{COPY.loading.makingPerfect}</span>
         </div>
       )}
+
+      <AnimatePresence>
+        {hasStyled && (
+          <motion.hr
+            key="ready-hairline"
+            className="hairline-short editor-ready-hairline"
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.85 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1], delay: 0.06 }}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="editor-action-bar">
         <button

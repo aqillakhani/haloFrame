@@ -35,19 +35,30 @@ export function SavedModal({ open, onOrderCanvas, onStartAnother, onClose }: Sav
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
         >
           <motion.div
             className="saved-modal-card"
             onClick={(e) => e.stopPropagation()}
-            initial={{ y: 24, opacity: 0 }}
+            initial={{ y: 12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 16, opacity: 0 }}
-            transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }}
+            exit={{ y: 8, opacity: 0 }}
+            transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1] }}
           >
-            <div className="saved-modal-badge" aria-hidden>
-              <Icon name="check" size={24} />
-            </div>
+            <motion.div
+              className="saved-modal-badge"
+              aria-hidden
+              initial={{ scale: 0.82, opacity: 0 }}
+              animate={{ scale: [0.82, 1.08, 1], opacity: 1 }}
+              transition={{
+                duration: 0.72,
+                ease: [0.22, 0.61, 0.36, 1],
+                delay: 0.16,
+                times: [0, 0.6, 1],
+              }}
+            >
+              <Icon name="check" size={26} />
+            </motion.div>
             <h2 id="saved-modal-title" className="t-display-md">
               {COPY.saved.title}
             </h2>

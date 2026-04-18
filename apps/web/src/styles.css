@@ -317,6 +317,13 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   letter-spacing: 0.5px;
 }
 
+/* Weight bump alongside the bronze underline — gives the active tab a
+   second (non-color) cue for users who can't distinguish the bronze hue
+   from muted text. */
+.tab-item--active .tab-item-label {
+  font-weight: 600;
+}
+
 .tab-item-underline {
   position: absolute;
   bottom: 6px;
@@ -562,8 +569,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   box-shadow: var(--sh-soft);
   position: relative;
   transition:
-    box-shadow var(--d-base) var(--e-standard),
-    transform var(--d-base) var(--e-standard);
+    box-shadow var(--d-fast) var(--e-gentle),
+    transform var(--d-fast) var(--e-gentle);
 }
 
 .template-tile:hover:not(:disabled),
@@ -593,6 +600,25 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .template-tile--selected {
   outline: 2px solid var(--c-brand-primary);
   outline-offset: -2px;
+  box-shadow:
+    var(--sh-soft),
+    0 0 0 4px color-mix(in srgb, var(--c-accent-rose) 28%, transparent),
+    0 8px 24px color-mix(in srgb, var(--c-accent-rose) 22%, transparent);
+  /* Ceremonial bloom for the "I chose this" moment — slower than the
+     base tile's hover/leave transition so the glow lingers. */
+  transition:
+    box-shadow var(--d-slow) var(--e-gentle),
+    transform var(--d-fast) var(--e-gentle);
+}
+
+/* Keep the rose glow visible when the user hovers a tile they already
+   picked — hover should not erase the chosen state. */
+.template-tile--selected:hover:not(:disabled),
+.template-tile--selected:focus-visible:not(:disabled) {
+  box-shadow:
+    var(--sh-soft),
+    0 0 0 4px color-mix(in srgb, var(--c-accent-rose) 28%, transparent),
+    0 8px 24px color-mix(in srgb, var(--c-accent-rose) 22%, transparent);
 }
 
 .template-tile-check {
@@ -602,12 +628,19 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   width: 24px;
   height: 24px;
   border-radius: 9999px;
-  background: var(--c-brand-primary);
+  background: var(--c-accent-roseDeep);
   color: var(--c-text-onBronze);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: var(--sh-soft);
+  animation: check-bloom var(--d-slow) var(--e-gentle) both;
+}
+
+@keyframes check-bloom {
+  0%   { opacity: 0; transform: scale(0.82); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
 .template-tile--pending {
@@ -1137,6 +1170,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   padding: 8px;
   border-radius: var(--r-sm);
   box-shadow: var(--sh-frame), var(--sh-soft);
+  animation: arrival-glow 900ms var(--e-gentle) both;
 }
 
 .reunite-review-image {
@@ -1144,6 +1178,31 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   width: 100%;
   height: auto;
   border-radius: var(--r-xs);
+}
+
+/* Reveal glow — the "this is real now" moment.
+   Used for: the Editor stage the first time a styled preview lands,
+   and the Reunite review frame when the merged image arrives. */
+@keyframes arrival-glow {
+  0% {
+    box-shadow:
+      var(--sh-frame),
+      0 0 0 2px color-mix(in srgb, var(--c-accent-rose) 0%, transparent),
+      var(--sh-soft);
+  }
+  35% {
+    box-shadow:
+      var(--sh-frame),
+      0 0 0 4px color-mix(in srgb, var(--c-accent-rose) 32%, transparent),
+      0 10px 28px color-mix(in srgb, var(--c-accent-rose) 22%, transparent);
+  }
+  100% {
+    box-shadow: var(--sh-frame), var(--sh-soft);
+  }
+}
+
+.editor-stage--revealing .image-viewport {
+  animation: arrival-glow 900ms var(--e-gentle) both;
 }
 
 .reunite-review-actions {
@@ -1289,6 +1348,16 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   animation: pill-pulse 2s ease-in-out infinite;
 }
 
+/* Third rose arrival point — appears once a styled preview has landed,
+   so the user sees a quiet "this is ready to keep" cue above the Save CTA.
+   Editorial hairline, not a glow. */
+.editor-ready-hairline {
+  width: 40px;
+  background: var(--c-accent-rose);
+  align-self: center;
+  margin: 12px 0 0;
+}
+
 .editor-action-bar {
   display: flex;
   gap: 10px;
@@ -1341,15 +1410,15 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(41, 25, 8, 0.45);
+  background: rgba(41, 25, 8, 0.32);
   backdrop-filter: blur(2px);
 }
 
 .saved-modal-card {
   background: var(--c-bg-surface);
   border-radius: var(--r-lg);
-  box-shadow: var(--sh-lift);
-  padding: 28px 24px 24px;
+  box-shadow: var(--sh-float);
+  padding: 32px 24px 24px;
   width: min(420px, 100%);
   display: flex;
   flex-direction: column;
@@ -1359,14 +1428,15 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 
 .saved-modal-badge {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 9999px;
-  background: var(--c-brand-primarySoft);
-  color: var(--c-brand-primary);
+  background: color-mix(in srgb, var(--c-accent-rose) 28%, var(--c-bg-surface));
+  color: var(--c-accent-roseDeep);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--c-accent-rose) 14%, transparent);
 }
 
 .saved-modal-sub {

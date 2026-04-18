@@ -122,6 +122,10 @@ export const COPY = {
       tryAgain: 'Try Again',
       goBack: 'Go Back',
     },
+    loadStyles:
+      'Something went wrong loading your styles \u2014 let\u2019s try again.',
+    uploadPhoto:
+      'That photo didn\u2019t upload \u2014 try again or pick a different one.',
   },
 
   myTributes: {

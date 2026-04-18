@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { TributeTemplate } from '@eternalframe/shared';
 import {
   fetchTemplates,
@@ -84,7 +85,8 @@ export function ReuniteFlow() {
       })
       .catch((err) => {
         if ((err as { name?: string })?.name === 'AbortError') return;
-        setError(`Couldn't load styles. ${err.message} (tag: fetch-templates)`);
+        console.error('[ReuniteFlow] fetch-templates failed', err);
+        setError(COPY.errors.loadStyles);
       });
     return () => controller.abort();
   }, []);
@@ -115,7 +117,8 @@ export function ReuniteFlow() {
       const upload = await uploadFile(file);
       setMainUrl(upload.url);
     } catch (err) {
-      setError(`Couldn't receive the main photo. ${(err as Error).message} (tag: main-upload)`);
+      console.error('[ReuniteFlow] main-upload failed', err);
+      setError(COPY.errors.uploadPhoto);
     }
   };
 
@@ -138,7 +141,8 @@ export function ReuniteFlow() {
         setLovedIsPet(false);
       }
     } catch (err) {
-      setError(`Couldn't receive the photo. ${(err as Error).message} (tag: loved-upload)`);
+      console.error('[ReuniteFlow] loved-upload failed', err);
+      setError(COPY.errors.uploadPhoto);
     }
   };
 
@@ -162,8 +166,7 @@ export function ReuniteFlow() {
       setStep('review');
     } catch (err) {
       console.error('[ReuniteFlow] merge failed', err);
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`${COPY.reunite.mergeFailed} (tag: merge: ${msg})`);
+      setError(COPY.reunite.mergeFailed);
       setStep('placement');
     }
   };
@@ -352,14 +355,19 @@ export function ReuniteFlow() {
           <div className="reunite-review-frame">
             <img src={mergedUrl} alt="Merged result" className="reunite-review-image" />
           </div>
-          <div className="reunite-review-actions">
+          <motion.div
+            className="reunite-review-actions"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1], delay: 0.32 }}
+          >
             <button type="button" className="btn btn-ghost" onClick={handleAddStyles}>
               {COPY.reunite.review.addStyles}
             </button>
             <button type="button" className="btn btn-primary" onClick={handleSavePhoto}>
               {COPY.reunite.review.savePhoto}
             </button>
-          </div>
+          </motion.div>
         </section>
       )}
 

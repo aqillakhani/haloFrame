@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import type { TributeTemplate } from '@eternalframe/shared';
 import { COPY } from '../lib/copy';
 import { Icon } from './icons/Icon';
@@ -20,6 +21,8 @@ interface TemplateGalleryProps {
   disabled?: boolean;
 }
 
+const gentleEase = [0.22, 0.61, 0.36, 1] as const;
+
 export function TemplateGallery({
   templates,
   selectedIds,
@@ -35,7 +38,7 @@ export function TemplateGallery({
         <p className="t-body-sm t-muted">{COPY.editor.styleHelper}</p>
       </header>
       <div className="template-grid" role="radiogroup" aria-label="Tribute styles">
-        {templates.map((t) => {
+        {templates.map((t, i) => {
           const selected = selectedIds.includes(t.id);
           const ready = !readyIds || readyIds.has(t.id);
           const isDisabled = !!disabled || !ready;
@@ -47,7 +50,7 @@ export function TemplateGallery({
             .filter(Boolean)
             .join(' ');
           return (
-            <button
+            <motion.button
               key={t.id}
               type="button"
               role="radio"
@@ -57,6 +60,9 @@ export function TemplateGallery({
               disabled={isDisabled}
               className={classes}
               onClick={() => onToggle(t.id)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, ease: gentleEase, delay: 0.12 + i * 0.07 }}
             >
               <div className="template-tile-photo">
                 {t.sampleImageUrl ? (
@@ -82,7 +88,7 @@ export function TemplateGallery({
                 <p className="t-label-sm t-muted">{t.category}</p>
                 <p className="t-label-md">{t.name}</p>
               </div>
-            </button>
+            </motion.button>
           );
         })}
       </div>

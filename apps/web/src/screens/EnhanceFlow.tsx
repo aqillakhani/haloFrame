@@ -49,7 +49,8 @@ export function EnhanceFlow() {
       })
       .catch((err) => {
         if ((err as { name?: string })?.name === 'AbortError') return;
-        setError(`Couldn't load styles. ${err.message} (tag: fetch-templates)`);
+        console.error('[EnhanceFlow] fetch-templates failed', err);
+        setError(COPY.errors.loadStyles);
       });
     return () => controller.abort();
   }, []);
@@ -83,7 +84,7 @@ export function EnhanceFlow() {
       const segResult = await segmentImage(upload.url, true);
       setSegmentation(segResult);
       if (segResult.subjects.length === 0) {
-        setError(`${COPY.enhance.noFaces} (tag: no-faces)`);
+        setError(COPY.enhance.noFaces);
         setStep('upload');
         return;
       }
@@ -95,8 +96,7 @@ export function EnhanceFlow() {
       }
     } catch (err) {
       console.error('[EnhanceFlow] upload/segment failed', err);
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`${COPY.enhance.segmentFailed} (tag: upload-or-detect: ${msg})`);
+      setError(COPY.enhance.segmentFailed);
       setStep('upload');
     }
   };
