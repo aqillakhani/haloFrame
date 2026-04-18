@@ -70,3 +70,12 @@ supabase/.temp
 
 # EAS
 .eas/
+
+# Local merge-pipeline debug dumps (stage PNGs + ad-hoc test scripts)
+debug-*.png
+debug-*.jpg
+debug-*.json
+apps/api/debug-*.png
+apps/api/debug-*.json
+test-*.mjs
+test-*.png

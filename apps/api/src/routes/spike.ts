@@ -28,6 +28,14 @@ import { ok } from '../lib/response.js';
 import { validateBody } from '../middleware/validate.js';
 import { combineTemplatePrompts, NO_EFFECT_SENTINEL } from '../services/templateCombiner.js';
 import { annotateSubject } from '../services/subjectAnnotator.js';
+import {
+  findAddedSubject,
+  measureSubjects,
+} from '../services/mergeSizeEnforcer.js';
+import {
+  preservePeopleFromMain,
+  selectPreservableMainSubjects,
+} from '../services/mergeNonTargetPreserver.js';
 
 fal.config({ credentials: env.FAL_KEY });
 
@@ -731,18 +739,35 @@ spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => 
 
 // -----------------------------------------------------------------------------
 // POST /api/spike/merge — merge two photos (Reunite flow)
+//
+// Pipeline (2026-04-17, after the composite-only pivot was reverted on user
+// feedback: pure composite couldn't do body extension or lighting adaptation,
+// which are the "natural" part of the user's intent):
+//
+//   1. NB2 merge — scene integration, relighting, body extension where the
+//      scene needs it. Identity-lock prompt pins face/expression/clothes/
+//      hair/eye-color to the portrait; freedom prompt explicitly ALLOWS
+//      lighting + shadow + body changes.
+//   2. Non-target preservation — composite main-photo pixels back through
+//      each main subject's SAM mask (alpha-channel read, IoU-gated) so NB2
+//      can't alter eyebrows/beards/etc on the existing group.
+//   3. Face-swap — transplants the real portrait face pixels onto NB2's
+//      subject, since NB2 always re-renders faces from its own priors.
+//
+// Size: NB2 doesn't honor the size % prompt reliably. We include it as a
+// soft hint and log the actual vs requested for observability. No rescale
+// post-process — the extract/resize/recomposite approach produced visible
+// seams (the "box" artifact). Users who need precise size control will have
+// to tolerate NB2's variance for now.
 // -----------------------------------------------------------------------------
 const mergeSchema = z.object({
   mainPhotoUrl: z.string().url(),
   lovedOnePhotoUrl: z.string().url(),
   /**
-   * Transparent-background version of the loved one. Currently IGNORED by
-   * the merge handler — retained in the schema for backward compatibility
-   * with clients that still send it for the placement preview overlay.
-   * Earlier the server used this to build a pre-composite + refine pass,
-   * but NB2's edit model interprets a pre-composited input as "preserve,
-   * don't recompose," which produced a pasted-on-top result. The two-image
-   * path below (main + loved-one as separate inputs) is the reliable merge.
+   * Transparent-background PNG of the loved one (rembg). Frontend sends it
+   * for the placement preview overlay; /merge no longer uses it (NB2 reads
+   * the raw portrait directly — the cutout-as-input path produced worse
+   * results per NB2 prompt-pitfalls memory).
    */
   lovedOneCutoutUrl: z.string().url().optional(),
   placement: z.enum(['left', 'right', 'behind', 'front']),
@@ -758,35 +783,20 @@ const PLACEMENT_INSTRUCTIONS: Record<Placement, string> = {
   behind:
     'Place the person from the second image standing behind the group in the first image, slightly visible between or above other people',
   front:
-    'Place the person from the second image in the foreground, in front of the group in the first image, closer to the camera than the other people. They should be positioned in the front-center of the image, slightly in front of and between the existing people. They must NOT be behind anyone — they are the closest person to the camera.',
+    'Place the person from the second image in the foreground, in front of the group in the first image, closer to the camera than the other people.',
 };
 
-function getScaleInstruction(scaleValue: number, subjectDescription: string): string {
-  // User slider defaults to 1.0 ("same height as existing people") and
-  // ranges 0.7–1.4. The second image is typically a close-up portrait;
-  // without an explicit perspective anchor, Nano Banana 2 treats that
-  // close-up as the intended camera distance and renders the merged
-  // person 40–60% bigger than the existing group. The anchor below
-  // re-frames the task: the subject is standing at the SAME distance
-  // from the camera as the others, so their on-frame height should
-  // match theirs regardless of how the portrait was originally shot.
-  const pct = Math.round(scaleValue * 100);
-  const perspective = `PERSPECTIVE: ${subjectDescription} is standing at the same distance from the camera as the other people in the main scene. The portrait in the second image was shot at close range, but that does NOT mean they should appear close-up in the merged result. Render them at the same apparent camera distance as the existing people — their head, torso, and full body should occupy the same on-frame size as the others.`;
-  if (scaleValue >= 0.95 && scaleValue <= 1.05) {
-    return [
-      perspective,
-      `SIZE (critical): ${subjectDescription}'s head-to-feet height in the final image must match the average head-to-feet height of the existing people in the main scene, within 5%. If the existing people are small because they're far from camera, render ${subjectDescription} at that same small size. They are one member of the group, not a featured subject.`,
-    ].join(' ');
+function buildSizeHint(scale: number, subjectDescription: string): string {
+  const pct = Math.round(scale * 100);
+  if (scale >= 0.95 && scale <= 1.05) {
+    return `SIZE (soft hint): ${subjectDescription}'s head-to-feet height should approximately match the average head-to-feet height of the existing people. They are one member of the group, not a featured subject at a different scale.`;
   }
-  const direction = scaleValue < 1.0 ? 'smaller' : 'larger';
+  const direction = scale < 1.0 ? 'smaller' : 'larger';
   const how =
-    scaleValue < 1.0
+    scale < 1.0
       ? 'as if shorter or standing slightly further back than the others'
       : 'as if taller or standing slightly closer to the camera than the others';
-  return [
-    perspective,
-    `SIZE (critical): ${subjectDescription}'s head-to-feet height in the final image must be approximately ${pct}% of the average head-to-feet height of the existing people in the main scene — noticeably ${direction} (${how}). Match this proportion precisely; do not enlarge them past this percentage.`,
-  ].join(' ');
+  return `SIZE (soft hint): ${subjectDescription}'s head-to-feet height should be approximately ${pct}% of the average head-to-feet height of the existing people — noticeably ${direction} (${how}).`;
 }
 
 spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => {
@@ -806,69 +816,51 @@ spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => 
         ? 'the pet'
         : 'the person';
 
-    // Two-image merge: give Nano Banana 2 the main photo + the loved-one
-    // photo and let it do the full merge (position, lighting, shadows,
-    // edges) in one pass. This is the reliable path — an earlier attempt
-    // to pre-composite the cutout and ask NB2 to "refine" consistently
-    // returned pasted-on-top output because the edit model treats a
-    // single pre-composited input as "preserve, don't recompose." The
-    // two-image path lets NB2 do the merge work it's designed for; we
-    // steer position and size through explicit prompt directives.
-    // Prompt contract (refined 2026-04-16 after user feedback on the
-    // earlier GROUND-PLANE version, which caused two bugs:
-    //   1. NB2 generated full bodies (legs, feet) for the loved one
-    //      even when the main scene cropped the others at the waist.
-    //   2. NB2 placed her at a different depth (behind the group) but
-    //      had her arm reach across a neighbor's body.
-    // The replacement keys this to LATERAL PLACEMENT instead of ground
-    // plane: she stands next to the neighbor at the same depth with
-    // natural spacing (a small gap, not touching), matching body crop
-    // (shows only what the neighbor shows), and arms stay in her own
-    // lateral column.
-    //   IDENTITY LOCK — face, expression, gaze, hair, and VISIBLE
-    //                   clothing stay identical to the second image.
-    //                   Does NOT lock body pose (the portrait usually
-    //                   shows only head-and-shoulders, so locking a
-    //                   body that isn't there forced stiff output).
-    //   LATERAL PLACE — next to the neighbor at the placement, same
-    //                   depth, same body crop, no arm overlap.
-    //   LIGHTING      — relight to match the scene's palette and
-    //                   light direction; cast a shadow ONLY if the
-    //                   scene shows the other people casting shadows
-    //                   (conditional so we don't force a shadow on
-    //                   waist-up scenes).
-    //   RECOGNIZABILITY FLOOR — even on silhouette scenes, the face
-    //                   stays identifiable. Identity > lighting.
+    // Prompt contract (2026-04-17 after user clarified: lock face, expression,
+    // clothes, hair, eye color — but ALLOW lighting, shadow, and body extension).
+    // Earlier iterations that over-locked body pose produced stiff outputs on
+    // head-shot portraits; earlier iterations that under-locked clothes had
+    // NB2 substituting scene clothing. This version separates LOCKED vs FREE
+    // explicitly so the model has no ambiguity about which knob it can turn.
     const promptParts = [
-      `GAZE AND HEAD ORIENTATION (rule #1, strictest): ${subjectDescription}'s pupils, eyes, and head orientation in the OUTPUT must match the PORTRAIT pixel-for-pixel. In the portrait their pupils point straight out of the image plane at the viewer (the camera lens). In the output their pupils must continue to point straight out of the output image plane at the viewer. Do NOT rotate their head. Do NOT shift their pupils to their left or right. Do NOT redirect their eyes toward the sun, horizon, the other people, or anything in the scene. Even though they are standing next to the group, they continue to face the camera exactly as in the portrait — their head and eyes are aimed at the viewer, not inward at the group. A deviation in their pupil position or head angle between the portrait and the output is a defect to avoid.`,
       `Take the first image as the main scene. Take ${subjectDescription} from the second image and merge them into the main scene, producing a single natural photograph. ${PLACEMENT_INSTRUCTIONS[placement]}.`,
-      `IDENTITY LOCK — these features of ${subjectDescription} must match the second image exactly, as if the same person were photographed twice on the same day:`,
-      `- Face: identical shape, eyes, nose, mouth, cheeks, jawline, and any distinguishing marks.`,
-      `- Expression: the same expression captured in the portrait. Same smile (or no smile), same eye openness, same brow position, same mouth shape. Do NOT adjust their expression to match the mood of the scene.`,
-      `- Eyes and gaze: pupils in the exact same position as the portrait. If the portrait has them looking at the camera, keep them looking at the camera — do NOT shift the pupils toward the group, the sun, the horizon, or anything else. Head angle in the output is identical to the portrait; do not turn their head to face the group.`,
-      `- Hair: same style, shape, length, parting, and color.`,
-      `- Clothing visible in the portrait: the garments shown in the portrait must be identical in the output — same pattern, same colors, same cut. Do NOT swap them for clothing worn by others in the scene.`,
+
+      `LOCKED (MUST NOT CHANGE) — these features of ${subjectDescription} must match the second image EXACTLY, as if the same person were photographed twice on the same day:`,
+      `- Face: identical shape, eyes, nose, mouth, cheeks, jawline, and distinguishing marks.`,
+      `- Expression: the EXACT expression captured in the portrait. Same smile (or no smile), same eye openness, same brow position, same mouth shape. Do NOT adjust their expression to match the scene's mood.`,
+      `- Eyes: pupils and iris in the exact position and color as the portrait. If they look at the camera in the portrait, keep them looking at the camera.`,
+      `- Hair: EXACT same style, shape, length, parting, and color.`,
+      `- Clothing: the garments visible in the portrait must appear in the output with the SAME pattern, SAME colors, SAME cut, SAME fabric. Do NOT substitute clothing worn by others in the scene. Do NOT change the clothing style to match the scene.`,
       `- Skin tone and identifying features: preserved.`,
-      `LATERAL PLACEMENT AND FRAMING — ${subjectDescription} is one more member of the group, standing right next to them:`,
-      `- ${subjectDescription} stands directly beside the existing people at the chosen placement — with natural spacing, close enough to feel part of the group, with a small gap so neither figure occludes the other — at the SAME depth from the camera. They are beside the group, not set back behind it and not pushed forward in front of it (unless the placement explicitly says front or behind).`,
-      `- MATCH THE NEIGHBOR'S CROP: the visible portion of ${subjectDescription}'s body must match the visible portion of the person standing next to them. If the main scene shows the neighboring people from the waist up, show ${subjectDescription} from the waist up — do NOT generate legs, feet, or body parts that the neighboring people don't also have visible. If the main scene shows the neighbors from the shoulders up, show ${subjectDescription} from the shoulders up. If the main scene shows full bodies from head to feet, show ${subjectDescription} full body too, continuing their clothing style.`,
-      `- NO REACHING ACROSS: ${subjectDescription}'s arms, hands, and body stay within their own lateral column next to the neighbor. Their hand does not cross in front of or behind the adjacent person. If the portrait shows their arms at their sides, keep them at their sides. Generate any unseen arms in a natural at-their-sides position; do not pose them reaching toward or overlapping the group.`,
-      `- BODY POSITION NEAR THE GROUP, HEAD POSITION FROM THE PORTRAIT: ${subjectDescription}'s TORSO is positioned beside the group, but their HEAD and EYES remain oriented exactly as in the portrait (re-read rule #1 at the top). Their body being next to the group does NOT mean their face turns toward the group. Their face stays aimed at the camera / viewer exactly as in the portrait, even though their body is next to the others.`,
-      `LIGHTING AND EDGE INTEGRATION:`,
-      `- Relight ${subjectDescription}'s face and body: shift exposure, color temperature, and directional shading toward the main scene's light. Warm scene → warm cast on them. Light direction from the scene → matching shadow direction on them. You are repainting illumination, not re-drawing them — the LOCKED features above remain unchanged.`,
-      `- Edge blend: no visible paste seam. Match the scene's focus, grain, and noise at the outline where ${subjectDescription} meets the background.`,
-      `- Shadow: ONLY if the main scene shows ground beneath the other people and they cast visible shadows, add a matching shadow from ${subjectDescription} in the same direction and softness. If the scene crops above the ground or no shadows are visible in the scene, do NOT force one.`,
-      `RECOGNIZABILITY FLOOR — even when the scene is heavily back-lit, silhouette, sunset, or dim interior, relight ${subjectDescription} toward the scene's palette but KEEP their face and features clearly visible and identifiable. Do not collapse their face into pure silhouette. Priority: identity first, lighting realism second.`,
-      `PRESERVE THE REST OF THE SCENE — every other person, pet, and background element in the main photo stays exactly as in the first image.`,
+
+      `FREE (MAY CHANGE to integrate into the scene):`,
+      `- Lighting on ${subjectDescription}: relight the face and body to match the scene's light — adjust exposure, color temperature, and directional shading. Warm scene → warm cast. Light direction from scene → matching shadow direction on them. You are repainting illumination, NOT redrawing the LOCKED features above.`,
+      `- Shadow: if the main scene shows the other people casting shadows on the ground, add a matching shadow from ${subjectDescription} in the same direction and softness.`,
+      `- Body extension: if the portrait shows ${subjectDescription} from the waist up or shoulders up, and the main scene shows the other people full-body (head to feet), extend ${subjectDescription}'s body downward naturally. Continue the portrait's clothing style into the extended body — same colors, same pattern, same cut. If the scene shows neighbors waist-up, keep ${subjectDescription} waist-up; match the neighbors' body crop.`,
+      `- Pose of any unseen body parts: natural at-their-sides arms/hands if the portrait didn't show them.`,
+      `- Hand and skin color: any hands, wrists, or exposed skin on ${subjectDescription}'s extended body must be rendered in ${subjectDescription}'s natural skin tone (sampled from the face in the portrait). Do NOT let color from the clothing wash onto the skin — a brightly-colored blouse must not cast a red/pink/orange tint onto the hand or wrist. Skin stays skin-colored; only illumination (brightness, warmth) may shift to match the scene light.`,
+
+      `PLACEMENT AND ALIGNMENT:`,
+      `- ${subjectDescription} stands next to the existing group at the chosen side, with natural spacing — close enough to feel part of the group, with a small gap so neither figure occludes the other, at the same depth from the camera (unless placement is 'front' or 'behind').`,
+      `- HEAD ALIGNMENT (critical): ${subjectDescription}'s head and face must sit at the SAME vertical level in the frame as the neighboring adults' heads. If the portrait was tightly framed around the head with the face near the top, do NOT preserve that framing — lower ${subjectDescription} in the frame so the TOP OF THEIR HEAD is at roughly the same y-coordinate as the nearest adult neighbor's head. The scene's framing is authoritative, not the portrait's.`,
+      `- GROUND / WAIST ALIGNMENT: If the neighbors are visible head-to-feet, ${subjectDescription}'s feet land on the same ground line. If the neighbors are cropped at waist or shoulders, ${subjectDescription} is cropped at the SAME line — not higher, not lower. Match the neighbors' vertical cutoff exactly.`,
+      `- Arms and hands stay within their own lateral column — do not reach across or overlap the group.`,
+      `- ${subjectDescription}'s body must read as standing with the group, not floating at a different depth or height.`,
+
+      buildSizeHint(sizeAdjustment, subjectDescription),
+
+      `PRESERVE THE REST OF THE SCENE — every other person, pet, and background element in the main photo stays EXACTLY as in the first image. Do NOT modify the faces, clothes, hair, or bodies of the existing people.`,
+
       `NO DUPLICATION — exactly one instance of ${subjectDescription} in the output.`,
+
+      `Output: a single natural photograph where ${subjectDescription} stands next to the group at the chosen side, integrated with the scene's lighting and shadows and (if needed) extended in body, but with the EXACT face, expression, eyes, hair, and clothes from the second image.`,
     ];
 
-    promptParts.push(getScaleInstruction(sizeAdjustment, subjectDescription));
-    promptParts.push(
-      `Output: a single natural photograph where ${subjectDescription} stands next to the neighboring person with natural spacing — close enough to feel part of the group, with a small gap so neither figure occludes the other — same body crop as the neighbor, same depth, no reaching across — with the exact face, expression, gaze direction, hair, and visible clothing from the second image, lit to match the scene.`,
-    );
-
     const prompt = promptParts.join('\n\n');
+
+    // Start main-photo segmentation in parallel with NB2 so non-target
+    // preservation has the masks ready when the merge finishes.
+    const mainSegmentationPromise = measureSubjects(mainPhotoUrl);
 
     const nb2Start = Date.now();
     const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
@@ -886,23 +878,114 @@ spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => 
     const mergedUrl = extractFirstImageUrl(result.data);
     if (!mergedUrl) throw errors.fal('Nano Banana 2 returned no merge image');
 
-    // Face-swap post-pass: NB2 produces a well-integrated body/pose/scene
-    // but re-renders the face from its own priors — identity always drifts
-    // slightly regardless of prompt pressure. Face-swap copies the actual
-    // face pixels from the original portrait onto the merged scene,
-    // preserving lighting adaptation from NB2 while restoring true
-    // identity. Graceful fallback to the raw merge if face-swap fails
-    // (e.g., no face detected in a heavy silhouette scene).
+    // Non-target preservation: NB2 reliably alters faces of people it was
+    // told to leave alone (missing eyebrows, changed beards). Composite
+    // main-photo pixels back through each main subject's mask, IoU-gated
+    // so we only touch subjects still at roughly the same bbox in the
+    // output (if NB2 shifted someone dramatically, we skip to avoid
+    // double-exposure).
+    const preserveStart = Date.now();
+    let preservedUrl = mergedUrl;
+    let preservedCount = 0;
+    const [mainSegmentation, outputSegmentation] = await Promise.all([
+      mainSegmentationPromise,
+      measureSubjects(mergedUrl),
+    ]);
+    // Hoisted so face-swap can use it for bbox-scoped targeting below.
+    let addedSubject: ReturnType<typeof findAddedSubject> = null;
+    if (
+      mainSegmentation &&
+      outputSegmentation &&
+      mainSegmentation.subjects.length > 0 &&
+      outputSegmentation.subjects.length > 0
+    ) {
+      addedSubject = findAddedSubject(
+        outputSegmentation.subjects,
+        placement,
+        {
+          subjects: mainSegmentation.subjects,
+          width: mainSegmentation.width,
+          height: mainSegmentation.height,
+          outputWidth: outputSegmentation.width,
+          outputHeight: outputSegmentation.height,
+        },
+      );
+      if (addedSubject) {
+        const preservable = selectPreservableMainSubjects({
+          mainSegmentation,
+          outputSegmentation,
+          addedSubject,
+        });
+        if (preservable.length > 0) {
+          const preserved = await preservePeopleFromMain({
+            mainPhotoUrl,
+            editedImageUrl: mergedUrl,
+            maskUrls: preservable.map((s) => s.maskUrl),
+            addedSubjectMaskUrl: addedSubject.maskUrl,
+            addedBbox: addedSubject.bbox,
+          });
+          if (preserved) {
+            preservedUrl = preserved;
+            preservedCount = preservable.length;
+          }
+        }
+      }
+    }
+    const preserveMs = Date.now() - preserveStart;
+
+    // Face-swap: NB2 always re-renders the subject's face from its own
+    // priors. Transplant the real portrait pixels back on top — BUT scope
+    // the swap to the loved one's bbox. The default global face-swap picks
+    // the most prominent face in the base image, which in a group photo
+    // is typically a main-photo person, not the smaller newly-added loved
+    // one — the "same bearded guy gets her face every time" bug. Skip
+    // swapping entirely if we couldn't locate the loved one (better to
+    // show NB2's drifted face than swap the wrong person).
     const swapStart = Date.now();
-    const finalUrl = await applyFaceSwap(lovedOnePhotoUrl, mergedUrl);
+    let finalUrl = preservedUrl;
+    let swapMode: string = 'skipped-no-added-subject';
+    if (addedSubject && outputSegmentation) {
+      finalUrl = await applyTargetedFaceSwap({
+        sourcePortraitUrl: lovedOnePhotoUrl,
+        targetUrl: preservedUrl,
+        addedBbox: addedSubject.bbox,
+        targetWidth: outputSegmentation.width,
+        targetHeight: outputSegmentation.height,
+      });
+      swapMode = 'targeted';
+    }
     const swapMs = Date.now() - swapStart;
 
     logger.info(
-      { nb2Ms, swapMs, totalMs: nb2Ms + swapMs, placement },
+      {
+        nb2Ms,
+        preserveMs,
+        swapMs,
+        totalMs: nb2Ms + preserveMs + swapMs,
+        placement,
+        sizeAdjustment,
+        preservedCount,
+        swapMode,
+      },
       'merge timing',
     );
 
-    ok(res, { imageUrl: finalUrl, prompt, placement });
+    ok(res, {
+      imageUrl: finalUrl,
+      prompt,
+      placement,
+      // Stage URLs for debugging transparency / artifact regressions —
+      // safe to expose: they're already public fal.media URLs.
+      debug: {
+        nb2RawUrl: mergedUrl,
+        preservedUrl,
+        finalUrl,
+        addedBbox: addedSubject?.bbox ?? null,
+        outputDims: outputSegmentation
+          ? { width: outputSegmentation.width, height: outputSegmentation.height }
+          : null,
+      },
+    });
   } catch (err) {
     logger.error({ err }, 'spike merge failed');
     next(err);
@@ -941,6 +1024,156 @@ async function applyFaceSwap(
   } catch (err) {
     logger.warn({ err }, 'face-swap failed; returning raw merge');
     return targetMergedUrl;
+  }
+}
+
+/**
+ * Bbox-scoped face-swap. fal-ai/face-swap always targets the most prominent
+ * face in `base_image_url` — in a group photo, that's typically a clearer
+ * main-photo person, NOT the smaller newly-added loved one. Symptoms of the
+ * misfire: the same main-photo person gets her face painted over every run
+ * (missing eyebrows, changed eyes, beard stripped out if she has none).
+ *
+ * Fix: crop `targetUrl` to the loved one's bbox, run face-swap on that crop
+ * (she's the only face in it — physics), paste the swapped crop back onto
+ * the full target. Face-swap can no longer pick the wrong face because the
+ * wrong faces aren't in the cropped image.
+ */
+async function applyTargetedFaceSwap(args: {
+  sourcePortraitUrl: string;
+  targetUrl: string;
+  addedBbox: [number, number, number, number];
+  targetWidth: number;
+  targetHeight: number;
+}): Promise<string> {
+  const { sourcePortraitUrl, targetUrl, addedBbox, targetWidth, targetHeight } =
+    args;
+  try {
+    const targetResp = await fetch(targetUrl);
+    if (!targetResp.ok) throw new Error(`target fetch failed ${targetResp.status}`);
+    const targetBuf = Buffer.from(await targetResp.arrayBuffer());
+
+    // Pad the bbox so face-swap has skin/hair context around the face —
+    // it needs neck/ears/forehead to produce a clean blend. 10% of the
+    // bbox's larger dimension is a balance between enough context and
+    // not expanding the crop into neighbors.
+    const [x1, y1, x2, y2] = addedBbox;
+    const bw = x2 - x1;
+    const bh = y2 - y1;
+    const pad = Math.round(Math.max(bw, bh) * 0.1);
+
+    const cropLeft = Math.max(0, x1 - pad);
+    const cropTop = Math.max(0, y1 - pad);
+    const cropRight = Math.min(targetWidth, x2 + pad);
+    const cropBottom = Math.min(targetHeight, y2 + pad);
+    const cropWidth = Math.max(1, cropRight - cropLeft);
+    const cropHeight = Math.max(1, cropBottom - cropTop);
+
+    const croppedBuf = await sharp(targetBuf)
+      .extract({ left: cropLeft, top: cropTop, width: cropWidth, height: cropHeight })
+      .png()
+      .toBuffer();
+
+    const croppedFile = new File(
+      [new Uint8Array(croppedBuf)],
+      'loved-one-crop.png',
+      { type: 'image/png' },
+    );
+    const croppedUrl = await fal.storage.upload(croppedFile);
+
+    const swapResult = await fal.subscribe('fal-ai/face-swap', {
+      input: {
+        base_image_url: croppedUrl,
+        swap_image_url: sourcePortraitUrl,
+      },
+      logs: false,
+    });
+    const swappedUrl = extractFirstImageUrl(swapResult.data);
+    if (!swappedUrl) {
+      logger.warn('targeted face-swap returned no image; returning raw target');
+      return targetUrl;
+    }
+
+    // Download swapped crop and paste it back onto the full target.
+    const swappedResp = await fetch(swappedUrl);
+    if (!swappedResp.ok) throw new Error(`swapped fetch failed ${swappedResp.status}`);
+    const swappedBuf = Buffer.from(await swappedResp.arrayBuffer());
+
+    // Feather the paste boundary instead of hard-pasting. Face-swap output
+    // is portrait-grade (sharp, contrasty); the surrounding NB2 pixels are
+    // softer generative-grade. A hard `blend: 'over'` at the crop edge made
+    // the loved one's face read "real" while her body read "off" — the
+    // discontinuity was at the crop rectangle, not at her silhouette. The
+    // feather tonally eases the swap into the surrounding render so the
+    // transition is invisible.
+    const featherMargin = Math.max(
+      8,
+      Math.round(Math.min(cropWidth, cropHeight) * 0.12),
+    );
+    const innerLeft = featherMargin;
+    const innerTop = featherMargin;
+    const innerRight = cropWidth - featherMargin;
+    const innerBottom = cropHeight - featherMargin;
+
+    const alphaRaw = Buffer.alloc(cropWidth * cropHeight, 0);
+    if (innerRight > innerLeft && innerBottom > innerTop) {
+      for (let y = innerTop; y < innerBottom; y++) {
+        const rowStart = y * cropWidth;
+        for (let x = innerLeft; x < innerRight; x++) {
+          alphaRaw[rowStart + x] = 255;
+        }
+      }
+    }
+
+    // Sharp's `.blur()` on a 1-channel input returns a 3-channel buffer —
+    // same pitfall as in `mergeNonTargetPreserver.ts`. Force back to
+    // 1-channel with `.toColourspace('b-w')` before raw-reading so the
+    // subsequent joinChannel gets genuine single-channel alpha bytes.
+    const featheredAlpha = await sharp(alphaRaw, {
+      raw: { width: cropWidth, height: cropHeight, channels: 1 },
+    })
+      .blur(Math.max(featherMargin / 2, 4))
+      .toColourspace('b-w')
+      .raw()
+      .toBuffer();
+
+    const swappedRgb = await sharp(swappedBuf)
+      .resize(cropWidth, cropHeight, { fit: 'fill' })
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+
+    const swappedWithFeather = await sharp(swappedRgb, {
+      raw: { width: cropWidth, height: cropHeight, channels: 3 },
+    })
+      .joinChannel(featheredAlpha, {
+        raw: { width: cropWidth, height: cropHeight, channels: 1 },
+      })
+      .png()
+      .toBuffer();
+
+    const finalBuf = await sharp(targetBuf)
+      .composite([
+        { input: swappedWithFeather, left: cropLeft, top: cropTop, blend: 'over' },
+      ])
+      .png()
+      .toBuffer();
+
+    const file = new File([new Uint8Array(finalBuf)], 'merge-targeted-swap.png', {
+      type: 'image/png',
+    });
+    const url = await fal.storage.upload(file);
+    logger.info(
+      { cropLeft, cropTop, cropWidth, cropHeight },
+      'targeted face-swap succeeded',
+    );
+    return url;
+  } catch (err) {
+    logger.warn(
+      { err },
+      'targeted face-swap failed; returning unswapped target',
+    );
+    return targetUrl;
   }
 }
 
