@@ -81,6 +81,157 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, SubscriptionTierConfig
 };
 
 // -----------------------------------------------------------------------------
+// Credit-based plan model (2026-04-18, approved pricing strategy)
+//
+// The server still runs the older 5-tier SUBSCRIPTION_TIERS above for
+// entitlement enforcement. SUBSCRIPTION_PLANS_UI below is the NEW canonical
+// pricing — paywall UI consumes this directly, and the backend will be
+// refactored to match in its own session (see
+// memory/project_pricing_strategy.md "Deferred work"). Keeping both as
+// additive data avoids breaking the live webhook / quota wiring during
+// this canonicalization pass.
+// -----------------------------------------------------------------------------
+
+export type SubscriptionPlanId =
+  | 'free'
+  | 'keepsake_monthly'
+  | 'heritage_monthly'
+  | 'heritage_annual'
+  | 'topup_4pack'
+  | 'topup_single';
+
+export interface SubscriptionPlanUI {
+  id: SubscriptionPlanId;
+  /** Short display name, e.g. "Keepsake" */
+  name: string;
+  /** How credits are delivered */
+  cadence: 'lifetime' | 'monthly' | 'annual' | 'one-time';
+  priceCents: number;
+  /** Pre-formatted display price, e.g. "$9.99" or "$0" */
+  displayPrice: string;
+  /** Suffix shown under the price, e.g. "/month". Empty for lifetime/one-time. */
+  period: string;
+  /** Credits granted per cycle (lifetime total for free; one grant for top-ups). */
+  credits: number;
+  /** Months of rollover allowed on unused credits (0 = no rollover). */
+  rolloverMonths: number;
+  /** Marketing tag, e.g. "Best Value". null when no tag. */
+  tag: string | null;
+  /** RevenueCat product identifier. null for the free signup grant. */
+  revenueCatProductId: string | null;
+  /** Secondary price line, e.g. "$199/year" shown under an annual plan card. */
+  subtitle: string | null;
+}
+
+export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
+  {
+    id: 'free',
+    name: 'Free',
+    cadence: 'lifetime',
+    priceCents: 0,
+    displayPrice: '$0',
+    period: '',
+    credits: 2,
+    rolloverMonths: 0,
+    tag: null,
+    revenueCatProductId: null,
+    subtitle: 'Your first tributes, on us',
+  },
+  {
+    id: 'keepsake_monthly',
+    name: 'Keepsake',
+    cadence: 'monthly',
+    priceCents: 999,
+    displayPrice: '$9.99',
+    period: '/month',
+    credits: 5,
+    rolloverMonths: 0,
+    tag: null,
+    revenueCatProductId: 'eternalframe_keepsake_monthly',
+    subtitle: 'For remembering one loved one',
+  },
+  {
+    id: 'heritage_monthly',
+    name: 'Heritage',
+    cadence: 'monthly',
+    priceCents: 2499,
+    displayPrice: '$24.99',
+    period: '/month',
+    credits: 20,
+    rolloverMonths: 2,
+    tag: null,
+    revenueCatProductId: 'eternalframe_heritage_monthly',
+    subtitle: 'For families and genealogy',
+  },
+  {
+    id: 'heritage_annual',
+    name: 'Heritage',
+    cadence: 'annual',
+    priceCents: 19900,
+    displayPrice: '$16.58',
+    period: '/month',
+    // 20 credits × 12 months = 240 credits delivered over the year.
+    // Same 20/mo cadence as the monthly plan; cheaper per month.
+    credits: 20,
+    rolloverMonths: 2,
+    tag: 'Best Value',
+    revenueCatProductId: 'eternalframe_heritage_annual',
+    subtitle: '$199 billed yearly · save $100',
+  },
+  {
+    id: 'topup_4pack',
+    name: 'Tribute 4-pack',
+    cadence: 'one-time',
+    priceCents: 1499,
+    displayPrice: '$14.99',
+    period: '',
+    credits: 4,
+    rolloverMonths: 0,
+    tag: null,
+    revenueCatProductId: 'eternalframe_topup_4pack',
+    subtitle: 'Expires after 90 days',
+  },
+  {
+    id: 'topup_single',
+    name: 'Single tribute',
+    cadence: 'one-time',
+    priceCents: 499,
+    displayPrice: '$4.99',
+    period: '',
+    credits: 1,
+    rolloverMonths: 0,
+    tag: null,
+    revenueCatProductId: 'eternalframe_topup_single',
+    subtitle: null,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Credit cost per user action.
+// Option C (commitment-based): exploration is free, commits cost credits.
+// Server enforces; client displays for transparency.
+// -----------------------------------------------------------------------------
+export const ACTION_CREDIT_COSTS = {
+  /** Upload a photo to storage — no AI cost to us */
+  upload: 0,
+  /** Detect subjects / generate cutout — low AI cost, treated as free */
+  segment: 0,
+  /** Render a 1K preview for a template — included with selection */
+  preview: 0,
+  /** Save an Enhance tribute at full 2K resolution */
+  enhance_save: 1,
+  /** Merge two people and save the combined tribute at 2K */
+  reunite_save: 2,
+} as const;
+
+/**
+ * Max 1K previews per uploaded photo per session. Prevents abuse of the
+ * "free exploration" model — a pathological user can't preview hundreds of
+ * templates without committing to a save.
+ */
+export const MAX_PREVIEWS_PER_UPLOAD = 15;
+
+// -----------------------------------------------------------------------------
 // Default initial state for a new tribute
 // -----------------------------------------------------------------------------
 export const INITIAL_TRIBUTE_STATE: TributeState = {

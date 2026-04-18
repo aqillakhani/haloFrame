@@ -141,6 +141,55 @@ export const COPY = {
     startAnother: 'Start Another Photo',
   },
 
+  subscription: {
+    // Plan-picker header
+    heading: 'A quiet place to honor them',
+    subheading: 'Every tribute you save uses one credit. Pick the plan that fits.',
+
+    // Tier labels (match SUBSCRIPTION_PLANS_UI names in shared constants)
+    planFree: 'Free',
+    planKeepsake: 'Keepsake',
+    planHeritage: 'Heritage',
+
+    // Taglines under each plan card
+    freeTagline: 'Your first tributes, on us',
+    keepsakeTagline: 'For remembering one loved one',
+    heritageTagline: 'For families and genealogy',
+
+    // Marketing tag
+    bestValueTag: 'Best Value',
+
+    // Rollover policy copy
+    rolloverNone: 'Refreshes monthly \u2014 unused tributes don\u2019t carry over',
+    rollover2Months: 'Refreshes monthly \u2014 up to two months roll over',
+
+    // Credits remaining — tone-matched for a memorial audience
+    creditsRemaining: (n: number) =>
+      n === 1
+        ? '1 tribute remaining this month'
+        : `${n} tributes remaining this month`,
+    creditsLifetime: (n: number) =>
+      n === 1 ? '1 tribute to get started' : `${n} tributes to get started`,
+
+    // Empty-balance banner
+    emptyBalance: 'You\u2019ve used your tributes for this month.',
+    emptyBalanceSub: 'Add more below, or extend your Heritage membership.',
+
+    // CTAs
+    continueCta: 'Continue',
+    extendCta: 'Extend your Heritage membership',
+    addMoreCta: 'Add more tributes',
+    manageCta: 'Manage membership',
+    restoreCta: 'Restore purchase',
+
+    // Top-up section
+    topupHeading: 'Add more tributes',
+    topupSubtitle: 'One-time purchase. Credits expire after 90 days.',
+
+    // Fine print
+    fineprint: 'Cancel anytime \u00b7 No commitment',
+  },
+
   printShop: {
     heading: 'Order a Canvas',
     subheading: 'Gallery-wrapped, ready to hang. Ships in 5\u20137 days.',

@@ -8,14 +8,14 @@ interface CanvasOption {
   priceCents: number;
 }
 
-// Mock pricing per user request — real pricing wires in once the print
-// provider integration lands. Keeping the data inline (not in shared
-// constants) makes that swap easy later.
+// Canvas pricing — shared with the companion golfmaps app (2026-04-18).
+// Real pricing wires in once the print provider integration lands. Kept inline
+// (not in shared constants) so the swap stays a single-file change.
 const CANVAS_OPTIONS: CanvasOption[] = [
-  { id: 'canvas_8x10',  name: 'Canvas 8\u201D \u00D7 10\u201D',  description: 'Compact gallery-wrapped canvas',   priceCents: 4999 },
-  { id: 'canvas_12x16', name: 'Canvas 12\u201D \u00D7 16\u201D', description: 'Medium gallery-wrapped canvas',    priceCents: 6999 },
-  { id: 'canvas_16x20', name: 'Canvas 16\u201D \u00D7 20\u201D', description: 'Large gallery-wrapped canvas',     priceCents: 8999 },
-  { id: 'canvas_20x30', name: 'Canvas 20\u201D \u00D7 30\u201D', description: 'Statement gallery-wrapped canvas', priceCents: 11999 },
+  { id: 'canvas_12x16', name: 'Canvas 12\u201D \u00D7 16\u201D', description: 'Compact gallery-wrapped canvas',    priceCents: 4900 },
+  { id: 'canvas_18x24', name: 'Canvas 18\u201D \u00D7 24\u201D', description: 'Medium gallery-wrapped canvas',     priceCents: 7900 },
+  { id: 'canvas_24x36', name: 'Canvas 24\u201D \u00D7 36\u201D', description: 'Large gallery-wrapped canvas',      priceCents: 11900 },
+  { id: 'canvas_36x48', name: 'Canvas 36\u201D \u00D7 48\u201D', description: 'Statement gallery-wrapped canvas',  priceCents: 17900 },
 ];
 
 function formatPrice(cents: number): string {
