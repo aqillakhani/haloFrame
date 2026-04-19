@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import type { TributeTemplate } from '@eternalframe/shared';
+import type { TributeTemplate } from '@haloframe/shared';
 import { COPY } from '../lib/copy';
 import { Icon } from './icons/Icon';
 

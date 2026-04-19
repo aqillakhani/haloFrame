@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — merge size enforcer
+// HaloFrame API — merge size enforcer
 //
 // Post-process step for the Reunite flow. Nano Banana 2 ignores size prompts
 // (the scale % directive does not measurably change output size — verified in
@@ -22,7 +22,7 @@
 // =============================================================================
 import sharp from 'sharp';
 import { fal } from '@fal-ai/client';
-import type { Placement } from '@eternalframe/shared';
+import type { Placement } from '@haloframe/shared';
 import { logger } from '../config/logger.js';
 
 // -----------------------------------------------------------------------------

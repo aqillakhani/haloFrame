@@ -1,4 +1,4 @@
-# EternalFrame
+# HaloFrame
 
 AI memorial photo & tribute app for iOS and Android. Built with Expo, Express, Supabase, RevenueCat, and fal.ai.
 

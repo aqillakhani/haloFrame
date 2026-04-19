@@ -1,5 +1,5 @@
 -- =============================================================================
--- EternalFrame — row level security policies
+-- HaloFrame — row level security policies
 -- =============================================================================
 
 -- Enable RLS on all user-owned tables

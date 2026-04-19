@@ -1,4 +1,4 @@
-# EternalFrame — Impeccable Polish Layer Design
+# HaloFrame — Impeccable Polish Layer Design
 
 **Date:** 2026-04-15
 **Status:** Approved
@@ -71,7 +71,7 @@ Verify: `npx impeccable detect --help` outputs usage info.
 Feed `/teach` the Golden Hour Gallery context — the *specific* approved tokens from the design doc, not a generic memorial app description:
 
 ```
-Project: EternalFrame — AI memorial photo tribute app
+Project: HaloFrame — AI memorial photo tribute app
 Platform: React (Vite) web, future React Native (Expo)
 Design system: Golden Hour Gallery + Editorial Restraint
   (see docs/plans/2026-04-15-visual-redesign-design.md)

@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame — shared TypeScript types
+// HaloFrame — shared TypeScript types
 // =============================================================================
 
 // -----------------------------------------------------------------------------
@@ -161,6 +161,31 @@ export interface Profile {
   revenuecatId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// -----------------------------------------------------------------------------
+// Subscription snapshot — the credit-ledger shape returned by
+// GET /api/subscription/status. Canonical source of truth for the web
+// `useSubscription()` hook and its consumers (Paywall, Settings, Editor).
+// -----------------------------------------------------------------------------
+export interface SubscriptionSnapshot {
+  /** Credit plan the user is currently on. */
+  planId:
+    | 'free'
+    | 'keepsake_monthly'
+    | 'heritage_monthly'
+    | 'heritage_annual';
+  /**
+   * Total credits available to spend right now — already includes monthly,
+   * rollover, and any active top-up balances. Client does not break this
+   * down; server is the source of truth.
+   */
+  creditsRemaining: number;
+  /**
+   * ISO date of the next credit refresh for paid tiers. `null` on Free
+   * because its 2 credits are a lifetime grant, not a renewable cycle.
+   */
+  renewsOn: string | null;
 }
 
 // -----------------------------------------------------------------------------

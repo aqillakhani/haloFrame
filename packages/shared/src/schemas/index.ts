@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame — zod schemas for runtime validation at API boundaries
+// HaloFrame — zod schemas for runtime validation at API boundaries
 // =============================================================================
 import { z } from 'zod';
 
@@ -10,6 +10,24 @@ export const subscriptionTierSchema = z.enum([
   'premium_monthly',
   'premium_annual',
 ]);
+
+// Credit-model plan IDs. Distinct from the legacy 5-tier enum above; once
+// the backend is fully cut over to credits, subscriptionTierSchema will be
+// removed in the Phase 4 cleanup.
+export const subscriptionPlanIdSchema = z.enum([
+  'free',
+  'keepsake_monthly',
+  'heritage_monthly',
+  'heritage_annual',
+]);
+
+// Runtime-validated shape of the new GET /api/subscription/status response
+// body. Mirrors the SubscriptionSnapshot interface in ../types.
+export const entitlementSnapshotSchema = z.object({
+  planId: subscriptionPlanIdSchema,
+  creditsRemaining: z.number().int().min(0),
+  renewsOn: z.string().datetime().nullable(),
+});
 
 export const flowTypeSchema = z.enum([
   'enhance',

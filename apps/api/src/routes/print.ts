@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — /api/print
+// HaloFrame API — /api/print
 //
 // Phase 4 — fulfillment is currently stubbed via StubPrintProvider. The route
 // records a paid order, alerts the operator, and returns a confirmation. When
@@ -11,7 +11,7 @@ import {
   createPrintOrderRequestSchema,
   type PrintOrder,
   type PrintProductType,
-} from '@eternalframe/shared';
+} from '@haloframe/shared';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { ok } from '../lib/response.js';

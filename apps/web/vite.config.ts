@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@eternalframe/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@haloframe/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
     },
   },
   server: {

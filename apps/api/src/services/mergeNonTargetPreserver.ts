@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — non-target preservation for the Reunite merge
+// HaloFrame API — non-target preservation for the Reunite merge
 //
 // Nano Banana 2 modifies non-target faces (user reports missing eyebrows,
 // altered beards) despite prompt-level instructions to preserve the scene.

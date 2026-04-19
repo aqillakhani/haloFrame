@@ -1,5 +1,5 @@
 -- =============================================================================
--- EternalFrame — atomic increment helper for usage counting
+-- HaloFrame — atomic increment helper for usage counting
 -- Used by services/entitlements.ts recordUsage()
 -- =============================================================================
 create or replace function public.increment_creations(p_user_id uuid)

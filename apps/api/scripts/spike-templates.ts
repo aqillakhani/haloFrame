@@ -13,7 +13,7 @@
 import 'dotenv/config';
 import { basename } from 'node:path';
 import { fal } from '@fal-ai/client';
-import { LAUNCH_TEMPLATES } from '@eternalframe/shared';
+import { LAUNCH_TEMPLATES } from '@haloframe/shared';
 import { downloadImage, ensureDir, loadTestPhotos, SPIKE_DIR, uploadToFal, writeReport } from './_spike-helpers.js';
 
 fal.config({ credentials: process.env.FAL_KEY ?? '' });

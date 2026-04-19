@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — fal.ai integration
+// HaloFrame API — fal.ai integration
 //
 // Wraps the three model calls used by the app:
 //   1. SAM 3 (segmentation) — fal-ai/sam-3/image
@@ -14,7 +14,7 @@ import type {
   EffectIntensity,
   Placement,
   TributeTemplate,
-} from '@eternalframe/shared';
+} from '@haloframe/shared';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { errors } from '../lib/errors.js';

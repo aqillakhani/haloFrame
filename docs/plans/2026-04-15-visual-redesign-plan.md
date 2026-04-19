@@ -1,4 +1,4 @@
-# EternalFrame Visual Redesign Implementation Plan
+# HaloFrame Visual Redesign Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -263,7 +263,7 @@ export function buildRootCss(): string {
 }
 
 export function injectRootVars(): void {
-  const id = 'eternalframe-tokens';
+  const id = 'haloframe-tokens';
   if (document.getElementById(id)) return;
   const style = document.createElement('style');
   style.id = id;
@@ -283,7 +283,7 @@ injectRootVars();
 
 **Step 3: Verify in browser.**
 
-Open DevTools → Elements → `<head>` → confirm a `<style id="eternalframe-tokens">` element exists with `--c-bg-canvas: #FAF4EC;` etc.
+Open DevTools → Elements → `<head>` → confirm a `<style id="haloframe-tokens">` element exists with `--c-bg-canvas: #FAF4EC;` etc.
 
 ---
 
@@ -443,7 +443,7 @@ This step replaces the entire `styles.css` with the *foundation* layer only — 
 
 ```css
 /* apps/web/src/styles.css
-   EternalFrame visual layer — Golden Hour Gallery direction.
+   HaloFrame visual layer — Golden Hour Gallery direction.
    Tokens come from :root vars injected by lib/cssVars.ts. */
 
 *,
@@ -1578,7 +1578,7 @@ export function HomeScreen() {
   const nav = useNavigation();
   return (
     <div className="home">
-      <header className="home-mark" aria-label="EternalFrame">
+      <header className="home-mark" aria-label="HaloFrame">
         <HaloGlyph size={28} />
       </header>
 

@@ -10,7 +10,7 @@
 1. **`MOCK_SUBSCRIPTION` is gone.** `apps/web/src/lib/mockSubscription.ts` is replaced by a `useSubscription()` hook that fetches `/api/subscription/status` and returns the same `SubscriptionSnapshot` shape the UI already consumes.
 2. **Server enforces credits, not the old quota.** `/api/spike/enhance` and `/api/spike/reunite` reject with a structured 402-style error when the caller has insufficient credits. UI catches that and surfaces the paywall — same entry point it already hits locally.
 3. **Credits decrement on successful save, not start.** Same discipline as today's `recordUsage({ countTowardQuota: true })` — charge after the fal call succeeds so a 500 doesn't burn the user's tribute.
-4. **RevenueCat webhook maps to the new tier set.** Entitlement IDs from `memory/project_pricing_strategy.md` (`eternalframe_keepsake_monthly`, etc.) resolve to correct credit grants.
+4. **RevenueCat webhook maps to the new tier set.** Entitlement IDs from `memory/project_pricing_strategy.md` (`haloframe_keepsake_monthly`, etc.) resolve to correct credit grants.
 5. **Free signup grants 2 lifetime credits**, not a rolling monthly quota.
 
 ---
@@ -119,7 +119,7 @@ END; $$;
 - [ ] `apps/api/src/services/entitlements.ts`: add `checkCredits(userId, action)` + `spendCredits(userId, action, tributeId)`. Keep `loadProfile`, retire `checkPhotoEntitlement` and `recordUsage`.
 - [ ] `apps/api/src/routes/subscription.ts`:
   - GET `/status` → return `{ planId, creditsRemaining, renewsOn }` (shape = `SubscriptionSnapshot`)
-  - POST `/webhook` → map new entitlement IDs (`eternalframe_keepsake_monthly` → plan_id `keepsake_monthly`, grant 5 credits, set `renews_on`)
+  - POST `/webhook` → map new entitlement IDs (`haloframe_keepsake_monthly` → plan_id `keepsake_monthly`, grant 5 credits, set `renews_on`)
   - Top-up purchases: add to `topup_credits_remaining`, set `topup_expires_at = now + 90d`
 - [ ] `apps/api/src/routes/spike.ts` enhance + reunite handlers: wrap in `requireAuth`, call `checkCredits` before fal invocation, call `spendCredits` after successful save. On insufficient credits, throw `errors.paymentRequired('insufficient_credits')` (new error code).
 - [ ] `apps/api/src/lib/errors.ts`: add `paymentRequired` helper that returns HTTP 402 with `{ code: 'insufficient_credits' }`.

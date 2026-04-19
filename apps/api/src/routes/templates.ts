@@ -1,8 +1,8 @@
 // =============================================================================
-// EternalFrame API — /api/templates
+// HaloFrame API — /api/templates
 // =============================================================================
 import { Router } from 'express';
-import type { TributeTemplate } from '@eternalframe/shared';
+import type { TributeTemplate } from '@haloframe/shared';
 import { supabaseAdmin } from '../config/supabase.js';
 import { ok } from '../lib/response.js';
 import { errors } from '../lib/errors.js';

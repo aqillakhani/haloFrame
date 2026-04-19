@@ -49,7 +49,7 @@ export function buildRootCss(): string {
 }
 
 export function injectRootVars(): void {
-  const id = 'eternalframe-tokens';
+  const id = 'haloframe-tokens';
   if (document.getElementById(id)) return;
   const style = document.createElement('style');
   style.id = id;

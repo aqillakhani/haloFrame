@@ -1,9 +1,9 @@
 // =============================================================================
-// EternalFrame v1.3 — All user-facing copy, centralized
+// HaloFrame v1.3 — All user-facing copy, centralized
 // =============================================================================
 
 export const COPY = {
-  appName: 'EternalFrame',
+  appName: 'HaloFrame',
   tagline: 'A gentle place to honor those we love',
 
   home: {

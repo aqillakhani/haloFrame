@@ -7,8 +7,8 @@
     "moduleResolution": "Bundler",
     "types": ["node"],
     "paths": {
-      "@eternalframe/shared": ["../../packages/shared/dist/index.d.ts"],
-      "@eternalframe/shared/*": ["../../packages/shared/dist/*"]
+      "@haloframe/shared": ["../../packages/shared/dist/index.d.ts"],
+      "@haloframe/shared/*": ["../../packages/shared/dist/*"]
     }
   },
   "include": ["src/**/*"],

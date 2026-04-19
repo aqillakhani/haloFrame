@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { fal } from '@fal-ai/client';
 import sharp from 'sharp';
-import { LAUNCH_TEMPLATES } from '@eternalframe/shared';
+import { LAUNCH_TEMPLATES } from '@haloframe/shared';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

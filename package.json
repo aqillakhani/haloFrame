@@ -1,21 +1,21 @@
 {
-  "name": "eternalframe",
+  "name": "haloframe",
   "private": true,
   "version": "0.1.0",
-  "description": "EternalFrame — AI memorial photo & tribute app",
+  "description": "HaloFrame — AI memorial photo & tribute app",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "build:shared": "npm run build --workspace=@eternalframe/shared",
-    "dev:api": "npm run dev --workspace=@eternalframe/api",
-    "dev:web": "npm run dev --workspace=@eternalframe/web",
+    "build:shared": "npm run build --workspace=@haloframe/shared",
+    "dev:api": "npm run dev --workspace=@haloframe/api",
+    "dev:web": "npm run dev --workspace=@haloframe/web",
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "spike:sam3": "npm run spike:sam3 --workspace=@eternalframe/api",
-    "spike:templates": "npm run spike:templates --workspace=@eternalframe/api",
-    "spike:merge": "npm run spike:merge --workspace=@eternalframe/api"
+    "spike:sam3": "npm run spike:sam3 --workspace=@haloframe/api",
+    "spike:templates": "npm run spike:templates --workspace=@haloframe/api",
+    "spike:merge": "npm run spike:merge --workspace=@haloframe/api"
   },
   "devDependencies": {
     "concurrently": "^9.0.1"

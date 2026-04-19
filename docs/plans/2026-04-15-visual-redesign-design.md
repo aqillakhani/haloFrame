@@ -1,4 +1,4 @@
-# EternalFrame — Visual Redesign Design
+# HaloFrame — Visual Redesign Design
 
 **Date:** 2026-04-15
 **Status:** Approved
@@ -9,7 +9,7 @@
 
 ## 1. Background
 
-EternalFrame is an AI memorial photo & tribute app. Two flows ship today end-to-end on fal.ai (Enhance + Reunite). The functional surface is solid; the visual surface is a generic warm theme that doesn't yet feel like the premium, hopeful product the brief calls for.
+HaloFrame is an AI memorial photo & tribute app. Two flows ship today end-to-end on fal.ai (Enhance + Reunite). The functional surface is solid; the visual surface is a generic warm theme that doesn't yet feel like the premium, hopeful product the brief calls for.
 
 The product is currently web-only (React 18 + Vite + TypeScript, plain CSS). It is intended to ship as a mobile app (Expo) eventually — web is the test harness. The redesign must therefore produce a **token system that ports cleanly to React Native** (no `mix-blend-mode`, no `backdrop-filter`, generous tap targets, transforms-only animation).
 

@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame — shared constants
+// HaloFrame — shared constants
 // =============================================================================
 import type {
   SubscriptionTier,
@@ -147,7 +147,7 @@ export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
     credits: 5,
     rolloverMonths: 0,
     tag: null,
-    revenueCatProductId: 'eternalframe_keepsake_monthly',
+    revenueCatProductId: 'haloframe_keepsake_monthly',
     subtitle: 'For remembering one loved one',
   },
   {
@@ -160,7 +160,7 @@ export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
     credits: 20,
     rolloverMonths: 2,
     tag: null,
-    revenueCatProductId: 'eternalframe_heritage_monthly',
+    revenueCatProductId: 'haloframe_heritage_monthly',
     subtitle: 'For families and genealogy',
   },
   {
@@ -175,7 +175,7 @@ export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
     credits: 20,
     rolloverMonths: 2,
     tag: 'Best Value',
-    revenueCatProductId: 'eternalframe_heritage_annual',
+    revenueCatProductId: 'haloframe_heritage_annual',
     subtitle: '$199 billed yearly · save $100',
   },
   {
@@ -188,7 +188,7 @@ export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
     credits: 4,
     rolloverMonths: 0,
     tag: null,
-    revenueCatProductId: 'eternalframe_topup_4pack',
+    revenueCatProductId: 'haloframe_topup_4pack',
     subtitle: 'Expires after 90 days',
   },
   {
@@ -201,7 +201,7 @@ export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
     credits: 1,
     rolloverMonths: 0,
     tag: null,
-    revenueCatProductId: 'eternalframe_topup_single',
+    revenueCatProductId: 'haloframe_topup_single',
     subtitle: null,
   },
 ];
@@ -498,6 +498,13 @@ export const ERROR_CODES = {
   // Entitlements
   LIMIT_REACHED: 'limit_reached',
   UPGRADE_REQUIRED: 'upgrade_required',
+  // Credit model (replaces LIMIT_REACHED on the new entitlement flow —
+  // the web catches this and routes the user to the paywall)
+  INSUFFICIENT_CREDITS: 'insufficient_credits',
+  // Abuse guard for Option C "free exploration": previews are rate-limited
+  // per uploaded photo so a pathological user can't run hundreds of
+  // preview renders without ever committing to a save.
+  RATE_LIMITED: 'rate_limited',
   // Validation
   INVALID_REQUEST: 'invalid_request',
   // Resource

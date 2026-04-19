@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — Supabase Storage helpers
+// HaloFrame API — Supabase Storage helpers
 // =============================================================================
 import { supabaseAdmin } from '../config/supabase.js';
 import { errors } from '../lib/errors.js';

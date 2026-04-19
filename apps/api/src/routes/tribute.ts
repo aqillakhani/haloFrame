@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — /api/tribute/*
+// HaloFrame API — /api/tribute/*
 //
 // The state-machine routes for creating and progressing a tribute:
 //
@@ -27,7 +27,7 @@ import {
   type Tribute,
   type TributeState,
   type TributeStep,
-} from '@eternalframe/shared';
+} from '@haloframe/shared';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { ok } from '../lib/response.js';

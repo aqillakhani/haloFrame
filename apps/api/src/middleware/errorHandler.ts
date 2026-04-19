@@ -1,12 +1,12 @@
 // =============================================================================
-// EternalFrame API — error handling middleware
+// HaloFrame API — error handling middleware
 // =============================================================================
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { ApiError } from '../lib/errors.js';
 import { fail } from '../lib/response.js';
 import { logger } from '../config/logger.js';
-import { ERROR_CODES } from '@eternalframe/shared';
+import { ERROR_CODES } from '@haloframe/shared';
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof ApiError) {

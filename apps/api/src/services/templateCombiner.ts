@@ -5,7 +5,7 @@
 // instructs Nano Banana 2 to apply ALL selected effects in one rendered image.
 // This keeps cost constant regardless of how many styles a user stacks.
 // =============================================================================
-import type { EffectIntensity, TributeTemplate } from '@eternalframe/shared';
+import type { EffectIntensity, TributeTemplate } from '@haloframe/shared';
 
 export const NO_EFFECT_SENTINEL = 'NO_EFFECT';
 

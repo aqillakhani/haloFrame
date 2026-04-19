@@ -6,7 +6,7 @@
 // =============================================================================
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
-import { LAUNCH_TEMPLATES } from '@eternalframe/shared';
+import { LAUNCH_TEMPLATES } from '@haloframe/shared';
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

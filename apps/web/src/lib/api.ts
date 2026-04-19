@@ -1,33 +1,87 @@
 // =============================================================================
-// EternalFrame web — thin client for the Express /api/spike/* routes
+// HaloFrame web — thin client for the Express /api routes
+//
+// Every request carries the current Supabase session's access_token as a
+// Bearer header (see getAuthHeader). Cost-bearing endpoints require auth;
+// the browseable `/api/spike/segment` and `/api/spike/apply` (preview
+// resolution) routes accept an absent header.
 // =============================================================================
-import type { ApiResponse, TributeTemplate } from '@eternalframe/shared';
+import type {
+  ApiResponse,
+  SubscriptionSnapshot,
+  TributeTemplate,
+} from '@haloframe/shared';
+import { supabase } from './supabase';
 
-const API_BASE = '/api/spike';
+// -----------------------------------------------------------------------------
+// Typed errors — consumers can branch on .code without string-matching
+// message copy.
+// -----------------------------------------------------------------------------
+export class ApiRequestError extends Error {
+  public readonly code: string;
+  public readonly statusCode: number;
+  public readonly details: unknown;
+  constructor(code: string, message: string, statusCode: number, details?: unknown) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
 
-async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  });
+export function isInsufficientCreditsError(err: unknown): err is ApiRequestError {
+  return err instanceof ApiRequestError && err.code === 'insufficient_credits';
+}
+
+export function isRateLimitedError(err: unknown): err is ApiRequestError {
+  return err instanceof ApiRequestError && err.code === 'rate_limited';
+}
+
+// -----------------------------------------------------------------------------
+// Low-level fetch wrappers
+// -----------------------------------------------------------------------------
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function readJson<T>(res: Response): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
   if (!res.ok || !json.ok) {
-    const errMsg = !json.ok ? json.error.message : `HTTP ${res.status}`;
-    throw new Error(errMsg);
+    if (!json.ok) {
+      throw new ApiRequestError(
+        json.error.code,
+        json.error.message,
+        res.status,
+        json.error.details,
+      );
+    }
+    throw new ApiRequestError('http_error', `HTTP ${res.status}`, res.status);
   }
   return json.data;
 }
 
+async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(await getAuthHeader()),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+  return readJson<T>(res);
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { signal });
-  const json = (await res.json()) as ApiResponse<T>;
-  if (!res.ok || !json.ok) {
-    const errMsg = !json.ok ? json.error.message : `HTTP ${res.status}`;
-    throw new Error(errMsg);
-  }
-  return json.data;
+  const res = await fetch(path, {
+    headers: await getAuthHeader(),
+    signal,
+  });
+  return readJson<T>(res);
 }
 
 // -----------------------------------------------------------------------------
@@ -37,7 +91,7 @@ export async function uploadFile(
   file: File,
 ): Promise<{ url: string; mime: string; sizeBytes: number }> {
   const dataUrl = await readFileAsDataUrl(file);
-  return postJson('/upload', { dataUrl, filename: file.name });
+  return postJson('/api/spike/upload', { dataUrl, filename: file.name });
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -81,7 +135,7 @@ export async function segmentImage(
   returnCutout = false,
   signal?: AbortSignal,
 ): Promise<SegmentResult> {
-  return postJson('/segment', { imageUrl, detectPets, returnCutout }, signal);
+  return postJson('/api/spike/segment', { imageUrl, detectPets, returnCutout }, signal);
 }
 
 // -----------------------------------------------------------------------------
@@ -96,6 +150,8 @@ export interface ApplyResult {
   intensity: 'low' | 'medium' | 'high';
   resolution: ApplyResolution;
   skipped?: boolean;
+  /** Present on final resolution — the balance the user has left after this save. */
+  creditsRemaining?: number;
 }
 
 export interface ApplySubjectContext {
@@ -131,10 +187,12 @@ export async function applyTemplate(
     resolution?: ApplyResolution;
     /** Reunite placement context — drives wings z-order. See spike.ts /apply. */
     placement?: 'left' | 'right' | 'behind' | 'front';
+    /** Stable save id — doubles as the ledger dedupe key on final renders. */
+    saveId?: string;
   },
   signal?: AbortSignal,
 ): Promise<ApplyResult> {
-  return postJson('/apply', args, signal);
+  return postJson('/api/spike/apply', args, signal);
 }
 
 // -----------------------------------------------------------------------------
@@ -144,6 +202,7 @@ export interface MergeResult {
   imageUrl: string;
   prompt: string;
   placement: 'left' | 'right' | 'behind' | 'front';
+  creditsRemaining?: number;
 }
 
 export async function mergePhotos(
@@ -161,18 +220,49 @@ export async function mergePhotos(
     subjectName?: string;
     isPet: boolean;
     sizeAdjustment?: number;
+    saveId?: string;
   },
   signal?: AbortSignal,
 ): Promise<MergeResult> {
-  return postJson('/merge', args, signal);
+  return postJson('/api/spike/merge', args, signal);
 }
 
 // -----------------------------------------------------------------------------
 // Templates
 // -----------------------------------------------------------------------------
 export async function fetchTemplates(signal?: AbortSignal): Promise<TributeTemplate[]> {
-  const data = await getJson<{ templates: TributeTemplate[] }>('/templates', signal);
+  const data = await getJson<{ templates: TributeTemplate[] }>('/api/spike/templates', signal);
   return data.templates;
+}
+
+// -----------------------------------------------------------------------------
+// Subscription / credits
+// -----------------------------------------------------------------------------
+export async function fetchSubscriptionStatus(
+  signal?: AbortSignal,
+): Promise<SubscriptionSnapshot> {
+  return getJson<SubscriptionSnapshot>('/api/subscription/status', signal);
+}
+
+export interface StartPurchaseResult {
+  /** Present once Stripe/RC checkout is wired. During MVP we throw instead. */
+  checkoutUrl?: string;
+}
+
+export async function startPurchase(args: {
+  planId:
+    | 'keepsake_monthly'
+    | 'heritage_monthly'
+    | 'heritage_annual'
+    | 'topup_4pack'
+    | 'topup_single';
+  successUrl?: string;
+  cancelUrl?: string;
+}): Promise<StartPurchaseResult> {
+  return postJson<StartPurchaseResult>('/api/subscription/purchase', {
+    ...args,
+    platform: 'web',
+  });
 }
 
 // Warm the browser cache for static FLUX style thumbs so they paint instantly

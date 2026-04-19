@@ -1,12 +1,12 @@
 // =============================================================================
-// EternalFrame API — segmentation post-processing
+// HaloFrame API — segmentation post-processing
 //
 // Takes raw SAM 3 mask URLs, downloads each PNG, computes the centroid +
 // bounding box of the mask using sharp, and returns a normalized
 // SegmentationData payload that the mobile app can render as tappable targets.
 // =============================================================================
 import sharp from 'sharp';
-import type { DetectedSubject, SegmentationData } from '@eternalframe/shared';
+import type { DetectedSubject, SegmentationData } from '@haloframe/shared';
 import { logger } from '../config/logger.js';
 import type { SamResult } from './falai.js';
 

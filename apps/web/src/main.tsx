@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { LAUNCH_TEMPLATES } from '@eternalframe/shared';
+import { LAUNCH_TEMPLATES } from '@haloframe/shared';
 import { NavigationProvider } from './lib/navigation';
 import { injectRootVars } from './lib/cssVars';
 import { preloadSampleImages } from './lib/api';

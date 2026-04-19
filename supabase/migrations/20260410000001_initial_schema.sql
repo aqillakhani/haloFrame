@@ -1,5 +1,5 @@
 -- =============================================================================
--- EternalFrame — initial schema
+-- HaloFrame — initial schema
 -- Run via: supabase db push  (or paste into SQL editor on a fresh project)
 -- =============================================================================
 

@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — auth middleware
+// HaloFrame API — auth middleware
 //
 // Validates the Supabase JWT in the Authorization header. On success,
 // attaches { id, jwt } to req.user. Routes downstream can use this to load

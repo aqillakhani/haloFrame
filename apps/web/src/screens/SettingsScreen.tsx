@@ -2,10 +2,10 @@ import { motion } from 'framer-motion';
 import {
   SUBSCRIPTION_PLANS_UI,
   type SubscriptionPlanId,
-} from '@eternalframe/shared';
+} from '@haloframe/shared';
 import { useNavigation } from '../lib/navigation';
 import { COPY } from '../lib/copy';
-import { MOCK_SUBSCRIPTION } from '../lib/mockSubscription';
+import { useSubscription } from '../hooks/useSubscription';
 import { heroText, cardReveal } from '../lib/motion';
 
 function planName(planId: SubscriptionPlanId): string {
@@ -27,7 +27,9 @@ function creditsLineFor(planId: SubscriptionPlanId, credits: number): string {
 
 export function SettingsScreen() {
   const { push } = useNavigation();
-  const { planId, creditsRemaining } = MOCK_SUBSCRIPTION;
+  const { snapshot } = useSubscription();
+  const planId: SubscriptionPlanId = snapshot?.planId ?? 'free';
+  const creditsRemaining = snapshot?.creditsRemaining ?? 0;
 
   // Restore-purchase wiring lands with the backend entitlement refactor
   // (see memory/project_pricing_strategy.md). For now this is a no-op.

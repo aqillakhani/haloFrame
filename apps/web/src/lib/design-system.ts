@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame — Design System v1.2
+// HaloFrame — Design System v1.2
 // Warm, inviting palette for a memorial tribute app
 // =============================================================================
 

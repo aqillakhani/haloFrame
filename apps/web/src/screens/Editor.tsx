@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { TributeTemplate } from '@eternalframe/shared';
+import type { TributeTemplate } from '@haloframe/shared';
 import {
   applyTemplate,
+  isInsufficientCreditsError,
   type ApplySubjectContext,
   type ApplyResult,
   type ApplyResolution,
 } from '../lib/api';
 import { triggerDownload } from '../lib/download';
-import { canAfford, MOCK_SUBSCRIPTION } from '../lib/mockSubscription';
+import { useSubscription } from '../hooks/useSubscription';
 import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
@@ -88,6 +89,8 @@ export function Editor({
   const [error, setError] = useState<string | null>(null);
   const [bumpCount, bump] = useState(0);
 
+  const { snapshot, canAfford, refetch: refetchSubscription } = useSubscription();
+
   const cacheRef = useRef<Record<string, CacheEntry>>({});
   const inflightRef = useRef<Map<string, Promise<string | null>>>(new Map());
   const requestIdRef = useRef(0);
@@ -153,6 +156,13 @@ export function Editor({
       const promise = (async () => {
         try {
           const resolution: ApplyResolution = tier === 'preview' ? 'preview' : 'final';
+          // Stable saveId per final render so a double-click hits the same
+          // credit_ledger dedupe key and the second server call rejects on
+          // unique_violation rather than double-charging.
+          const saveId =
+            tier === 'final'
+              ? `save-${comboKey(ids, int)}-${baseImageUrl.slice(-24)}`
+              : undefined;
           const result: ApplyResult = await applyTemplate(
             {
               imageUrl: baseImageUrl,
@@ -166,6 +176,7 @@ export function Editor({
               imageHeight,
               resolution,
               placement,
+              saveId,
             },
             abortRef.current?.signal,
           );
@@ -174,9 +185,16 @@ export function Editor({
           return result.imageUrl;
         } catch (err) {
           // Silently swallow aborts — they're triggered by our own unmount
-          // cleanup, not a real failure. Everything else bubbles up.
+          // cleanup, not a real failure.
           if ((err as { name?: string })?.name === 'AbortError') {
             return null;
+          }
+          // Re-throw insufficient_credits so handleSave can route the user
+          // to the paywall. Preview calls should never hit this (server
+          // doesn't charge for previews), but if they do the caller can
+          // decide what to do with the exception.
+          if (isInsufficientCreditsError(err)) {
+            throw err;
           }
           const msg = err instanceof Error ? err.message : String(err);
           console.error('[Editor] apply failed', tier, ids, err);
@@ -302,8 +320,9 @@ export function Editor({
       void triggerDownload(cachedFinal);
       return;
     }
-    // New 2K render = credited save. Gate on the mocked balance; when the
-    // server entitlement refactor lands, this call becomes a hook read.
+    // New 2K render = credited save. Client-side balance is advisory —
+    // the server re-checks on every request and will return 402 if the
+    // snapshot was stale.
     const creditedAction = placement ? 'reunite_save' : 'enhance_save';
     if (!canAfford(creditedAction)) {
       onPaywall();
@@ -312,18 +331,34 @@ export function Editor({
     setError(null);
     setIsSaving(true);
     const reqId = ++requestIdRef.current;
-    const url = await fetchRender(activeSelection, INTENSITY, 'final');
-    if (reqId !== requestIdRef.current) {
-      setIsSaving(false);
-      return;
-    }
-    setIsSaving(false);
-    if (url) {
-      void triggerDownload(url);
-    } else {
-      if (lastRenderErrorRef.current) {
-        console.error('[Editor] save failed', lastRenderErrorRef.current);
+    try {
+      const url = await fetchRender(activeSelection, INTENSITY, 'final');
+      if (reqId !== requestIdRef.current) {
+        setIsSaving(false);
+        return;
       }
+      setIsSaving(false);
+      if (url) {
+        void triggerDownload(url);
+        void refetchSubscription();
+      } else {
+        if (lastRenderErrorRef.current) {
+          console.error('[Editor] save failed', lastRenderErrorRef.current);
+        }
+        setError(COPY.editor.styleFailed);
+      }
+    } catch (err) {
+      setIsSaving(false);
+      if (isInsufficientCreditsError(err)) {
+        // Server says the balance is insufficient even though the client
+        // check just passed — snapshot was stale (concurrent spend, cron
+        // eviction of a top-up). Refetch so the badge updates, then route
+        // the user to the paywall.
+        void refetchSubscription();
+        onPaywall();
+        return;
+      }
+      console.error('[Editor] save failed', err);
       setError(COPY.editor.styleFailed);
     }
   };
@@ -375,7 +410,7 @@ export function Editor({
         {onBack && <BackButton onClick={onBack} />}
         <span className="app-header-title">Editing tribute</span>
         <span className="flow-header-badge t-label-md">
-          {COPY.subscription.tributesShort(MOCK_SUBSCRIPTION.creditsRemaining)}
+          {COPY.subscription.tributesShort(snapshot?.creditsRemaining ?? 0)}
         </span>
       </header>
 

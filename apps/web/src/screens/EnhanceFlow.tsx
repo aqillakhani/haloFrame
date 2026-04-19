@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { TributeTemplate } from '@eternalframe/shared';
+import type { TributeTemplate } from '@haloframe/shared';
 import {
   fetchTemplates,
   preloadSampleImages,

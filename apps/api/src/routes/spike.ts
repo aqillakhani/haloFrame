@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — /api/spike/*
+// HaloFrame API — /api/spike/*
 //
 // AI-only test routes for the web harness. No auth, no Supabase, no quota.
 // These take a base64 image (or a URL), upload to fal.ai storage, run the
@@ -20,12 +20,16 @@ import {
   LAUNCH_TEMPLATES,
   type Placement,
   type TributeTemplate,
-} from '@eternalframe/shared';
+} from '@haloframe/shared';
+import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { errors } from '../lib/errors.js';
 import { ok } from '../lib/response.js';
 import { validateBody } from '../middleware/validate.js';
+import { requireAuth } from '../middleware/auth.js';
+import { checkCredits, spendCredits } from '../services/entitlements.js';
+import { trackPreview } from '../services/previewLimiter.js';
 import { combineTemplatePrompts, NO_EFFECT_SENTINEL } from '../services/templateCombiner.js';
 import { annotateSubject } from '../services/subjectAnnotator.js';
 import {
@@ -36,6 +40,22 @@ import {
   preservePeopleFromMain,
   selectPreservableMainSubjects,
 } from '../services/mergeNonTargetPreserver.js';
+
+// Conditional auth: /apply handles both free 1K previews and paid 2K
+// final renders. Previews stay unauthenticated so an unsigned-in user
+// can explore templates before hitting the paywall on save. Final
+// renders trip requireAuth so the credit check has a user to bill.
+async function requireAuthForFinalApply(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const body = req.body as { resolution?: string } | undefined;
+  if (body?.resolution === 'final') {
+    return requireAuth(req, res, next);
+  }
+  next();
+}
 
 fal.config({ credentials: env.FAL_KEY });
 
@@ -348,6 +368,14 @@ const applySchema = z.object({
    * wings-behind-everyone treatment from the template prompt.
    */
   placement: z.enum(['left', 'right', 'behind', 'front']).optional(),
+  /**
+   * Stable client-supplied save identifier. Used ONLY when resolution='final'
+   * as the dedupe key for the credit ledger — a double-clicked Save button
+   * cannot double-charge because the unique index on (user_id, dedupe_key)
+   * in credit_ledger rejects the second spend. Optional; when absent the
+   * spend proceeds without dedupe (first-to-land wins).
+   */
+  saveId: z.string().min(1).max(64).optional(),
 });
 
 type SubjectContext = z.infer<typeof subjectContextSchema>;
@@ -556,7 +584,11 @@ async function preserveNonTargetSubjects(args: {
   }
 }
 
-spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => {
+spikeRouter.post(
+  '/apply',
+  validateBody(applySchema),
+  requireAuthForFinalApply,
+  async (req, res, next) => {
   try {
     const {
       imageUrl,
@@ -570,7 +602,31 @@ spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => 
       imageHeight,
       resolution,
       placement,
+      saveId,
     } = req.body as z.infer<typeof applySchema>;
+
+    // The middleware above guarantees req.user is set whenever
+    // resolution === 'final'. We defer the credit pre-check until after
+    // prompt resolution so the NO_EFFECT early-return path (which does
+    // zero server work) can complete without billing the user.
+    const billing =
+      resolution === 'final' ? { userId: req.user!.id } : null;
+
+    // Preview rate limit: Option C says exploration is free, so we don't
+    // charge credits for 1K previews. But we DO need to bound how many
+    // previews a single upload can drive — otherwise a pathological user
+    // could run hundreds of renders without ever paying. Saves (final
+    // resolution) bypass the limiter; they're already paying.
+    if (resolution === 'preview') {
+      const preview = trackPreview(imageUrl);
+      if (preview.exceeded) {
+        logger.warn(
+          { imageUrl, count: preview.count, limit: preview.limit },
+          'preview rate limit exceeded',
+        );
+        throw errors.rateLimited();
+      }
+    }
 
     // Resolve template objects; reject unknown IDs up front so the client gets
     // a precise error rather than a generic fal.ai failure.
@@ -651,6 +707,8 @@ spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => 
 
     // If only "no effects" was selected, skip the AI call entirely and echo
     // the source image back. The web caches this so the preview is instant.
+    // No credits charged — the user is saving the source frame as-is and
+    // the server did no fal work.
     if (prompt === NO_EFFECT_SENTINEL) {
       ok(res, {
         imageUrl,
@@ -662,6 +720,15 @@ spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => 
         skipped: true,
       });
       return;
+    }
+
+    // Credit pre-check fires here — after NO_EFFECT has had its chance to
+    // short-circuit, before the cost-bearing fal call. Insufficient balance
+    // throws 402 with code 'insufficient_credits'; the web catches that and
+    // routes to the paywall.
+    if (billing) {
+      const check = await checkCredits(billing.userId, 'apply_final');
+      if (!check.allowed) throw errors.paymentRequired();
     }
 
     const falResolution = resolution === 'preview' ? '1K' : '2K';
@@ -723,6 +790,18 @@ spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => 
       }
     }
 
+    // Charge the credit only after the full pipeline (fal call + bleed
+    // preservation) succeeded. If spendCredits itself fails — e.g. a
+    // double-click hit the dedupe key — we still have the finalized URL
+    // to hand back, but the user's balance is unchanged and the client
+    // sees a 402 it can reconcile on next /status fetch.
+    let creditsRemaining: number | undefined;
+    if (billing) {
+      creditsRemaining = await spendCredits(billing.userId, 'apply_final', {
+        dedupeKey: saveId,
+      });
+    }
+
     ok(res, {
       imageUrl: finalUrl,
       prompt,
@@ -730,12 +809,14 @@ spikeRouter.post('/apply', validateBody(applySchema), async (req, res, next) => 
       intensity,
       subjectDescription,
       resolution,
+      creditsRemaining,
     });
   } catch (err) {
     logger.error({ err }, 'spike apply failed');
     next(err);
   }
-});
+  },
+);
 
 // -----------------------------------------------------------------------------
 // POST /api/spike/merge — merge two photos (Reunite flow)
@@ -774,6 +855,12 @@ const mergeSchema = z.object({
   subjectName: z.string().max(120).optional(),
   isPet: z.boolean().default(false),
   sizeAdjustment: z.number().min(0.5).max(2.0).default(1.0),
+  /**
+   * Stable client-supplied merge identifier. Acts as the dedupe key in the
+   * credit ledger so a double-click on "Place here" can't double-charge.
+   * Optional; absence falls back to first-to-land wins.
+   */
+  saveId: z.string().min(1).max(64).optional(),
 });
 
 const PLACEMENT_INSTRUCTIONS: Record<Placement, string> = {
@@ -799,7 +886,11 @@ function buildSizeHint(scale: number, subjectDescription: string): string {
   return `SIZE (soft hint): ${subjectDescription}'s head-to-feet height should be approximately ${pct}% of the average head-to-feet height of the existing people — noticeably ${direction} (${how}).`;
 }
 
-spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => {
+spikeRouter.post(
+  '/merge',
+  requireAuth,
+  validateBody(mergeSchema),
+  async (req, res, next) => {
   try {
     const {
       mainPhotoUrl,
@@ -808,7 +899,15 @@ spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => 
       subjectName,
       isPet,
       sizeAdjustment,
+      saveId,
     } = req.body as z.infer<typeof mergeSchema>;
+
+    // /merge is always cost-bearing (NB2 runs at 2K; there is no preview
+    // mode). Auth is required unconditionally — the middleware above
+    // guarantees req.user is set.
+    const userId = req.user!.id;
+    const check = await checkCredits(userId, 'merge');
+    if (!check.allowed) throw errors.paymentRequired();
 
     const subjectDescription = subjectName
       ? subjectName
@@ -970,10 +1069,18 @@ spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => 
       'merge timing',
     );
 
+    // Charge the credit after the full pipeline (NB2 + preservation + swap)
+    // succeeded. A failure anywhere upstream throws before this line, so
+    // fal/storage errors never burn the user's balance.
+    const creditsRemaining = await spendCredits(userId, 'merge', {
+      dedupeKey: saveId,
+    });
+
     ok(res, {
       imageUrl: finalUrl,
       prompt,
       placement,
+      creditsRemaining,
       // Stage URLs for debugging transparency / artifact regressions —
       // safe to expose: they're already public fal.media URLs.
       debug: {
@@ -990,7 +1097,8 @@ spikeRouter.post('/merge', validateBody(mergeSchema), async (req, res, next) => 
     logger.error({ err }, 'spike merge failed');
     next(err);
   }
-});
+  },
+);
 
 /**
  * Face-swap post-pass. Takes the merged scene from Nano Banana 2 and

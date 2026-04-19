@@ -9,7 +9,7 @@
 
 export async function triggerDownload(
   url: string,
-  filename = 'eternalframe-tribute.png',
+  filename = 'haloframe-tribute.png',
 ): Promise<void> {
   try {
     const r = await fetch(url);

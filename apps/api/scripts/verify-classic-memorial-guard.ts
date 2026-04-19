@@ -2,7 +2,7 @@
 // only when haveSubjectContext is false. Multi-subject (group + selected
 // subject) path must keep the original selective-color prompt.
 import { combineTemplatePrompts } from '../src/services/templateCombiner.js';
-import { LAUNCH_TEMPLATES } from '@eternalframe/shared';
+import { LAUNCH_TEMPLATES } from '@haloframe/shared';
 
 const classic = LAUNCH_TEMPLATES.find((t) => t.id === 'classic_memorial');
 if (!classic) {

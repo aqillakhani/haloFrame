@@ -1,5 +1,5 @@
 -- =============================================================================
--- EternalFrame — storage buckets
+-- HaloFrame — storage buckets
 --
 -- Two buckets:
 --   tributes-source : user-uploaded photos (private, signed-URL access)

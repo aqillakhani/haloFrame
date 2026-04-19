@@ -4,13 +4,14 @@ import {
   SUBSCRIPTION_PLANS_UI,
   type SubscriptionPlanId,
   type SubscriptionPlanUI,
-} from '@eternalframe/shared';
+} from '@haloframe/shared';
 import { useNavigation } from '../lib/navigation';
 import { COPY } from '../lib/copy';
 import { Icon } from '../components/icons/Icon';
 import { heroText, cardReveal } from '../lib/motion';
 import { easing } from '../lib/tokens';
-import { MOCK_SUBSCRIPTION } from '../lib/mockSubscription';
+import { useSubscription } from '../hooks/useSubscription';
+import { startPurchase, ApiRequestError } from '../lib/api';
 
 // Free is intentionally omitted from the paywall: the user is already on Free
 // and has run out, so the "You've used your 2 tributes" subhead does the work
@@ -32,15 +33,46 @@ function planById(id: SubscriptionPlanId): SubscriptionPlanUI | undefined {
 export function PaywallScreen() {
   const { pop } = useNavigation();
   const [selected, setSelected] = useState<SubscriptionPlanId | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const prefersReduced = useReducedMotion() ?? false;
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { snapshot, refetch: refetchSubscription } = useSubscription();
 
-  // Purchase wiring is deferred (see memory/project_pricing_strategy.md —
-  // backend entitlement refactor is a separate session). For now, confirming
-  // simply closes the paywall.
-  function handlePurchase() {
+  // Web checkout is currently stubbed server-side (returns 501 with a
+  // structured payload). Handle both the stubbed path and the eventual
+  // redirect-to-Stripe path here so the screen is future-proof.
+  async function handlePurchase() {
     if (!selected) return;
-    pop();
+    if (selected === 'free') {
+      pop();
+      return;
+    }
+    setPurchaseError(null);
+    try {
+      const result = await startPurchase({
+        planId: selected,
+        successUrl: window.location.origin,
+        cancelUrl: window.location.origin,
+      });
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+        return;
+      }
+      await refetchSubscription();
+      pop();
+    } catch (err) {
+      if (
+        err instanceof ApiRequestError &&
+        (err.details as { code?: string })?.code === 'web_checkout_not_configured'
+      ) {
+        setPurchaseError(
+          'Web checkout is coming soon. Use the iOS or Android app to subscribe.',
+        );
+      } else {
+        const message = err instanceof Error ? err.message : 'Purchase failed';
+        setPurchaseError(message);
+      }
+    }
   }
 
   // Initial focus on the heading announces the dialog to screen readers
@@ -113,11 +145,20 @@ export function PaywallScreen() {
           >
             {COPY.subscription.paywallHeading}
           </h1>
-          {MOCK_SUBSCRIPTION.creditsRemaining === 0 && (
+          {snapshot?.creditsRemaining === 0 && (
             <p className="t-body-md t-muted paywall-subhead">
               {COPY.subscription.paywallSubheadPlural(
-                planById(MOCK_SUBSCRIPTION.planId)?.credits ?? 0,
+                planById(snapshot.planId)?.credits ?? 0,
               )}
+            </p>
+          )}
+          {purchaseError && (
+            <p
+              className="t-body-sm paywall-error"
+              role="alert"
+              aria-live="assertive"
+            >
+              {purchaseError}
             </p>
           )}
         </motion.header>

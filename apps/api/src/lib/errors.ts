@@ -1,7 +1,7 @@
 // =============================================================================
-// EternalFrame API — typed error helpers
+// HaloFrame API — typed error helpers
 // =============================================================================
-import { ERROR_CODES, type ErrorCode } from '@eternalframe/shared';
+import { ERROR_CODES, type ErrorCode } from '@haloframe/shared';
 
 export class ApiError extends Error {
   public readonly statusCode: number;
@@ -37,6 +37,16 @@ export const errors = {
     new ApiError(ERROR_CODES.LIMIT_REACHED, message, 402),
   upgradeRequired: (message = 'A subscription upgrade is required.') =>
     new ApiError(ERROR_CODES.UPGRADE_REQUIRED, message, 402),
+  // Credit-model gating. Web catches HTTP 402 with code === 'insufficient_credits'
+  // and routes the user to the paywall instead of showing a generic error toast.
+  paymentRequired: (
+    message = 'This save needs more tributes than you have available.',
+    details?: unknown,
+  ) => new ApiError(ERROR_CODES.INSUFFICIENT_CREDITS, message, 402, details),
+  rateLimited: (
+    message = 'You have reached the preview limit for this photo. Save it to continue.',
+    details?: unknown,
+  ) => new ApiError(ERROR_CODES.RATE_LIMITED, message, 429, details),
   fal: (message: string, details?: unknown) =>
     new ApiError(ERROR_CODES.FAL_ERROR, message, 502, details),
   storage: (message: string, details?: unknown) =>

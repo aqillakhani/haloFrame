@@ -11,8 +11,8 @@
     "allowImportingTsExtensions": true,
     "types": ["vite/client"],
     "paths": {
-      "@eternalframe/shared": ["../../packages/shared/src/index.ts"],
-      "@eternalframe/shared/*": ["../../packages/shared/src/*"]
+      "@haloframe/shared": ["../../packages/shared/src/index.ts"],
+      "@haloframe/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src/**/*"],

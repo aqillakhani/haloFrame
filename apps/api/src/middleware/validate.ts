@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — zod request body validator
+// HaloFrame API — zod request body validator
 // =============================================================================
 import type { NextFunction, Request, Response } from 'express';
 import type { ZodSchema } from 'zod';

@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — print fulfillment
+// HaloFrame API — print fulfillment
 //
 // PrintProvider is the extension point. The default StubPrintProvider just
 // records the order and notifies you (webhook or email) so you can fulfill
@@ -8,7 +8,7 @@
 // To swap providers later: implement PrintProvider, register it in
 // `getPrintProvider()`, no route changes required.
 // =============================================================================
-import type { PrintOrder, PrintStatus } from '@eternalframe/shared';
+import type { PrintOrder, PrintStatus } from '@haloframe/shared';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 
@@ -68,7 +68,7 @@ class StubPrintProvider implements PrintProvider {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            text: `🖼️ New EternalFrame print order needs fulfillment`,
+            text: `🖼️ New HaloFrame print order needs fulfillment`,
             order: summary,
           }),
         });

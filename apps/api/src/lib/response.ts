@@ -1,8 +1,8 @@
 // =============================================================================
-// EternalFrame API — response envelope helpers
+// HaloFrame API — response envelope helpers
 // =============================================================================
 import type { Response } from 'express';
-import type { ApiResponse } from '@eternalframe/shared';
+import type { ApiResponse } from '@haloframe/shared';
 
 export function ok<T>(res: Response, data: T, status = 200): Response {
   const body: ApiResponse<T> = { ok: true, data };

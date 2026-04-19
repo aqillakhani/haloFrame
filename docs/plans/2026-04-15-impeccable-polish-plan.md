@@ -1,4 +1,4 @@
-# EternalFrame — Impeccable Polish Layer Implementation Plan
+# HaloFrame — Impeccable Polish Layer Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -103,7 +103,7 @@ The CLI binary is `impeccable` per package.json `bin` field.
 Run the `/teach` slash command in Claude Code. When prompted for project context, provide:
 
 ```
-Project: EternalFrame — AI memorial photo tribute app
+Project: HaloFrame — AI memorial photo tribute app
 Platform: React (Vite) web, future React Native (Expo)
 Design system: Golden Hour Gallery + Editorial Restraint
   (full spec at docs/plans/2026-04-15-visual-redesign-design.md)
@@ -154,7 +154,7 @@ If `/teach` is not available as a slash command after restart, manually create t
 
 ```bash
 cat > apps/web/.impeccable.md << 'CONTEXT'
-# EternalFrame Design Context
+# HaloFrame Design Context
 
 ## Project
 Memorial photo tribute app. React (Vite) web, future React Native (Expo).

@@ -35,7 +35,7 @@ export function HomeScreen() {
 
   return (
     <div className="home">
-      <header className="home-mark" aria-label="EternalFrame">
+      <header className="home-mark" aria-label="HaloFrame">
         <HaloGlyph size={28} />
       </header>
 

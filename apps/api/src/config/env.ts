@@ -1,5 +1,5 @@
 // =============================================================================
-// EternalFrame API — environment variable loading & validation
+// HaloFrame API — environment variable loading & validation
 //
 // Two modes:
 //   - Spike mode (SPIKE_MODE=true) — only FAL_KEY is required, Supabase
