@@ -64,6 +64,9 @@ apps/web/public/samples/_bench_*.png
 .playwright-mcp/
 verify-*.png
 
+# Git worktrees (used by redesign/v2 and future isolated feature work)
+.worktrees/
+
 # Supabase local
 supabase/.branches
 supabase/.temp
