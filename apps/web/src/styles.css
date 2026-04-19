@@ -13,7 +13,7 @@ html, body, #root {
   min-height: 100%;
   background: var(--c-bg-canvas);
   color: var(--c-text-ink);
-  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+  font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -22,7 +22,7 @@ html, body, #root {
 }
 
 body {
-  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+  font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
 }
 
 /* ---- Display type ---- */
@@ -30,15 +30,15 @@ body {
 .t-display-xl,
 .t-display-lg,
 .t-display-md {
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-weight: 500;
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
   color: var(--c-text-ink);
   margin: 0;
 }
 
-.t-display-xl { font-size: 32px; line-height: 1.05; letter-spacing: -0.5px; }
-.t-display-lg { font-size: 28px; line-height: 1.1;  letter-spacing: -0.3px; }
-.t-display-md { font-size: 24px; line-height: 1.2;  letter-spacing: -0.2px; }
+.t-display-xl { font-size: 30px; line-height: 1.08; letter-spacing: -0.015em; font-weight: 300; }
+.t-display-lg { font-size: 28px; line-height: 1.1;  letter-spacing: -0.015em; font-weight: 300; }
+.t-display-md { font-size: 24px; line-height: 1.2;  letter-spacing: -0.01em; }
 
 @media (min-width: 768px) {
   .t-display-xl { font-size: 40px; }
@@ -854,116 +854,392 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   min-width: 220px;
 }
 
-/* ---- HomeScreen ---- */
+/* ---- HomeScreen (2026-04-19 claude.ai/design port) ----
+   Scoped under .home; one class per concern. Colors use tokens where
+   possible, with oklch() + relative color syntax reserved for the
+   decorative gradients that need sub-hex precision. */
 .home {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 40px var(--l-screenPaddingMobile) 32px;
-  padding-bottom: calc(var(--l-tabBarHeight) + 40px + env(safe-area-inset-bottom));
+  background: var(--c-surface-app);
+  padding-bottom: calc(var(--l-tabBarHeight) + 24px + env(safe-area-inset-bottom));
 }
 
-@media (min-width: 768px) {
-  .home {
-    padding-left: var(--l-screenPaddingTablet);
-    padding-right: var(--l-screenPaddingTablet);
-  }
-}
-
-.home-mark {
+/* --- App header (wordmark + tributes badge) --- */
+.home-header {
   display: flex;
   align-items: center;
-  color: var(--c-brand-primary);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--l-screenPaddingMobile);
+  background: var(--c-surface-app);
 }
 
-.home-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.home-eyebrow {
-  margin: 0;
-  opacity: 0.7;
-}
-
-.home-hr {
-  margin-top: 8px;
-}
-
-.home-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.home-card {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  background: var(--c-bg-surface);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  box-shadow: var(--sh-soft);
-  text-align: left;
-  flex: 1;
-  min-height: 112px;
-  transition:
-    box-shadow var(--d-base) var(--e-standard),
-    transform var(--d-base) var(--e-standard);
-}
-
-.home-card:hover,
-.home-card:focus-visible {
-  box-shadow: var(--sh-lift);
-  transform: translateY(-1px);
-}
-
-.home-card-photo {
-  flex: 0 0 128px;
-  align-self: stretch;
-  background-size: cover;
-  background-position: center;
-  position: relative;
-}
-
-.home-card-photo::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to right, rgba(176,138,79,0) 60%, rgba(176,138,79,0.20) 100%);
-}
-
-.home-card-body {
-  flex: 1;
-  padding: 14px 16px 14px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  justify-content: center;
-}
-
-.home-card-cta {
-  align-self: flex-start;
+.home-wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--c-brand-primary);
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  margin-top: 6px;
-  font-size: 13px;
+  gap: 8px;
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  color: var(--c-text-ink);
 }
 
+.home-wordmark em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--c-terracotta-ink);
+}
+
+/* The mark: gold orb with a warm center well. Purely decorative — the a11y
+   label lives on the wordmark's wrapping element. */
+.home-wordmark-orb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(
+    circle at 50% 42%,
+    oklch(from var(--c-gold-base) calc(l + 0.15) c h) 20%,
+    var(--c-gold-base) 46%,
+    oklch(from var(--c-plum-base) calc(l + 0.10) c h / 0.3) 72%,
+    transparent 82%
+  );
+  border: 1px solid oklch(from var(--c-gold-base) calc(l - 0.2) c h / 0.4);
+  box-shadow: 0 0 0 3px oklch(from var(--c-gold-base) l c h / 0.08);
+  flex-shrink: 0;
+}
+
+.home-wordmark-orb::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--c-text-ink);
+  opacity: 0.82;
+}
+
+.home-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 8px;
+  border: 1px solid oklch(from var(--c-gold-base) calc(l - 0.2) c h / 0.35);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--c-ink-_2);
+  background: linear-gradient(135deg, var(--c-gold-soft) 0%, var(--c-surface-card) 60%);
+  white-space: nowrap;
+}
+
+.home-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-gold-ink);
+  box-shadow: 0 0 0 2px oklch(from var(--c-gold-base) l c h / 0.25);
+}
+
+.home-badge-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-ink);
+  font-weight: 500;
+}
+
+.home-badge-label {
+  color: var(--c-ink-_3);
+}
+
+/* --- Greeting --- */
+.home-greeting {
+  position: relative;
+  padding: 20px var(--l-screenPaddingMobile) 8px;
+}
+
+/* Warm halo that sits behind the headline, upper-right. Decorative. */
+.home-greeting::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    oklch(from var(--c-gold-base) l c h / 0.45) 0%,
+    transparent 65%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.home-greeting > * {
+  position: relative;
+  z-index: 1;
+}
+
+.home-greeting-date {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-terracotta-ink);
+  margin: 0 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.home-greeting-date::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: var(--c-terracotta-base);
+}
+
+.home-greeting-headline {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 300;
+  font-size: 30px;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--c-text-ink);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.home-greeting-headline em {
+  font-style: italic;
+  font-weight: 300;
+}
+
+.home-greeting-sub {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--c-ink-_2);
+  margin: 12px 0 0;
+  max-width: 32ch;
+  text-wrap: pretty;
+}
+
+/* --- Section label row --- */
+.home-section {
+  padding: 24px var(--l-screenPaddingMobile) 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.home-section-label {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+.home-section-idx {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--c-plum-ink);
+  letter-spacing: 0.06em;
+}
+
+/* --- Path cards (Enhance / Reunite) --- */
+.home-paths {
+  padding: 0 var(--l-screenPaddingMobile);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-path {
+  position: relative;
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  align-items: stretch;
+  background: var(--c-surface-card);
+  border: 1px solid var(--c-rule-soft);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 220ms var(--e-standard),
+    border-color 220ms var(--e-standard),
+    background 220ms var(--e-standard);
+}
+
+.home-path:active {
+  transform: scale(0.995);
+  background: var(--c-surface-sunk);
+}
+
+.home-path:hover {
+  border-color: var(--c-rule-base);
+}
+
+.home-path:focus-visible {
+  outline: 2px solid var(--c-terracotta-base);
+  outline-offset: 3px;
+}
+
+.home-path-media {
+  position: relative;
+  background: var(--c-surface-sunk);
+  overflow: hidden;
+  min-height: 132px;
+}
+
+.home-path-media svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.home-path-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.home-path-kicker {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+.home-path[data-accent="terracotta"] .home-path-kicker { color: var(--c-terracotta-ink); }
+.home-path[data-accent="plum"] .home-path-kicker { color: var(--c-plum-ink); }
+
+.home-path-title {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 1.18;
+  letter-spacing: -0.005em;
+  color: var(--c-text-ink);
+  margin: 2px 0 0;
+  text-wrap: balance;
+}
+
+.home-path-title em {
+  font-style: italic;
+  font-weight: 300;
+}
+
+.home-path-desc {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--c-ink-_2);
+  margin: 4px 0 0;
+}
+
+.home-path-meta {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-rule-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--c-ink-_3);
+}
+
+.home-path-meta-arrow {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--c-surface-card);
+  align-items: center;
+  justify-content: center;
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  transition: transform 200ms var(--e-standard);
+}
+
+.home-path[data-accent="terracotta"] .home-path-meta-arrow { background: var(--c-terracotta-base); }
+.home-path[data-accent="plum"] .home-path-meta-arrow { background: var(--c-plum-base); }
+
+.home-path:hover .home-path-meta-arrow { transform: translateX(2px); }
+
+/* --- Fine print --- */
+.home-fine {
+  margin: 24px var(--l-screenPaddingMobile) 20px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--c-ink-_3);
+  padding-top: 16px;
+  border-top: 1px solid oklch(from var(--c-terracotta-base) calc(l + 0.40) calc(c * 0.25) h);
+}
+
+/* --- Desktop (≥768) --- */
 @media (min-width: 768px) {
-  .home-cards { flex-direction: row; gap: 20px; }
-  .home-card { flex-direction: column; min-height: 0; }
-  .home-card-photo { flex: 0 0 auto; aspect-ratio: 16 / 10; }
-  .home-card-photo::after {
-    background: linear-gradient(to bottom, rgba(176,138,79,0) 60%, rgba(176,138,79,0.20) 100%);
+  .home-header {
+    padding: 24px var(--l-screenPaddingTablet);
   }
-  .home-card-body { padding: 18px 20px 22px; }
-  .home-card-cta { align-self: flex-end; margin-top: 10px; font-size: 14px; }
+  .home-wordmark { font-size: 19px; }
+  .home-wordmark-orb { width: 22px; height: 22px; }
+
+  .home-greeting {
+    padding: 40px var(--l-screenPaddingTablet) 8px;
+  }
+  .home-greeting-headline {
+    font-size: 44px;
+    line-height: 1.08;
+    max-width: 16ch;
+  }
+  .home-greeting-sub {
+    font-size: 15px;
+    max-width: 48ch;
+  }
+
+  .home-section {
+    padding: 32px var(--l-screenPaddingTablet) 16px;
+  }
+
+  .home-paths {
+    padding: 0 var(--l-screenPaddingTablet);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .home-path {
+    grid-template-columns: 1fr;
+    grid-template-rows: 240px auto;
+  }
+  .home-path-media {
+    min-height: 240px;
+  }
+  .home-path-body {
+    padding: 24px;
+  }
+  .home-path-title {
+    font-size: 26px;
+  }
+  .home-path-desc {
+    font-size: 14.5px;
+    max-width: 40ch;
+  }
+
+  .home-fine {
+    margin: 32px var(--l-screenPaddingTablet) 24px;
+    padding-top: 20px;
+    max-width: 52ch;
+    font-size: 12px;
+  }
 }
 
 /* ---- EnhanceFlow ---- */
@@ -1537,9 +1813,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 
 .canvas-card-price {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
   font-size: 22px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--c-text-ink);
 }
 

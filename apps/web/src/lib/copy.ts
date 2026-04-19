@@ -7,14 +7,36 @@ export const COPY = {
   tagline: 'A gentle place to honor those we love',
 
   home: {
+    // Eyebrow renders as "Wednesday, a quiet afternoon". Weekday + phase computed at render time.
+    phase: {
+      morning: 'a quiet morning',
+      afternoon: 'a quiet afternoon',
+      evening: 'a quiet evening',
+      night: 'a quiet night',
+    },
+    headlineBefore: 'For the ones ',
+    headlineItalic: 'we carry',
+    headlineAfter: ' with us.',
+    subcopy: 'Choose how you\u2019d like to begin today.',
+    sectionLabel: 'Begin a tribute',
+    sectionIndex: 'Two paths',
+    badgeOfFree: (n: number, total: number) => `of ${total} free`,
+    badgeRemaining: 'tributes left',
     enhance: {
-      title: 'Honor a Photo',
-      subtitle: 'Add wings, halos, or heavenly light',
+      kicker: 'Path one',
+      title: 'Enhance',
+      titleItalic: 'a photo',
+      subtitle: 'A soft halo, wings, or a gentle glow on an existing photograph.',
+      cta: 'Choose a photo',
     },
     reunite: {
-      title: 'Add a Loved One to a Photo',
-      subtitle: 'Bring a loved one into the picture',
+      kicker: 'Path two',
+      title: 'Reunite',
+      titleItalic: 'with loved ones',
+      subtitle: 'Gently place someone who\u2019s passed into a family photograph.',
+      cta: 'Choose a family photo',
     },
+    fine: 'Your photos are yours. They are never used to train models, and nothing is shared without your consent.',
   },
 
   enhance: {

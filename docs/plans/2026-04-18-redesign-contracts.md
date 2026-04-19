@@ -11,16 +11,21 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 
 **File:** `apps/web/src/screens/HomeScreen.tsx`
 
-**Hooks:** `useNavigation()`
+**Hooks:** `useNavigation()`, `useSubscription()` (badge is gated on snapshot)
 
 **Props:** none
 
-**Reads:** `COPY.home.enhance`, `COPY.home.reunite` (title + subtitle per flow card)
+**Reads:**
+- `COPY.home.*` — eyebrow phase, headline parts, subcopy, section label/index, badge labels, `enhance`/`reunite` path objects, fine print
+- `snapshot.planId`, `snapshot.creditsRemaining` — for the optional tributes-remaining badge
 
 **Renders:**
-- Brand mark (HaloGlyph) top-left
-- Hero heading + eyebrow + short rule
-- Two equal-weight cards: **Enhance** and **Reunite**
+- Wordmark header with decorative gold orb + a11y label "haloFrame"
+- Optional right-aligned tributes badge (shown only when snapshot is loaded)
+- Greeting section: dynamic eyebrow (`Weekday, a quiet {phase}`), italic-accented headline, subcopy
+- Section label row ("Begin a tribute" / "Two paths")
+- Two equal-weight path cards: **Enhance** (terracotta accent) and **Reunite** (plum accent), each with an inline decorative SVG illustration
+- Quiet fine print at the bottom ("Your photos are yours...")
 
 **User actions:**
 - Click Enhance card → `nav.push('ENHANCE_FLOW')`
@@ -30,8 +35,10 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 
 **Contract invariants:**
 - Two primary CTAs, one each for Enhance and Reunite
-- Must include brand mark somewhere (accessibility label "haloFrame")
+- Must include brand mark somewhere with accessibility label "haloFrame"
 - No pricing, feature comparison, or testimonials on Home
+- Badge (if shown) must not display dollar amounts, tier names, or CTA-like copy — only the tribute count and a short descriptor
+- `useSubscription` is read-only: Home never mutates credits or opens paywall directly
 
 ---
 

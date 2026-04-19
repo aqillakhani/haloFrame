@@ -1,29 +1,35 @@
 // Single source of truth for visual tokens.
 // Consumed by cssVars.ts (which generates :root vars) and any inline TSX styles.
 // Designed to port to React Native StyleSheet without modification.
+//
+// NOTE (2026-04-19): palette re-seeded from the claude.ai/design Home export.
+// Legacy groups (bg/brand/accent) are preserved with updated hex so unported
+// screens keep rendering; the new groups (surface, ink, rule, gold, plum,
+// sage, terracotta) are what newly-ported screens consume.
 
 export const color = {
+  // === Legacy groups — still referenced by unported screens ===
   bg: {
-    canvas: '#FAF4EC',
-    surface: '#FFFBF5',
+    canvas: '#FAF3E2',
+    surface: '#FFFBF2',
     surfaceRaised: '#FFFFFF',
-    subtle: '#F2EAD9',
+    subtle: '#F4ECD9',
   },
   brand: {
-    primary: '#B08A4F',
-    primaryDeep: '#8E6E3D',
-    primarySoft: '#EDD9B7',
+    primary: '#A0503C',
+    primaryDeep: '#753D2D',
+    primarySoft: '#F0DCD1',
   },
   accent: {
     rose: '#D4A8A0',
     roseDeep: '#B5847A',
   },
   text: {
-    ink: '#332938',
-    muted: '#7A6F73',
+    ink: '#2A231B',
+    muted: '#554A3D',
     /** Reserved for body.sm captions only; sub-AA for smaller body text */
-    faint: '#A89FA1',
-    onBronze: '#FFFBF5',
+    faint: '#8A7D6E',
+    onBronze: '#FFFBF2',
   },
   feedback: {
     success: '#7A9B7A',
@@ -31,8 +37,54 @@ export const color = {
     error: '#B5605A',
     errorBg: '#F7E8E5',
   },
-  hairline: 'rgba(176, 138, 79, 0.18)',
-  scrim: 'rgba(51, 41, 56, 0.55)',
+  hairline: 'rgba(160, 80, 60, 0.18)',
+  scrim: 'rgba(42, 35, 27, 0.55)',
+
+  // === New groups (2026-04-19 redesign) ===
+  /** Layered surfaces — from coolest (app) to brightest (card). */
+  surface: {
+    app: '#FAF3E2',
+    card: '#FFFBF2',
+    sunk: '#F4ECD9',
+    base: '#FDF9F0',
+  },
+  /** Ink ladder — `_1` darkest, `_4` lightest. Numeric keys avoid `default`. */
+  ink: {
+    _1: '#2A231B',
+    _2: '#554A3D',
+    _3: '#8A7D6E',
+    _4: '#B3A69A',
+  },
+  /** Borders/dividers — `base` for visible, `soft` for barely-there. */
+  rule: {
+    base: '#DCD0BD',
+    soft: '#E8DFCC',
+  },
+  /** Deep terracotta — the primary accent on the redesigned home. */
+  terracotta: {
+    base: '#A0503C',
+    ink: '#753D2D',
+    soft: '#F0DCD1',
+  },
+  /** Dusk plum — secondary accent for the Reunite path. */
+  plum: {
+    base: '#6F5179',
+    ink: '#4B3455',
+    soft: '#EDE1EE',
+  },
+  /** Muted sage — tertiary accent for in-progress / neutral glances. */
+  sage: {
+    base: '#7B9786',
+    ink: '#556F5F',
+    soft: '#E1EAE0',
+  },
+  /** Warm halo gold — signature color for the brand mark and halos. */
+  gold: {
+    base: '#D4A95C',
+    ink: '#8D6727',
+    soft: '#F5E8C8',
+    halo: '#E8CA92',
+  },
 } as const;
 
 export const space = {
@@ -45,15 +97,18 @@ export const space = {
   '6': 24,
   '7': 32,
   '8': 40,
-  '10': 56,
+  '9': 56,
+  '10': 72,
   '12': 80,
 } as const;
 
 export const radius = {
   xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 20,
+  sm: 6,
+  md: 10,
+  lg: 16,
+  xl: 22,
+  '2xl': 28,
   pill: 9999,
 } as const;
 
@@ -64,26 +119,28 @@ export const borderWidth = {
 } as const;
 
 export const font = {
-  display: '"Cormorant Garamond", Georgia, serif',
-  body: '"DM Sans", system-ui, -apple-system, sans-serif',
+  display: '"Source Serif 4", "Iowan Old Style", Georgia, serif',
+  body: '"Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+  mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 } as const;
 
 export const type = {
-  displayXl: { size: 40, lineHeight: 1.05, weight: 500, tracking: -0.5, mobileSize: 32 },
-  displayLg: { size: 32, lineHeight: 1.1, weight: 500, tracking: -0.3, mobileSize: 28 },
-  displayMd: { size: 24, lineHeight: 1.2, weight: 500, tracking: -0.2 },
+  displayXl: { size: 40, lineHeight: 1.05, weight: 300, tracking: -0.5, mobileSize: 30 },
+  displayLg: { size: 32, lineHeight: 1.1, weight: 300, tracking: -0.3, mobileSize: 28 },
+  displayMd: { size: 24, lineHeight: 1.2, weight: 400, tracking: -0.2 },
   bodyLg: { size: 17, lineHeight: 1.5, weight: 400, tracking: 0 },
   bodyMd: { size: 15, lineHeight: 1.5, weight: 400, tracking: 0 },
   bodySm: { size: 13, lineHeight: 1.45, weight: 500, tracking: 0.1 },
   labelMd: { size: 14, lineHeight: 1.2, weight: 500, tracking: 0.3 },
   labelSm: { size: 12, lineHeight: 1.2, weight: 700, tracking: 0.6 },
+  eyebrow: { size: 10.5, lineHeight: 1.2, weight: 500, tracking: 1.4 },
 } as const;
 
 export const shadow = {
-  soft: '0 2px 10px rgba(51, 41, 56, 0.06)',
-  lift: '0 6px 20px rgba(51, 41, 56, 0.10)',
-  float: '0 16px 40px rgba(51, 41, 56, 0.14)',
-  frame: '0 1px 2px rgba(176, 138, 79, 0.20)',
+  soft: '0 2px 10px rgba(42, 35, 27, 0.06)',
+  lift: '0 6px 20px rgba(42, 35, 27, 0.10)',
+  float: '0 16px 40px rgba(42, 35, 27, 0.14)',
+  frame: '0 1px 2px rgba(160, 80, 60, 0.18)',
 } as const;
 
 export const duration = {
@@ -97,7 +154,7 @@ export const duration = {
 // Tuple form works directly for framer-motion `ease` and RN `Easing.bezier(...easing.standard)`.
 // cssVars.ts wraps these as `cubic-bezier(...)` for CSS consumers.
 export const easing = {
-  standard: [0.32, 0.72, 0, 1] as const,
+  standard: [0.2, 0.65, 0.25, 1] as const,
   gentle:   [0.22, 0.61, 0.36, 1] as const,
   exit:     [0.4, 0, 1, 1] as const,
 } as const;
@@ -125,4 +182,11 @@ export type TokenColorPath =
   | `brand.${keyof typeof color.brand}`
   | `accent.${keyof typeof color.accent}`
   | `text.${keyof typeof color.text}`
-  | `feedback.${keyof typeof color.feedback}`;
+  | `feedback.${keyof typeof color.feedback}`
+  | `surface.${keyof typeof color.surface}`
+  | `ink.${keyof typeof color.ink}`
+  | `rule.${keyof typeof color.rule}`
+  | `terracotta.${keyof typeof color.terracotta}`
+  | `plum.${keyof typeof color.plum}`
+  | `sage.${keyof typeof color.sage}`
+  | `gold.${keyof typeof color.gold}`;
