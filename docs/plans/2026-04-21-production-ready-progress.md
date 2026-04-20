@@ -51,3 +51,10 @@ every task result, and every blocker goes here in the order it happens.
 **Action:** Installed `vitest@4.1.4` and `@vitest/ui`. Added `apps/web/vitest.config.ts` (excludes `tests/**` so Vitest doesn't collide with Playwright specs, aliases `@haloframe/shared`). Added `test`, `test:unit`, `test:unit:ui` scripts. Authored `apps/web/src/lib/copy.test.ts` with three cases exercising `COPY.home.badgeOfFree`, `COPY.enhance.stepLabel`, and the split-headline concatenation.
 **Verification:** `npm --workspace=@haloframe/web run test:unit` → 3 tests passed, 409ms. `npm run typecheck` green across all workspaces.
 **Result:** pass
+**Commit:** `fe609bd chore(test): add vitest with copy.test.ts trivial suite`
+
+## 2026-04-20 — Phase A, Task A5: GitHub Actions CI
+
+**Action:** Scaffolded `.github/workflows/ci.yml`. Pipeline: checkout → Node 20 → `npm ci` → `npm run typecheck` → `vitest --run` → (secret-gated) Playwright install + E2E → (secret-gated) `scripts/smoke-redesign.mjs`. Uses output flags `has_supabase` / `has_fal` so the workflow is green on a fresh fork without secrets; emits `::warning::` line when gated steps are skipped. Uploads the Playwright HTML report as an artifact.
+**Verification:** `python -c "yaml.safe_load(open(ci.yml))"` → YAML OK. Eyeballed the step graph.
+**Result:** pass

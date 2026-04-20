@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'prod-ready/**']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck · unit · e2e · smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Prefer GH secrets when present, otherwise empty. Downstream steps
+      # that need them are guarded by the `has-supabase` / `has-fal` flags.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      FAL_KEY: ${{ secrets.FAL_KEY }}
+      NODE_ENV: test
+      SPIKE_MODE: 'true'
+      API_PORT: '4000'
+      LOG_LEVEL: 'error'
+      CORS_ORIGINS: 'http://localhost:5173'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (vitest)
+        run: npm --workspace=@haloframe/web run test:unit
+
+      - name: Detect secret availability
+        id: secrets
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            echo "has_supabase=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_supabase=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$FAL_KEY" ]; then
+            echo "has_fal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_fal=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright browsers
+        if: steps.secrets.outputs.has_supabase == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests (Playwright)
+        if: steps.secrets.outputs.has_supabase == 'true'
+        run: npm --workspace=@haloframe/web run test:e2e
+
+      - name: Upload Playwright report
+        if: always() && steps.secrets.outputs.has_supabase == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Smoke test (live API)
+        if: steps.secrets.outputs.has_supabase == 'true' && steps.secrets.outputs.has_fal == 'true'
+        run: node scripts/smoke-redesign.mjs
+
+      - name: Flag skipped smoke/E2E
+        if: steps.secrets.outputs.has_supabase != 'true'
+        run: |
+          echo "::warning title=Skipped E2E/smoke::SUPABASE_URL / SUPABASE_ANON_KEY secrets not configured. Run the workflow after adding them in Settings → Secrets."
