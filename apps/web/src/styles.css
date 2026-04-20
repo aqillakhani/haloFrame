@@ -5212,3 +5212,321 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
     margin: 0 auto;
   }
 }
+
+/* ============================================================================
+ * Auth surfaces — SignIn / SignUp / ResetPassword / AuthCallback /
+ * AuthGateModal. Uses the same editorial palette as Settings: cream canvas,
+ * bronze ink, rose-gold accents, no hard outlines. Screens are intentionally
+ * narrow — focus + breath, not a dashboard form.
+ * ==========================================================================*/
+
+.auth-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 44px 24px 40px;
+  min-height: calc(100vh - env(safe-area-inset-bottom));
+}
+
+.auth-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.auth-headline {
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 400;
+  color: var(--c-text-ink);
+  margin: 0;
+}
+
+.auth-headline em {
+  font-style: italic;
+  color: var(--c-brand-primaryDeep, var(--c-brand-primary));
+}
+
+.auth-sub {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--c-hairline);
+  padding-bottom: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.auth-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 4px 12px;
+  margin-right: 12px;
+  position: relative;
+  cursor: pointer;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.auth-tab[data-active='true'] {
+  color: var(--c-text-ink);
+}
+
+.auth-tab[data-active='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 2px;
+  background: var(--c-brand-primary);
+  border-radius: 2px;
+}
+
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+}
+
+.auth-field > span {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.auth-field input {
+  font: inherit;
+  font-size: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-hairline);
+  border-radius: 10px;
+  background: var(--c-bg-surface, #fff);
+  color: var(--c-text-ink);
+  min-height: 48px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--c-brand-primary);
+  box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.15);
+}
+
+.auth-error {
+  margin: 0;
+  color: #a23a33;
+  background: #faecea;
+  border: 1px solid #e8c4bc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.auth-submit {
+  margin-top: 6px;
+  min-height: 48px;
+  font-weight: 500;
+}
+
+.auth-link {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--c-brand-primaryDeep, var(--c-brand-primary));
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 14px;
+}
+
+.auth-link-right {
+  align-self: flex-end;
+  margin-top: -2px;
+}
+
+.auth-foot {
+  font-size: 14px;
+  color: var(--c-text-muted);
+  margin: 0;
+  text-align: center;
+}
+
+.auth-oauth {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--c-text-ink);
+}
+
+.auth-sent h2 {
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 22px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.auth-sent p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.auth-screen-callback {
+  justify-content: center;
+}
+
+/* AuthGateModal — the moment-of-save interstitial. Reuses the paywall scrim
+ * pattern so the touch + focus behavior is consistent. */
+.auth-gate-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 20, 16, 0.42);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24px;
+  z-index: 120;
+}
+
+.auth-gate-sheet {
+  width: 100%;
+  max-width: 520px;
+  background: var(--c-bg-canvas, #faf3e2);
+  border-radius: 18px 18px 14px 14px;
+  padding: 26px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 -20px 60px rgba(28, 20, 16, 0.24);
+}
+
+.auth-gate-eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.auth-gate-headline {
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 22px;
+  line-height: 1.22;
+  font-weight: 400;
+  color: var(--c-text-ink);
+  margin: 0;
+}
+
+.auth-gate-sub {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 0;
+}
+
+.auth-gate-methods {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.auth-gate-method {
+  appearance: none;
+  background: var(--c-bg-surface, #fff);
+  border: 1px solid var(--c-hairline);
+  color: var(--c-text-ink);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 500;
+  min-height: 48px;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.auth-gate-method:hover {
+  border-color: var(--c-brand-primary);
+}
+
+.auth-gate-method:active {
+  transform: translateY(1px);
+}
+
+.auth-gate-fine {
+  font-size: 12px;
+  color: var(--c-text-faint, var(--c-text-muted));
+  margin: 0;
+  text-align: center;
+}
+
+.auth-gate-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+@media (min-width: 520px) {
+  .auth-screen {
+    padding: 72px 48px 48px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .auth-headline {
+    font-size: 40px;
+  }
+
+  .auth-gate-methods {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
