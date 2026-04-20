@@ -364,7 +364,13 @@ export const COPY = {
     tributesShort: (n: number) => (n === 1 ? '1 tribute' : `${n} tributes`),
 
     // Empty-balance banner
-    emptyBalance: 'You\u2019ve used your tributes for this month.',
+    emptyBalance: 'You\u2019ve used your free tributes.',
+    // Displayed on the paywall hero when free-tier flow flags give us a
+    // finer picture of what's left. Always a noun phrase; caller wraps it
+    // in whatever sentence shape fits.
+    emptyBalanceEnhanceOnly: 'You\u2019ve used your free enhance.',
+    emptyBalanceReuniteOnly: 'You\u2019ve used your free reunite.',
+    emptyBalanceBoth: 'You\u2019ve used both free tributes.',
     emptyBalanceSub: 'Add more below, or extend your Heritage membership.',
 
     // CTAs

@@ -70,11 +70,24 @@ export async function loadCreditSnapshot(userId: string): Promise<SubscriptionSn
   if (error || !data) {
     throw errors.internal('Failed to load credit snapshot', { error });
   }
-  return {
+  const base: SubscriptionSnapshot = {
     planId: data.plan_id,
     creditsRemaining: computeTotalCredits(data),
     renewsOn: data.renews_on,
   };
+  // Free tier: fold in per-flow availability so the UI can show
+  // "2 free tributes — 1 enhance + 1 reunite" without a second round-trip.
+  // Non-free tiers omit the field (both flows always available).
+  if (data.plan_id === 'free') {
+    const perFlow = await loadPerFlowSnapshot(userId);
+    if (perFlow.planId !== null) {
+      base.freeTierFlows = {
+        enhanceAvailable: perFlow.enhanceAvailable,
+        mergeAvailable: perFlow.mergeAvailable,
+      };
+    }
+  }
+  return base;
 }
 
 export interface CreditCheckResult {

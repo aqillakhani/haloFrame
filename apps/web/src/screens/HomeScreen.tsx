@@ -175,15 +175,22 @@ function buildBadge(
   snapshot: ReturnType<typeof useSubscription>['snapshot'],
 ): Badge | null {
   if (!snapshot) return null;
-  const n = snapshot.creditsRemaining;
   if (snapshot.planId === 'free') {
-    const label = COPY.home.badgeOfFree(n, FREE_LIFETIME_TOTAL);
+    // Free tier counts *tribute slots*, not raw credits, since a reunite
+    // costs 2 credits. Prefer the per-flow flags from the server; fall back
+    // to the legacy `creditsRemaining` when pre-migration.
+    const flows = snapshot.freeTierFlows;
+    const slotsLeft = flows
+      ? (flows.enhanceAvailable ? 1 : 0) + (flows.mergeAvailable ? 1 : 0)
+      : Math.min(snapshot.creditsRemaining, FREE_LIFETIME_TOTAL);
+    const label = COPY.home.badgeOfFree(slotsLeft, FREE_LIFETIME_TOTAL);
     return {
-      count: n,
+      count: slotsLeft,
       label,
-      ariaLabel: `${n} ${label}`,
+      ariaLabel: `${slotsLeft} ${label}`,
     };
   }
+  const n = snapshot.creditsRemaining;
   return {
     count: n,
     label: COPY.home.badgeRemaining,

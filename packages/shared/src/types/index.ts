@@ -186,6 +186,18 @@ export interface SubscriptionSnapshot {
    * because its 2 credits are a lifetime grant, not a renewable cycle.
    */
   renewsOn: string | null;
+  /**
+   * Free-tier only: per-flow availability. On free, a user gets 1 Enhance
+   * AND 1 Reunite (tracked independently). Each flag flips to `false` on
+   * a successful save. Paid tiers always report both as `true`.
+   *
+   * Optional so pre-migration responses (without the `enhance_used` /
+   * `merge_used` columns) still deserialize cleanly.
+   */
+  freeTierFlows?: {
+    enhanceAvailable: boolean;
+    mergeAvailable: boolean;
+  };
 }
 
 // -----------------------------------------------------------------------------
