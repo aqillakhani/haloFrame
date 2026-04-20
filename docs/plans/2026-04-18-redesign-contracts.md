@@ -202,13 +202,21 @@ placement?: 'left' | 'right' | 'behind' | 'front'
 **Props:** none
 
 **Reads:**
-- `snapshot.planId` → plan name (`planName(planId)`)
-- `snapshot.creditsRemaining` → credits line
+- `snapshot.planId` → plan name (`planDisplayName(planId)`; differentiates `heritage_annual` → "Heritage Annual" vs `heritage_monthly` → "Heritage")
+- `snapshot.creditsRemaining` → credits line + tributes badge count
+- `snapshot.renewsOn` → formatted as "Renews April 19" for paid plans (free plans show "Membership" instead)
 - `SUBSCRIPTION_PLANS_UI` for plan details
-- `COPY.subscription.*`
+- `COPY.subscription.*` — includes the new `settingsPlanPrefix`, `settingsMembershipEyebrow`, `settingsRenewsOn`, `settingsTributesLabel`, `settingsNoteEyebrow`, `settingsNote.{free|keepsake|heritage|heritageAnnual}`, and the two-part `fineprint.{left|separator|right}`
+
+**Renders:**
+- Quiet "SETTINGS" nav-title eyebrow (no back button — the bottom tab bar owns navigation)
+- Plan hero: gold-dotted eyebrow (renewal date on paid, "Membership" on free), italic "You're on {Plan}." headline, italic credit-state sentence, gold tributes-remaining badge
+- Note card with plan-specific explanatory paragraph under "On your membership" eyebrow
+- Primary terracotta "Extend…" CTA + ghost "Restore purchase" CTA
+- Fine print: "Cancel anytime · No commitment" with the middle dot dimmed
 
 **User actions:**
-- Tap "Extend your Heritage membership" CTA → `nav.push('PAYWALL')`
+- Tap the Extend CTA → `nav.push('PAYWALL')`
 - Tap "Restore purchase" → `handleRestore()` (currently no-op; will wire to RC restore when native lands)
 
 **Routes to:** PAYWALL
@@ -216,6 +224,9 @@ placement?: 'left' | 'right' | 'behind' | 'front'
 **Contract invariants:**
 - `planId === 'free'` shows lifetime-credits line; paid plans show remaining-this-period line (`COPY.subscription.creditsLifetime` vs `creditsRemaining`)
 - CTA copy varies by plan: Free → extendCtaFree; Keepsake → extendCtaKeepsake; else → extendCta
+- Note-card copy varies by plan: `free | keepsake | heritage | heritageAnnual`; `heritage_monthly` falls through to the `heritage` key
+- Renewal eyebrow is only rendered when `snapshot.renewsOn` parses to a valid Date; otherwise falls back to "Membership" so free users never see a broken "Renews Invalid Date"
+- Restore button remains rendered + focusable even while `handleRestore` is a no-op
 
 ---
 

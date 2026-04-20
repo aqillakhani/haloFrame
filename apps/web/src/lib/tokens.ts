@@ -55,10 +55,11 @@ export const color = {
     _3: '#8A7D6E',
     _4: '#B3A69A',
   },
-  /** Borders/dividers — `base` for visible, `soft` for barely-there. */
+  /** Borders/dividers — `base` for visible, `soft` for barely-there, `strong` for hover/focus. */
   rule: {
     base: '#DCD0BD',
     soft: '#E8DFCC',
+    strong: '#C9BBA3',
   },
   /** Deep terracotta — the primary accent on the redesigned home. */
   terracotta: {
@@ -106,6 +107,7 @@ export const radius = {
   xs: 4,
   sm: 6,
   md: 10,
+  btn: 14,
   lg: 16,
   xl: 22,
   '2xl': 28,

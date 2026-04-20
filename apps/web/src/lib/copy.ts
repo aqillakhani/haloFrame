@@ -181,6 +181,18 @@ export const COPY = {
     // Settings-tab membership view
     settingsHeading: 'Your membership',
     currentPlanOnLabel: (planName: string) => `You\u2019re on ${planName}`,
+    settingsNavLabel: 'Settings',
+    settingsPlanPrefix: 'You\u2019re on',
+    settingsMembershipEyebrow: 'Membership',
+    settingsRenewsOn: (date: string) => `Renews ${date}`,
+    settingsTributesLabel: 'tributes',
+    settingsNoteEyebrow: 'On your membership',
+    settingsNote: {
+      free: 'Free memberships include a small number of tributes so you can try adding a halo, a pair of wings, or a quiet reunion for someone you\u2019ve lost.',
+      keepsake: 'Keepsake renews each month with a fresh set of tributes \u2014 gentle room to revisit photographs and add halos, wings, or reunions.',
+      heritage: 'Heritage gives a fuller monthly allowance of tributes and keeps your archive of saved memorials together, month to month.',
+      heritageAnnual: 'Heritage Annual carries the same monthly allowance with a year\u2019s continuity \u2014 a quiet way to hold onto the work of remembering.',
+    },
     extendCtaFree: 'Extend membership',
     extendCtaKeepsake: 'Extend your Keepsake membership',
     // extendCta already exists above for Heritage
@@ -242,8 +254,13 @@ export const COPY = {
     topupHeading: 'Add more tributes',
     topupSubtitle: 'One-time purchase. Credits expire after 90 days.',
 
-    // Fine print
-    fineprint: 'Cancel anytime \u00b7 No commitment',
+    // Fine print — two halves separated by a middle-dot. Settings renders
+    // the separator at reduced opacity for a typographic beat.
+    fineprint: {
+      left: 'Cancel anytime',
+      separator: '\u00b7',
+      right: 'No commitment',
+    },
   },
 
   printShop: {
