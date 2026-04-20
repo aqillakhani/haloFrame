@@ -10,7 +10,13 @@ export type Screen =
   | 'MY_TRIBUTES'
   | 'SETTINGS'
   | 'PRINT_SHOP'
-  | 'PAYWALL';
+  | 'PAYWALL'
+  | 'SIGN_IN'
+  | 'SIGN_UP'
+  | 'RESET_PASSWORD'
+  | 'AUTH_CALLBACK'
+  | 'LEGAL_PRIVACY'
+  | 'LEGAL_TERMS';
 
 export type Tab = 'HOME' | 'MY_TRIBUTES' | 'SETTINGS' | 'PRINT_SHOP';
 
