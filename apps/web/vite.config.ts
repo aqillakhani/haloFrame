@@ -4,6 +4,10 @@ import { resolve } from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  // The monorepo has a single .env at the repo root. Without envDir, Vite
+  // would look in apps/web/ and miss VITE_SUPABASE_URL etc., leaving the
+  // Supabase client unable to boot.
+  envDir: resolve(__dirname, '../..'),
   resolve: {
     alias: {
       '@haloframe/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),

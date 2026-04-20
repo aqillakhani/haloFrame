@@ -23,3 +23,17 @@ every task result, and every blocker goes here in the order it happens.
 - Untracked on `main` (`design/`, `docs/redesign/prompts/`, `scripts/extract-design-*.mjs`) don't appear in the worktree since they were never committed.
 
 ---
+
+## 2026-04-20 — Phase A, Task A1: install Playwright
+
+**Action:** `npm i -D -w @haloframe/web @playwright/test` + `npx playwright install chromium`. Authored `apps/web/playwright.config.ts` (chromium project, `baseURL=http://localhost:5173`, `webServer` spawns repo-root `npm run dev`, `reuseExistingServer: !CI`).
+**Verification:** `npx playwright --version` → 1.59.1. Test discovery sees config.
+**Result:** pass
+**Commit:** `4c7af3d chore(test): install playwright and scaffold config`
+**Notes:** Added `apps/web/{test-results,playwright-report,blob-report}/` to `.gitignore` to avoid committing artifacts.
+
+## 2026-04-20 — Phase A, Task A2: smoke E2E + Vite env fix
+
+**Action:** Authored `apps/web/tests/e2e/home-loads.spec.ts` asserting the headline `/For the ones we carry with us/i` via `getByRole('heading')`. Killed 3 stale dev-server node processes (days 2-4 old) that were holding 5173/5174/4000 and serving a broken bundle. Discovered latent bug: Vite's default `envDir` is `apps/web/`, so the repo-root `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` was never loaded, making `createClient('','')` throw at module init and white-screening the app. Fixed by setting `envDir: resolve(__dirname, '../..')` in `vite.config.ts`.
+**Verification:** Fresh `npx playwright test home-loads` → 1 passed. Console shows Supabase client constructed (no `supabaseUrl is required` anymore).
+**Result:** pass
