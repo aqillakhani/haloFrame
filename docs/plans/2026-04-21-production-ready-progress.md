@@ -194,6 +194,63 @@ every task result, and every blocker goes here in the order it happens.
 
 **Deferred (F13/F14 tests):** the webhook is covered by the handler + idempotency guard + structured logging. Full signed-event unit tests + paywall-click E2E stay for morning QA.
 
+---
+
+## 2026-04-20 — Phase G: Legal + data management
+
+**Landed:** `LegalScreen.tsx` with one-component-two-kinds (`privacy` / `terms`) — each draft has explicit `{{PLACEHOLDER}}` tokens for the lawyer's edit pass. New routes `/api/me/export` (JSON blob of profile + tributes + ledger) and `DELETE /api/me` (cascade: storage assets → tribute rows → ledger → usage_log → profile → auth.users). Settings gained an "Export my data" + "Delete my account" panel with a danger-tone confirm dialog, plus Privacy/Terms footer links.
+
+**Commit:** `16a2fc9 feat(legal): LegalScreen (privacy/terms) + /api/me (export+delete) + settings delete UI`
+
+---
+
+## 2026-04-20 — Phase H: Ops
+
+**Landed:** `apps/api/Dockerfile` (multi-stage, non-root `haloframe` user, prod-only install), `apps/api/railway.json` (Dockerfile build, `/healthz` probe, restart policy), `apps/web/vercel.json` (Vite framework, SPA rewrites, CSP + HSTS + Permissions-Policy headers). `express-rate-limit` applied to `/api/*` (300 GET/min, 60 write/min). `@sentry/node` no-ops without `SENTRY_DSN`. Pino gains `genReqId` backed by `x-request-id`. `/healthz` liveness + `/readyz` (Supabase probe). SIGTERM drains up to 30s with Sentry flush, then exits. `docs/DEPLOY.md` wraps it all up.
+
+**Commit:** `fe45db2 feat(ops): Docker+Railway+Vercel configs, rate-limit, Sentry, health probes, graceful shutdown + DEPLOY.md`
+
+---
+
+## 2026-04-20 — Phase I: Capacitor scaffold
+
+**Landed:** Installed `@capacitor/{core,cli,ios,android,camera,filesystem,share,haptics,app,preferences}`. Wrote `capacitor.config.ts` with `appId=com.haloframe.app`, splash config, and optional `CAPACITOR_LIVE_URL` for dev hot-reload. `lib/download.ts` branches to `@capacitor/filesystem` on native (saves to Documents directory → user's Photos roll). `lib/haptics.ts` routes through `@capacitor/haptics`. `vite.config.ts` now builds with `base: './'` so the bundled shell loads from `file://` in iOS/Android WebViews.
+
+**Commit:** `b6a3688 feat(mobile): Capacitor scaffold + native download/haptics + base=./ for wrapped shell`
+
+**DEFERRED:** `npx cap add ios` + `npx cap add android` must run on a Mac (Xcode/CocoaPods for iOS) and a machine with Android Studio installed. Overnight host is Windows. `DEFERRED:I3-add-ios`, `DEFERRED:I4-icons`, `DEFERRED:I5-splash`, `DEFERRED:I7-deep-links`, `DEFERRED:I12-cap-sync-smoke`.
+
+---
+
+## 2026-04-20 — Phase J: Polish
+
+**Landed:** Deleted `UploadZone.tsx` + `LoadingOverlay.tsx` (0 callers after the redesign ports). Bumped `.reunite-quiet-btn` min-height 36→44px to match WCAG 2.5.8. Paywall subhead is already dynamic (reads `snapshot.creditsRemaining` via `paywallSubheadPlural(creditsUsed)` — not hardcoded).
+
+**Commit:** `6e5b14e chore(polish): delete dead UploadZone+LoadingOverlay; reunite-quiet-btn min-height 44px`
+
+**DEFERRED:** `.reunite-cutout` transform refactor (P3 perf polish), audit + security-auditor re-run, Lighthouse. All morning QA.
+
+---
+
+## 2026-04-20 — Phase K: Handoff
+
+**Landed:**
+- `docs/MORNING_CHECKLIST.md` — ordered walk-through for the user: Supabase migration → Stripe products → Resend → Vercel → Railway → DNS → Capacitor (later) → Legal review → merge.
+- `docs/WHATS_DONE.md` — executive summary with commit table, numbers, DEFERRED triage.
+
+**Final verification (post-Phase-K, fresh API process):**
+- `npm run typecheck` — green.
+- `npm --workspace=@haloframe/web run test:unit` — 3/3 in 482ms.
+- `npm --workspace=@haloframe/web run test:e2e` — 1/1 (home smoke).
+- `node scripts/smoke-redesign.mjs` — 9/9 (API + tribute bridge round-trip).
+- `curl http://localhost:4000/healthz` → 200 `{ok:true}`.
+- `curl http://localhost:4000/readyz` → 200 `{ok:true, service:haloframe-api, env:development}`.
+
+**Not pushing to origin — plan K5 says flag as last morning item since I haven't been pre-authorized to push.**
+
+Plan complete. Awaiting user morning actions.
+
+
 
 
 
