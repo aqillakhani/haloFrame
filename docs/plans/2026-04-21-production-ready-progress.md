@@ -147,6 +147,23 @@ every task result, and every blocker goes here in the order it happens.
 
 **Result:** Phase C landed. 7 commits.
 
+---
+
+## 2026-04-20 — Phase D: per-flow free tier
+
+**Model chosen:** 1 free Enhance + 1 free Reunite (exactly). Tracked via two boolean columns (`enhance_used`, `merge_used`) on `profiles`. Credit grant bumped 2 → 3 (migration default only) so a free user can still afford *one* reunite (2 credits) in addition to one enhance. Paid tiers ignore the flags — credits remain the gate. Pre-migration: helpers soft-fail to "allowed", so deploy-before-migration doesn't lock users out.
+
+**Commits:**
+- `2085376` — `supabase/migrations/20260421000001_per_flow_free_tier.sql` (additive, safe). Helpers `isFlowBlockedForFree`, `markFreeTierFlowUsed`, `loadPerFlowSnapshot` in `entitlements.ts`. Wired into `spike.ts`: `/merge` gates on `merge_used` + flips post-spend; `/apply` gates on `enhance_used` only for Enhance path (reunite already cleared at merge time).
+- `563cd5e` — `SubscriptionSnapshot` extended with optional `freeTierFlows { enhanceAvailable, mergeAvailable }`. `/api/subscription/status` now folds per-flow data in for free users. HomeScreen badge computes `slotsLeft` from flags (fallback: `min(credits, 2)` pre-migration). Copy gained `emptyBalanceEnhanceOnly`, `emptyBalanceReuniteOnly`, `emptyBalanceBoth` for finer paywall language.
+
+**Verification:** `npm run typecheck` green; `vitest --run` still 3/3 green.
+
+**USER-MORNING:** apply the migration file above to the hosted Supabase DB. Until then, the app is permissive (fail-open) — users may get extra tributes.
+
+**Deferred:** E2E tests D7-D8 (same rationale as B7-B9).
+
+
 
 
 **Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
