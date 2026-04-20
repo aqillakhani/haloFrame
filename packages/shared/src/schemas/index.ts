@@ -107,6 +107,25 @@ export const finalizeRequestSchema = z.object({
 });
 export type FinalizeRequest = z.infer<typeof finalizeRequestSchema>;
 
+// -----------------------------------------------------------------------------
+// Save-bridge — persists a finished /api/spike/* result into the `tributes`
+// table so it shows up in MyTributes. Additive endpoint; does NOT replace the
+// spike AI pipeline. See docs/plans/2026-04-21-production-ready-progress.md
+// (Phase B scope decision) for why this bridge exists instead of a full
+// tribute-router cutover.
+// -----------------------------------------------------------------------------
+export const saveSpikeResultRequestSchema = z.object({
+  flowType: flowTypeSchema,
+  isPet: z.boolean().default(false),
+  templateIds: z.array(z.string().min(1)).min(1),
+  intensity: effectIntensitySchema.default('medium'),
+  finalImageUrl: z.string().url(),
+  saveId: z.string().min(8).max(128),
+  subjectName: z.string().max(120).optional(),
+  placement: placementSchema.optional(),
+});
+export type SaveSpikeResultRequest = z.infer<typeof saveSpikeResultRequestSchema>;
+
 export const shippingAddressSchema = z.object({
   fullName: z.string().min(2).max(120),
   line1: z.string().min(2).max(200),

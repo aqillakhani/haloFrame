@@ -9,9 +9,20 @@
 import type {
   ApiResponse,
   SubscriptionSnapshot,
+  Tribute,
   TributeTemplate,
 } from '@haloframe/shared';
 import { supabase } from './supabase';
+
+// Router-mode flag. `prod` (default) enables the /api/tribute/* bridge for
+// list/delete/save. `spike` disables it — useful for AI-only local iteration
+// against a server booted with SPIKE_MODE=true where the tribute routes
+// aren't mounted. See docs/plans/2026-04-21-production-ready-progress.md
+// (Phase B scope decision).
+export const API_MODE: 'prod' | 'spike' =
+  (import.meta.env.VITE_API_MODE as 'prod' | 'spike' | undefined) ?? 'prod';
+
+export const isTributeBridgeEnabled = (): boolean => API_MODE === 'prod';
 
 // -----------------------------------------------------------------------------
 // Typed errors — consumers can branch on .code without string-matching
@@ -233,6 +244,67 @@ export async function mergePhotos(
 export async function fetchTemplates(signal?: AbortSignal): Promise<TributeTemplate[]> {
   const data = await getJson<{ templates: TributeTemplate[] }>('/api/spike/templates', signal);
   return data.templates;
+}
+
+// -----------------------------------------------------------------------------
+// Tribute persistence bridge (Phase B)
+// -----------------------------------------------------------------------------
+// The AI pipeline stays on /api/spike/*. These thin calls live on
+// /api/tribute/* and give MyTributes + account-delete a real data source.
+// All three silently no-op in `spike` API mode so an AI-only dev loop still
+// works without the production router mounted.
+// -----------------------------------------------------------------------------
+
+export interface SaveSpikeResultArgs {
+  flowType: 'enhance' | 'reunite' | 'pet_enhance' | 'pet_reunite';
+  isPet: boolean;
+  templateIds: string[];
+  intensity: 'low' | 'medium' | 'high';
+  finalImageUrl: string;
+  /** Stable idempotency key — reusing the same key returns the existing row. */
+  saveId: string;
+  subjectName?: string;
+  placement?: 'left' | 'right' | 'behind' | 'front';
+}
+
+export async function saveSpikeResult(
+  args: SaveSpikeResultArgs,
+  signal?: AbortSignal,
+): Promise<Tribute | null> {
+  if (!isTributeBridgeEnabled()) return null;
+  const data = await postJson<{ tribute: Tribute }>('/api/tribute/save-spike-result', args, signal);
+  return data.tribute;
+}
+
+export async function listTributes(signal?: AbortSignal): Promise<Tribute[]> {
+  if (!isTributeBridgeEnabled()) return [];
+  const data = await getJson<{ tributes: Tribute[] }>('/api/tribute/', signal);
+  return data.tributes;
+}
+
+export async function deleteTribute(
+  tributeId: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  if (!isTributeBridgeEnabled()) return false;
+  const res = await fetch(`/api/tribute/${encodeURIComponent(tributeId)}`, {
+    method: 'DELETE',
+    headers: await getAuthHeader(),
+    signal,
+  });
+  const json = (await res.json()) as ApiResponse<{ deleted: boolean }>;
+  if (!res.ok || !json.ok) {
+    if (!json.ok) {
+      throw new ApiRequestError(
+        json.error.code,
+        json.error.message,
+        res.status,
+        json.error.details,
+      );
+    }
+    throw new ApiRequestError('http_error', `HTTP ${res.status}`, res.status);
+  }
+  return json.data.deleted;
 }
 
 // -----------------------------------------------------------------------------

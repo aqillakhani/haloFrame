@@ -4,6 +4,7 @@ import type { TributeTemplate } from '@haloframe/shared';
 import {
   applyTemplate,
   isInsufficientCreditsError,
+  saveSpikeResult,
   type ApplySubjectContext,
   type ApplyResult,
   type ApplyResolution,
@@ -351,6 +352,33 @@ export function Editor({
       if (url) {
         void triggerDownload(url);
         void refetchSubscription();
+        // Persist the finished tribute to the DB so MyTributes can list it.
+        // Fire-and-forget: download already fired; a bridge failure (network,
+        // auth, route not mounted in spike mode) shouldn't block the save.
+        // Idempotency key ties a retry to the same row.
+        const saveId =
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `save-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const flowType: 'enhance' | 'reunite' | 'pet_enhance' | 'pet_reunite' = placement
+          ? isPet
+            ? 'pet_reunite'
+            : 'reunite'
+          : isPet
+            ? 'pet_enhance'
+            : 'enhance';
+        void saveSpikeResult({
+          flowType,
+          isPet,
+          templateIds: activeSelection,
+          intensity: INTENSITY,
+          finalImageUrl: url,
+          saveId,
+          subjectName,
+          placement,
+        }).catch((bridgeErr: unknown) => {
+          console.error('[Editor] save-bridge failed (non-fatal)', bridgeErr);
+        });
       } else {
         if (lastRenderErrorRef.current) {
           console.error('[Editor] save failed', lastRenderErrorRef.current);

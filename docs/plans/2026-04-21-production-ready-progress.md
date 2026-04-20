@@ -95,6 +95,22 @@ every task result, and every blocker goes here in the order it happens.
 **Verification:** Restarted `npm run dev:api` — log shows both `Subscription routes mounted (credit ledger active)` and `Full-product routes mounted`. `curl http://localhost:4000/health` → `{spikeMode: false}`. `curl http://localhost:4000/api/tribute/` → 401 `unauthenticated` (correct — tribute router live and guarding with `requireAuth`).
 **Result:** pass
 
+## 2026-04-20 — Phase B, Task B5 (pragmatic): save-spike-result bridge + list/delete client
+
+**Action:** Per the Phase B scope decision above, did NOT rewire the AI pipeline (apply/merge/segment stay on `/api/spike/*`). Instead, added a minimal persistence bridge so MyTributes/delete/print can use the `tributes` table while the AI work continues on spike:
+
+- `packages/shared/src/schemas/index.ts`: added `saveSpikeResultRequestSchema` (flowType, isPet, templateIds, intensity, finalImageUrl, saveId, subjectName?, placement?).
+- `apps/api/src/routes/tribute.ts`: added `POST /api/tribute/save-spike-result`. Idempotent on `(userId, saveId)` via a JSONB `contains` lookup. Creates the `tributes` shell, then rehosts the fal.media URL into the `final` Supabase bucket via existing `rehostFromUrl()` so the image survives past fal's 24h TTL. Rehost failures are logged-warn-only so a transient CDN hiccup never bricks a save.
+- `apps/web/src/lib/api.ts`: added `API_MODE` constant (`'prod' | 'spike'`, from `VITE_API_MODE`), `isTributeBridgeEnabled()` gate, and three thin wrappers — `saveSpikeResult()`, `listTributes()`, `deleteTribute()`. All three silently no-op in `spike` mode.
+- `apps/web/src/screens/Editor.tsx`: after `handleSave` downloads the 2K file, fire-and-forget `saveSpikeResult()` with a `crypto.randomUUID()` save-id. Bridge failures log via `console.error` with `[Editor] save-bridge failed (non-fatal)` — the save itself still succeeds.
+
+**Verification:** 
+- `npm run typecheck` — green across shared/api/web.
+- End-to-end API probe: anon sign-in → `POST /api/tribute/save-spike-result` → 201 with a `tribute` row (id, state fully populated, saveId echoed into JSONB). Admin cleanup of the anon user succeeded. Rehost failed on the fake URL but the endpoint degraded gracefully (logged warn, tribute still inserted).
+**Result:** pass
+**Deferred:** Full `/api/tribute/*` AI rewiring (spec B5 as written). Logged as `DEFERRED:B5-full-rewire` for a dedicated session.
+
+
 
 **Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
 

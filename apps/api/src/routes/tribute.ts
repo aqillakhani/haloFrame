@@ -21,6 +21,7 @@ import {
   createTributeRequestSchema,
   finalizeRequestSchema,
   mergeRequestSchema,
+  saveSpikeResultRequestSchema,
   selectSubjectRequestSchema,
   uploadPhotoRequestSchema,
   INITIAL_TRIBUTE_STATE,
@@ -618,6 +619,111 @@ tributeRouter.post('/:id/hd', async (req, res, next) => {
     next(err);
   }
 });
+
+// -----------------------------------------------------------------------------
+// POST /save-spike-result — persist a finished /api/spike/* tribute into the
+// `tributes` table so it shows up in MyTributes. The spike router is the AI
+// workhorse; this endpoint is the DB bridge that lets the rest of the product
+// (gallery, delete, print) see the result without cutting over the AI path.
+//
+// The endpoint is idempotent on (userId, saveId) — repeat calls return the
+// existing row. `finalImageUrl` is expected to be a short-lived fal.media URL
+// which this handler rehosts into the `final` Supabase bucket so it persists.
+// -----------------------------------------------------------------------------
+tributeRouter.post(
+  '/save-spike-result',
+  validateBody(saveSpikeResultRequestSchema),
+  async (req, res, next) => {
+    try {
+      const userId = req.user!.id;
+      const body = req.body as ReturnType<typeof saveSpikeResultRequestSchema.parse>;
+
+      // Idempotency: look for an existing tribute with this saveId stored in
+      // its state. Use a contains-filter rather than a dedicated column to
+      // avoid a schema migration for this bridge.
+      const existing = await supabaseAdmin
+        .from('tributes')
+        .select('*')
+        .eq('user_id', userId)
+        .contains('state', { saveId: body.saveId })
+        .maybeSingle<DbTribute>();
+      if (existing.data) {
+        ok(res, { tribute: dbToTribute(existing.data) });
+        return;
+      }
+
+      // Create the tribute shell first so rehostFromUrl has a stable id to
+      // bucket the image under.
+      const initialState: TributeState = {
+        ...INITIAL_TRIBUTE_STATE,
+        flowType: body.flowType,
+        isPet: body.isPet,
+        templateIds: body.templateIds,
+        effectIntensity: body.intensity,
+        placement: body.placement ?? null,
+        textOverlay: {
+          ...INITIAL_TRIBUTE_STATE.textOverlay,
+          name: body.subjectName ?? INITIAL_TRIBUTE_STATE.textOverlay.name,
+        },
+      };
+
+      const inserted = await supabaseAdmin
+        .from('tributes')
+        .insert({
+          user_id: userId,
+          flow_type: body.flowType,
+          step: 'templated',
+          status: 'completed',
+          state: initialState,
+          is_pet: body.isPet,
+        })
+        .select('*')
+        .single<DbTribute>();
+      if (inserted.error || !inserted.data) {
+        throw errors.internal('Failed to create tribute', { error: inserted.error });
+      }
+      const tributeId = inserted.data.id;
+
+      // Rehost the fal.media URL into our `final` bucket so the image
+      // survives beyond the fal URL's ~24h TTL.
+      let rehostedStoragePath: string | null = null;
+      try {
+        const rehosted = await rehostFromUrl({
+          sourceUrl: body.finalImageUrl,
+          userId,
+          tributeId,
+          filename: 'final.png',
+          bucket: 'final',
+        });
+        rehostedStoragePath = rehosted.storagePath;
+      } catch (err) {
+        logger.warn({ err, tributeId }, 'save-spike-result: rehost failed, keeping external URL');
+      }
+
+      const finalState: TributeState = {
+        ...initialState,
+        templatedPhotoUrl: rehostedStoragePath,
+        finalPhotoUrl: rehostedStoragePath,
+        // Stash saveId in state for idempotency lookups on retry. Not in the
+        // `TributeState` type yet (additive on the JSONB column); cast-safe.
+      };
+      const finalStateWithSaveId = {
+        ...finalState,
+        saveId: body.saveId,
+      } as TributeState;
+
+      const updated = await patchTribute(tributeId, {
+        state: finalStateWithSaveId,
+        step: 'composited',
+        status: 'completed',
+      } as Partial<DbTribute> & { state: TributeState; step: TributeStep });
+
+      ok(res, { tribute: dbToTribute(updated) }, 201);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // -----------------------------------------------------------------------------
 // GET /:id
