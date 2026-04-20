@@ -73,7 +73,22 @@ every task result, and every blocker goes here in the order it happens.
 
 ---
 
-## 2026-04-20 — Phase B scope decision (pre-execution)
+## 2026-04-20 — Phase B, Task B2: verify tables + seed templates
+
+**Action:** Ran `npm --workspace=@haloframe/api run seed:templates`. Initial run failed: `dotenv/config` looks for `.env` at cwd, but workspace `run` sets cwd to `apps/api` where no `.env` exists. Made `seed-templates.ts` resilient by loading both `apps/api/.env` and the monorepo-root `.env` (local wins). Re-ran successfully: 11 templates upserted.
+**Verification:** Direct Supabase query via service-role client — `tribute_templates` count = 11, `tributes` count = 0 (empty, as expected pre-save). No errors on either query → schema is applied.
+**Result:** pass
+
+## 2026-04-20 — Phase B, Task B3: document SPIKE_MODE + VITE_API_MODE in .env.example
+
+**Action:** `.env.example` didn't mention `SPIKE_MODE` at all (carry-over from Phase 1 when it was hardcoded in `config/env.ts`). Added:
+- `CORS_ORIGINS` line (was missing from example).
+- `SPIKE_MODE` with the on/off semantics, default `false` for prod-like configs.
+- `VITE_API_MODE` toggle (`prod` | `spike`) for the web-side bridge (wired in B6).
+
+**Verification:** `.env.example` renders cleanly, no syntax issues.
+**Result:** pass
+
 
 **Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
 

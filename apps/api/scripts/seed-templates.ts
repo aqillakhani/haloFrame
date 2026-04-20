@@ -4,9 +4,17 @@
 //
 // Run with: npm run seed:templates
 // =============================================================================
-import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { config as loadDotenv } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { LAUNCH_TEMPLATES } from '@haloframe/shared';
+
+// The .env lives at the monorepo root, but this script is often invoked from
+// apps/api/. Load from both locations (local wins) so either cwd works.
+const here = dirname(fileURLToPath(import.meta.url));
+loadDotenv({ path: resolve(here, '..', '.env') });
+loadDotenv({ path: resolve(here, '..', '..', '..', '.env') });
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
