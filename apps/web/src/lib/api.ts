@@ -327,6 +327,34 @@ export async function startCanvasCheckout(args: {
 }
 
 // -----------------------------------------------------------------------------
+// Account data management (Phase G)
+// -----------------------------------------------------------------------------
+export async function exportMyData(signal?: AbortSignal): Promise<unknown> {
+  return getJson<unknown>('/api/me/export', signal);
+}
+
+export async function deleteMyAccount(signal?: AbortSignal): Promise<boolean> {
+  const res = await fetch('/api/me', {
+    method: 'DELETE',
+    headers: await getAuthHeader(),
+    signal,
+  });
+  const json = (await res.json()) as ApiResponse<{ deleted: boolean }>;
+  if (!res.ok || !json.ok) {
+    if (!json.ok) {
+      throw new ApiRequestError(
+        json.error.code,
+        json.error.message,
+        res.status,
+        json.error.details,
+      );
+    }
+    throw new ApiRequestError('http_error', `HTTP ${res.status}`, res.status);
+  }
+  return json.data.deleted;
+}
+
+// -----------------------------------------------------------------------------
 // Subscription / credits
 // -----------------------------------------------------------------------------
 export async function fetchSubscriptionStatus(

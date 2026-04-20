@@ -12,6 +12,7 @@ import { SignInScreen } from './screens/SignInScreen';
 import { SignUpScreen } from './screens/SignUpScreen';
 import { ResetPasswordScreen } from './screens/ResetPasswordScreen';
 import { AuthCallbackScreen } from './screens/AuthCallbackScreen';
+import { LegalScreen } from './screens/LegalScreen';
 import { BottomTabBar } from './components/BottomTabBar';
 
 const HIDE_TABBAR_SCREENS: readonly Screen[] = [
@@ -20,6 +21,8 @@ const HIDE_TABBAR_SCREENS: readonly Screen[] = [
   'SIGN_UP',
   'RESET_PASSWORD',
   'AUTH_CALLBACK',
+  'LEGAL_PRIVACY',
+  'LEGAL_TERMS',
 ];
 
 export function App() {
@@ -56,10 +59,7 @@ function renderScreen(screen: Screen) {
     case 'SIGN_UP':        return <SignUpScreen />;
     case 'RESET_PASSWORD': return <ResetPasswordScreen />;
     case 'AUTH_CALLBACK':  return <AuthCallbackScreen />;
-    case 'LEGAL_PRIVACY':
-    case 'LEGAL_TERMS':
-      // Wired in Phase G (LegalScreen). Fall through to Home for now so
-      // the navigation union stays exhaustive and typecheck is happy.
-      return <HomeScreen />;
+    case 'LEGAL_PRIVACY':  return <LegalScreen kind="privacy" />;
+    case 'LEGAL_TERMS':    return <LegalScreen kind="terms" />;
   }
 }

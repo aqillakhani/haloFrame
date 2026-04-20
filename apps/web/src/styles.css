@@ -5822,6 +5822,97 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   font-variant-numeric: tabular-nums;
 }
 
+/* ============================================================================
+ * Legal (Privacy / Terms) — single-column article surface that respects the
+ * editorial restraint of the rest of the app. Both kinds share layout; only
+ * the text differs. No footer tab bar on these screens (see App.tsx).
+ * ==========================================================================*/
+.legal-screen {
+  padding: 32px 22px 64px;
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.legal-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legal-back {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--c-brand-primaryDeep, var(--c-brand-primary));
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 0;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.legal-title {
+  margin: 6px 0 0;
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 30px;
+  font-weight: 400;
+  color: var(--c-text-ink);
+}
+
+.legal-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.legal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.legal-section h2 {
+  margin: 0 0 6px;
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--c-text-ink);
+}
+
+.legal-section p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text-ink);
+}
+
+.legal-footnav {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.settings-data .settings-delete {
+  color: #a23a33;
+}
+
+.settings-legal-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.settings-legal-links .auth-link {
+  font-size: 13px;
+}
+
 @media (min-width: 520px) {
   .my-tributes-grid {
     grid-template-columns: repeat(3, 1fr);

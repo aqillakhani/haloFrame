@@ -71,12 +71,16 @@ if (!env.isSpikeMode && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
   const { printRouter } = await import('./routes/print.js');
   const { printsRouter } = await import('./routes/prints.js');
 
+  const { meRouter } = await import('./routes/me.js');
+
   app.use('/api/tribute', tributeRouter);
   app.use('/api/templates', templatesRouter);
   app.use('/api/print', printRouter);
   // Note: `/api/prints` is the new Stripe-backed canvas checkout. The
   // legacy `/api/print` (order status) stays mounted for existing clients.
   app.use('/api/prints', printsRouter);
+  // Self-service data export + account delete.
+  app.use('/api/me', meRouter);
   logger.info('Full-product routes mounted');
 } else if (env.isSpikeMode) {
   logger.warn('SPIKE_MODE=true — /api/tribute, /api/templates, /api/print not mounted');

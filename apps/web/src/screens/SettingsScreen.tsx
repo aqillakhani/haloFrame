@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   SUBSCRIPTION_PLANS_UI,
   type SubscriptionPlanId,
@@ -8,6 +9,7 @@ import { COPY } from '../lib/copy';
 import { useSubscription } from '../hooks/useSubscription';
 import { useAuth } from '../hooks/useAuth';
 import { heroText, cardReveal } from '../lib/motion';
+import { deleteMyAccount, exportMyData } from '../lib/api';
 
 function providerLabel(providers: string[] | undefined): string {
   if (!providers || providers.length === 0) return 'Email';
@@ -68,9 +70,51 @@ export function SettingsScreen() {
   };
   const providers = appMeta.providers ?? (appMeta.provider ? [appMeta.provider] : []);
 
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
   async function handleSignOut() {
     await signOut();
     reset();
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const payload = await exportMyData();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'haloframe-data-export.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      console.error('[settings:export]', err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteMyAccount();
+      // Auth user is gone; sign out clears the local session and lands on home.
+      await signOut();
+      reset();
+    } catch (err) {
+      console.error('[settings:delete]', err);
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeleteBusy(false);
+      setDeleteOpen(false);
+    }
   }
 
   // Restore-purchase wiring lands with the backend entitlement refactor
@@ -222,6 +266,50 @@ export function SettingsScreen() {
         )}
       </motion.section>
 
+      {!isAnonymous && email && (
+        <motion.section
+          className="settings-account settings-data"
+          variants={cardReveal}
+          initial="initial"
+          animate="animate"
+          custom={4}
+        >
+          <span className="settings-eyebrow">
+            <span>Your data</span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={exporting}
+            onClick={handleExport}
+          >
+            {exporting ? 'Preparing\u2026' : 'Export my data'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost settings-delete"
+            onClick={() => setDeleteOpen(true)}
+          >
+            Delete my account
+          </button>
+          {deleteError && <p className="auth-error" role="alert">{deleteError}</p>}
+        </motion.section>
+      )}
+
+      <motion.nav className="settings-legal-links" {...{
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        transition: { delay: 0.8, duration: 0.32 },
+      }}>
+        <button type="button" className="auth-link" onClick={() => push('LEGAL_PRIVACY')}>
+          Privacy
+        </button>
+        <span aria-hidden>·</span>
+        <button type="button" className="auth-link" onClick={() => push('LEGAL_TERMS')}>
+          Terms
+        </button>
+      </motion.nav>
+
       <motion.p
         className="settings-fine-print"
         initial={{ opacity: 0 }}
@@ -234,6 +322,52 @@ export function SettingsScreen() {
         </span>
         {COPY.subscription.fineprint.right}
       </motion.p>
+
+      <AnimatePresence>
+        {deleteOpen && (
+          <motion.div
+            className="my-tributes-confirm-scrim"
+            role="alertdialog"
+            aria-modal="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="my-tributes-confirm-sheet"
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            >
+              <h3>Delete your account?</h3>
+              <p>
+                This permanently deletes your profile, every tribute you\u2019ve saved, and
+                your subscription history. It can\u2019t be undone. We\u2019ll sign you out
+                after.
+              </p>
+              <div className="my-tributes-confirm-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={deleteBusy}
+                >
+                  Keep my account
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary my-tributes-confirm-danger"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteBusy}
+                >
+                  {deleteBusy ? 'Deleting\u2026' : 'Delete forever'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
