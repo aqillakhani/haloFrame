@@ -83,6 +83,107 @@ export interface CreditCheckResult {
   requiredCredits: number;
 }
 
+// -----------------------------------------------------------------------------
+// Per-flow free-tier gate (Phase D). Free users get 1 Enhance + 1 Reunite.
+// Paid users ignore these flags entirely — credits are the gate for them.
+//
+// The `enhance_used` and `merge_used` boolean columns are added by migration
+// `20260421000001_per_flow_free_tier.sql`. The helpers below are forward-
+// compatible: if the columns don't exist yet (migration not applied) the
+// check is permissive and logs a warn so the app keeps working without a
+// hard dependency on the schema bump.
+// -----------------------------------------------------------------------------
+
+export type FreeTierFlow = 'enhance' | 'reunite';
+
+interface PerFlowFlags {
+  planId: SubscriptionSnapshot['planId'];
+  enhanceUsed: boolean;
+  mergeUsed: boolean;
+}
+
+/**
+ * Attempt to read the plan id + per-flow flags for a profile. Returns
+ * `null` when either the profile doesn't exist or the `enhance_used` /
+ * `merge_used` columns are missing (e.g. pre-migration); callers should
+ * treat `null` as "permissive" rather than fail closed.
+ */
+async function readPerFlowFlags(userId: string): Promise<PerFlowFlags | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('plan_id, enhance_used, merge_used')
+      .eq('id', userId)
+      .single<{
+        plan_id: SubscriptionSnapshot['planId'];
+        enhance_used: boolean | null;
+        merge_used: boolean | null;
+      }>();
+    if (error || !data) return null;
+    return {
+      planId: data.plan_id,
+      enhanceUsed: data.enhance_used === true,
+      mergeUsed: data.merge_used === true,
+    };
+  } catch (err) {
+    // Typically "column does not exist" pre-migration. Log once and soft-fail.
+    console.warn('[entitlements:readPerFlowFlags] soft-fail, treating as permissive:', err);
+    return null;
+  }
+}
+
+/** True when the user is free-tier AND has already used this flow type. */
+export async function isFlowBlockedForFree(
+  userId: string,
+  flow: FreeTierFlow,
+): Promise<boolean> {
+  const flags = await readPerFlowFlags(userId);
+  if (!flags) return false; // fail-open during migration lag
+  if (flags.planId !== 'free') return false;
+  if (flow === 'enhance') return flags.enhanceUsed;
+  return flags.mergeUsed;
+}
+
+/**
+ * Flip the corresponding flag to true on a successful save. Idempotent —
+ * repeated calls with the same flow just re-write `true`. Paid users still
+ * get the flag flipped (harmless; their gate is credits, not flags).
+ */
+export async function markFreeTierFlowUsed(
+  userId: string,
+  flow: FreeTierFlow,
+): Promise<void> {
+  const patch = flow === 'enhance' ? { enhance_used: true } : { merge_used: true };
+  try {
+    await supabaseAdmin.from('profiles').update(patch).eq('id', userId);
+  } catch (err) {
+    console.warn('[entitlements:markFreeTierFlowUsed] soft-fail (pre-migration?):', err);
+  }
+}
+
+export interface PerFlowSnapshot {
+  /** Null during migration lag — caller should not surface to UI. */
+  planId: SubscriptionSnapshot['planId'] | null;
+  enhanceAvailable: boolean;
+  mergeAvailable: boolean;
+}
+
+/** Compose a per-flow availability snapshot for the home badge + paywall. */
+export async function loadPerFlowSnapshot(userId: string): Promise<PerFlowSnapshot> {
+  const flags = await readPerFlowFlags(userId);
+  if (!flags) {
+    return { planId: null, enhanceAvailable: true, mergeAvailable: true };
+  }
+  if (flags.planId !== 'free') {
+    return { planId: flags.planId, enhanceAvailable: true, mergeAvailable: true };
+  }
+  return {
+    planId: flags.planId,
+    enhanceAvailable: !flags.enhanceUsed,
+    mergeAvailable: !flags.mergeUsed,
+  };
+}
+
 /**
  * Non-destructive check: does the user have enough credits to perform `action`?
  * Route handlers call this BEFORE invoking fal.ai so an insufficient balance

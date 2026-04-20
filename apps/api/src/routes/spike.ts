@@ -28,7 +28,12 @@ import { errors } from '../lib/errors.js';
 import { ok } from '../lib/response.js';
 import { validateBody } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
-import { checkCredits, spendCredits } from '../services/entitlements.js';
+import {
+  checkCredits,
+  isFlowBlockedForFree,
+  markFreeTierFlowUsed,
+  spendCredits,
+} from '../services/entitlements.js';
 import { trackPreview } from '../services/previewLimiter.js';
 import { combineTemplatePrompts, NO_EFFECT_SENTINEL } from '../services/templateCombiner.js';
 import { annotateSubject } from '../services/subjectAnnotator.js';
@@ -727,6 +732,14 @@ spikeRouter.post(
     // throws 402 with code 'insufficient_credits'; the web catches that and
     // routes to the paywall.
     if (billing) {
+      // Free-tier per-flow gate (Phase D): only evaluated on the Enhance
+      // path. In Reunite, `/merge` has already run — the merge_used flag
+      // was checked + flipped there, so /apply is the second leg of a
+      // flow that was already cleared.
+      const isReunite = !!placement;
+      if (!isReunite && (await isFlowBlockedForFree(billing.userId, 'enhance'))) {
+        throw errors.upgradeRequired();
+      }
       const check = await checkCredits(billing.userId, 'apply_final');
       if (!check.allowed) throw errors.paymentRequired();
     }
@@ -800,6 +813,12 @@ spikeRouter.post(
       creditsRemaining = await spendCredits(billing.userId, 'apply_final', {
         dedupeKey: saveId,
       });
+      // Free-tier: flip the enhance_used flag on the Enhance path only
+      // (reunite's flag flips in /merge so it's already set by now).
+      const isReunite = !!placement;
+      if (!isReunite) {
+        await markFreeTierFlowUsed(billing.userId, 'enhance');
+      }
     }
 
     ok(res, {
@@ -906,6 +925,10 @@ spikeRouter.post(
     // mode). Auth is required unconditionally — the middleware above
     // guarantees req.user is set.
     const userId = req.user!.id;
+    // Free-tier per-flow gate (Phase D): one reunite per free account.
+    if (await isFlowBlockedForFree(userId, 'reunite')) {
+      throw errors.upgradeRequired();
+    }
     const check = await checkCredits(userId, 'merge');
     if (!check.allowed) throw errors.paymentRequired();
 
@@ -1075,6 +1098,8 @@ spikeRouter.post(
     const creditsRemaining = await spendCredits(userId, 'merge', {
       dedupeKey: saveId,
     });
+    // Free-tier: flip merge_used so a second reunite attempt paywalls.
+    await markFreeTierFlowUsed(userId, 'reunite');
 
     ok(res, {
       imageUrl: finalUrl,
