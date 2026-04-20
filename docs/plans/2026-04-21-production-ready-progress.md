@@ -120,6 +120,33 @@ every task result, and every blocker goes here in the order it happens.
 
 **Rationale:** Both tests would require real `fal.ai` + Supabase round-trips (~$0.20-0.60 per run). The bridge smoke above (`9 checks, 0 failures`) already proves the DB-persistence path; the AI path itself has not been touched (spike router unchanged). Deferred to a manual QA session the user runs after Phase K wraps. Logged as `DEFERRED:B7-enhance-e2e`, `DEFERRED:B8-reunite-e2e`, `DEFERRED:B9-e2e-fixups`.
 
+---
+
+## 2026-04-20 — Phase C: Auth + session upgrade
+
+**Tasks C2-C10 executed serially. Summary + commits:**
+
+- **C9 + C10 `6d64b5c`** — `useAuth.ts` extended with action methods (`signInWithPassword`, `signInWithOtp`, `signInWithOAuth`, `signUp`, `resetPasswordForEmail`, `updateUser`, `signOut`). Every method tags console errors `[auth:<method>]` per `feedback_tag_error_messages.md`. `navigation.tsx` Screen union grew to include `SIGN_IN`, `SIGN_UP`, `RESET_PASSWORD`, `AUTH_CALLBACK`, `LEGAL_PRIVACY`, `LEGAL_TERMS` (latter two for Phase G).
+
+- **C2-C5 `30eca81`** — four auth screens: `SignInScreen` (tabs: Email / Magic link / Google / Apple), `SignUpScreen`, `ResetPasswordScreen`, `AuthCallbackScreen`. Editorial tone (italic-split headline, quiet eyebrows). `styles.css` gained ~200 lines of `auth-*` tokens that reuse the existing `--c-*` palette so the screens read as part of the same product, not a generic form. New `HIDE_TABBAR_SCREENS` array in `App.tsx` so the bottom tab bar stays hidden across the auth stack — same shape as the existing paywall hide.
+
+- **C6 `78907e7`** — `AuthGateModal.tsx` component. Fires when an anon user taps Save in the Editor. Sheet-style (backdrop-blur scrim, 4-column method grid on ≥520px), focus-trap via Escape key, backdrop-click to dismiss. The Editor's `handleSave` now branches: if `isAnonymous`, set `pendingSaveRef = true` and open the gate; `onAuthed` re-enters `handleSave`, which now sees a permanent session and continues the credit + render path.
+
+- **C7 `01bbbfb`** — session upgrade: `signInWithOAuth` branches on `currentIsAnon` → `linkIdentity` (preserves user_id + 2-credit grant) vs `signInWithOAuth` (fresh user). `signUp` does the same with `updateUser({email, password})` on anon → Supabase sends confirmation email, permanent session on confirm. This is the load-bearing fix — without it, signing in mints a new `user_id` and the draft tribute is orphaned.
+
+- **C8 `bdfa0d6`** — `SettingsScreen` gained an `account` panel. Anon users see "Anonymous tribute in progress." + `Sign in to keep your tributes` CTA. Authed users see `Signed in as <email>` + `Provider: <Google|Apple|Email>` + a `Sign out` ghost button (which calls `reset()` so they land on Home post-signout, not a locked screen).
+
+- **C1 `c4c4102`** — `docs/SETUP.md` drafted with step-by-step user-morning actions: Supabase anon toggle, Google + Apple OAuth dashboard walks, Stripe product creation, Resend domain verify, Railway + Vercel deploy, DNS, app store. Fully prose, one-time read.
+
+**C11-C13 (E2E) DEFERRED.** Same rationale as B7-B9: real auth flows need email stubbing + OAuth provider fakes. Logged as `DEFERRED:C11-save-gate-e2e`, `DEFERRED:C12-signup-signin-e2e`, `DEFERRED:C13-social-manual-verify`.
+
+**Verification:**
+- `npm run typecheck` — green across all workspaces after every C commit.
+- `npm --workspace=@haloframe/web run test:unit` — 3/3 still green (unchanged suite).
+- Live flow not smoked yet (would spam Supabase with throwaway accounts); deferred to user's morning QA.
+
+**Result:** Phase C landed. 7 commits.
+
 
 
 **Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
