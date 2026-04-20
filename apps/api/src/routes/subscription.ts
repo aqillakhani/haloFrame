@@ -27,6 +27,11 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { validateBody } from '../middleware/validate.js';
+import {
+  createSubscriptionCheckout,
+  isStripeConfigured,
+  getStripe,
+} from '../services/stripe.js';
 
 export const subscriptionRouter = Router();
 
@@ -103,10 +108,10 @@ subscriptionRouter.post(
       // a checkout session here and return its URL. Until then, 501 lets
       // the PaywallScreen show a "coming soon on web — use iOS/Android"
       // message without falsely claiming success.
-      if (!env.STRIPE_SECRET_KEY && !env.REVENUECAT_SECRET_KEY) {
+      if (!isStripeConfigured()) {
         logger.info(
           { userId, planId, platform },
-          'purchase requested but web checkout not yet configured',
+          'purchase requested but Stripe is not configured',
         );
         throw new ApiError(
           ERROR_CODES.INVALID_REQUEST,
@@ -116,11 +121,27 @@ subscriptionRouter.post(
         );
       }
 
-      // TODO(stripe-integration): create a Stripe Checkout Session scoped
-      // to this user + plan, mark `client_reference_id=userId`, return the
-      // session URL. Webhook handler below already knows how to grant
-      // credits once Stripe/RC confirms the payment.
-      throw errors.internal('Web checkout handoff not yet implemented');
+      const body = req.body as z.infer<typeof purchaseSchema>;
+      const origin = req.get('origin') ?? req.get('referer') ?? 'http://localhost:5173';
+      const success =
+        body.successUrl ??
+        `${origin}/?purchase=success`;
+      const cancel =
+        body.cancelUrl ?? `${origin}/?purchase=cancel`;
+      const session = await createSubscriptionCheckout({
+        userId,
+        planId: planId as
+          | 'keepsake_monthly'
+          | 'heritage_monthly'
+          | 'heritage_annual'
+          | 'topup_single'
+          | 'topup_4pack',
+        successUrl: success,
+        cancelUrl: cancel,
+        customerEmail: req.user!.email ?? undefined,
+      });
+      ok(res, { checkoutUrl: session.url, sessionId: session.id });
+      return;
     } catch (err) {
       next(err);
     }

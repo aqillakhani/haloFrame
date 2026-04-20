@@ -13,7 +13,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      user?: { id: string; jwt: string };
+      user?: { id: string; jwt: string; email?: string | null };
     }
   }
 }
@@ -36,7 +36,7 @@ export async function requireAuth(
       throw errors.unauthenticated();
     }
 
-    req.user = { id: data.user.id, jwt };
+    req.user = { id: data.user.id, jwt, email: data.user.email ?? null };
     next();
   } catch (err) {
     next(err);

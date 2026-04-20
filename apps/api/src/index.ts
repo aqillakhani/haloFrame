@@ -17,6 +17,15 @@ const corsOrigins = env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Bool
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: corsOrigins }));
+
+// Stripe webhook MUST be mounted BEFORE express.json — Stripe's signature
+// verification covers the raw bytes of the request body. A late mount would
+// have the body parsed as JSON + rebuilt, breaking the signature.
+if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const { webhookRouter } = await import('./routes/webhook.js');
+  app.use('/api/webhook', webhookRouter);
+}
+
 app.use(express.json({ limit: '4mb' }));
 app.use(pinoHttp({ logger }));
 
@@ -60,10 +69,14 @@ if (!env.isSpikeMode && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
   const { tributeRouter } = await import('./routes/tribute.js');
   const { templatesRouter } = await import('./routes/templates.js');
   const { printRouter } = await import('./routes/print.js');
+  const { printsRouter } = await import('./routes/prints.js');
 
   app.use('/api/tribute', tributeRouter);
   app.use('/api/templates', templatesRouter);
   app.use('/api/print', printRouter);
+  // Note: `/api/prints` is the new Stripe-backed canvas checkout. The
+  // legacy `/api/print` (order status) stays mounted for existing clients.
+  app.use('/api/prints', printsRouter);
   logger.info('Full-product routes mounted');
 } else if (env.isSpikeMode) {
   logger.warn('SPIKE_MODE=true — /api/tribute, /api/templates, /api/print not mounted');
