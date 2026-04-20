@@ -308,6 +308,25 @@ export async function deleteTribute(
 }
 
 // -----------------------------------------------------------------------------
+// Canvas print checkout (Phase F)
+// -----------------------------------------------------------------------------
+export type CanvasSize = '12x16' | '18x24' | '24x36' | '36x48';
+
+export interface CanvasCheckoutResult {
+  checkoutUrl: string;
+  sessionId: string;
+}
+
+export async function startCanvasCheckout(args: {
+  tributeId: string;
+  size: CanvasSize;
+  successUrl?: string;
+  cancelUrl?: string;
+}): Promise<CanvasCheckoutResult> {
+  return postJson<CanvasCheckoutResult>('/api/prints/checkout', args);
+}
+
+// -----------------------------------------------------------------------------
 // Subscription / credits
 // -----------------------------------------------------------------------------
 export async function fetchSubscriptionStatus(

@@ -5797,6 +5797,31 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   background: #882e28;
 }
 
+.my-tributes-print-sizes {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.my-tributes-print-size {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.my-tributes-print-size-price {
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (min-width: 520px) {
   .my-tributes-grid {
     grid-template-columns: repeat(3, 1fr);

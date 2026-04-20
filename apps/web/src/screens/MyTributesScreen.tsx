@@ -5,7 +5,19 @@ import { useNavigation } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useTributes } from '../hooks/useTributes';
 import { triggerDownload } from '../lib/download';
+import {
+  ApiRequestError,
+  startCanvasCheckout,
+  type CanvasSize,
+} from '../lib/api';
 import { COPY } from '../lib/copy';
+
+const CANVAS_SIZE_OPTIONS: Array<{ size: CanvasSize; price: string; label: string }> = [
+  { size: '12x16', price: '$49', label: '12 × 16 in' },
+  { size: '18x24', price: '$79', label: '18 × 24 in' },
+  { size: '24x36', price: '$119', label: '24 × 36 in' },
+  { size: '36x48', price: '$179', label: '36 × 48 in' },
+];
 
 /*
  * 2026-04-21 (Phase E). The header + empty state keep their editorial port
@@ -39,6 +51,37 @@ export function MyTributesScreen() {
   const { tributes, isLoading, error, remove } = useTributes();
   const [openTribute, setOpenTribute] = useState<Tribute | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Tribute | null>(null);
+  const [printPicker, setPrintPicker] = useState<Tribute | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [printSubmitting, setPrintSubmitting] = useState<CanvasSize | null>(null);
+
+  async function handleOrderCanvas(tribute: Tribute, size: CanvasSize) {
+    setPrintSubmitting(size);
+    setPrintError(null);
+    try {
+      const result = await startCanvasCheckout({
+        tributeId: tribute.id,
+        size,
+        successUrl: `${window.location.origin}/?print=success`,
+        cancelUrl: `${window.location.origin}/?print=cancel`,
+      });
+      window.location.assign(result.checkoutUrl);
+    } catch (err) {
+      if (
+        err instanceof ApiRequestError &&
+        (err.details as { code?: string })?.code === 'web_checkout_not_configured'
+      ) {
+        setPrintError(
+          'Canvas checkout is still spinning up. We\u2019ll open this shortly.',
+        );
+      } else {
+        const msg = err instanceof Error ? err.message : 'Checkout failed';
+        setPrintError(msg);
+      }
+    } finally {
+      setPrintSubmitting(null);
+    }
+  }
 
   const hasTributes = tributes.length > 0;
   const createTribute = () => nav.setTab('HOME');
@@ -261,8 +304,8 @@ export function MyTributesScreen() {
                   type="button"
                   className="btn btn-ghost"
                   onClick={() => {
-                    setOpenTribute(null);
-                    nav.setTab('PRINT_SHOP');
+                    setPrintPicker(openTribute);
+                    setPrintError(null);
                   }}
                 >
                   {COPY.myTributes.lightbox.orderCanvas}
@@ -273,6 +316,63 @@ export function MyTributesScreen() {
                   onClick={() => setConfirmDelete(openTribute)}
                 >
                   {COPY.myTributes.lightbox.deleteCta}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {printPicker && (
+          <motion.div
+            className="my-tributes-confirm-scrim"
+            role="dialog"
+            aria-modal="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setPrintPicker(null);
+            }}
+          >
+            <motion.div
+              className="my-tributes-confirm-sheet"
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            >
+              <h3>Choose a canvas size</h3>
+              <p>A museum-quality wrapped canvas, shipped in 5–7 business days.</p>
+              {printError && <p className="auth-error" role="alert">{printError}</p>}
+              <ul className="my-tributes-print-sizes" role="list">
+                {CANVAS_SIZE_OPTIONS.map((opt) => (
+                  <li key={opt.size}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost my-tributes-print-size"
+                      disabled={printSubmitting !== null}
+                      onClick={() => {
+                        if (printPicker) void handleOrderCanvas(printPicker, opt.size);
+                      }}
+                    >
+                      <span>{opt.label}</span>
+                      <span className="my-tributes-print-size-price">
+                        {printSubmitting === opt.size ? '\u2026' : opt.price}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="my-tributes-confirm-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setPrintPicker(null)}
+                  disabled={printSubmitting !== null}
+                >
+                  Never mind
                 </button>
               </div>
             </motion.div>
