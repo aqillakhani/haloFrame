@@ -213,6 +213,14 @@ export interface Tribute {
   isPet: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Short-lived signed URL for the tribute's finished image (1h TTL).
+   * Populated only on the GET /api/tribute/ list response — single-row
+   * endpoints expose the storage path via `state.finalPhotoUrl` and leave
+   * signing to the caller. Null when the asset can't be signed (missing
+   * row, bucket error, tribute still mid-flow).
+   */
+  signedImageUrl?: string | null;
 }
 
 // -----------------------------------------------------------------------------

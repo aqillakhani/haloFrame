@@ -48,6 +48,7 @@ import {
   createUploadUrl,
   deleteTributeAssets,
   rehostFromUrl,
+  tryCreateFinalSignedUrl,
 } from '../services/storage.js';
 import {
   checkPhotoEntitlement,
@@ -751,7 +752,22 @@ tributeRouter.get('/', async (req, res, next) => {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) throw errors.internal('Failed to list tributes', { error });
-    const tributes = (data as DbTribute[]).map(dbToTribute);
+    const rows = data as DbTribute[];
+    // Sign the final-bucket asset URL for each tribute so the web gallery
+    // can render without re-requesting per-row. `tryCreate…` returns null on
+    // sign failure so the UI can fall back to a placeholder per row.
+    const tributes = await Promise.all(
+      rows.map(async (row) => {
+        const base = dbToTribute(row);
+        const stored =
+          base.state.finalPhotoHdUrl ??
+          base.state.finalPhotoUrl ??
+          base.state.templatedPhotoUrl ??
+          null;
+        const signedImageUrl = await tryCreateFinalSignedUrl(stored);
+        return { ...base, signedImageUrl };
+      }),
+    );
     ok(res, { tributes });
   } catch (err) {
     next(err);

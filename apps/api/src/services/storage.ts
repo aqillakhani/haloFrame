@@ -48,6 +48,24 @@ export async function createSourceSignedUrl(storagePath: string): Promise<string
 }
 
 /**
+ * Signed URL for a final-bucket asset. Used by GET /api/tribute/ so the web
+ * gallery can render directly against the private bucket without embedding
+ * service-role credentials. Returns null on sign failure (caller falls back
+ * to a placeholder) rather than throwing — a single rotten row shouldn't
+ * blank the whole gallery.
+ */
+export async function tryCreateFinalSignedUrl(
+  storagePath: string | null,
+): Promise<string | null> {
+  if (!storagePath) return null;
+  const { data, error } = await supabaseAdmin.storage
+    .from(FINAL_BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
+/**
  * Download an arbitrary URL (e.g. fal.ai result) and re-host it in our final
  * bucket so we own the data and can delete on user request.
  */

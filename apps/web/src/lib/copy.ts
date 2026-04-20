@@ -263,6 +263,33 @@ export const COPY = {
     // Reserved for future populated-state port. Count string is rendered
     // by a small helper that picks the word ("One"/"Two"/…) at wire-up time.
     populatedFooter: 'Your gallery grows with every tribute.',
+
+    // Populated state (Phase E). The grid lists every saved tribute for
+    // the signed-in user; tapping opens a quiet lightbox with Download /
+    // Delete / Order Canvas actions.
+    loadingLabel: 'Gathering your tributes\u2026',
+    signedInRequiredHeading: 'Sign in to see your gallery.',
+    signedInRequiredBody:
+      'Your anonymous tributes stay on this device until you sign in to keep them.',
+    signedInRequiredCta: 'Sign in',
+    cardAriaLabel: (name: string | null, dateLabel: string): string =>
+      name ? `Tribute for ${name} \u2014 ${dateLabel}` : `Tribute \u2014 ${dateLabel}`,
+    cardUntitled: 'Untitled tribute',
+    flowLabelEnhance: 'Enhance',
+    flowLabelReunite: 'Reunite',
+    lightbox: {
+      closeAria: 'Close',
+      download: 'Download',
+      orderCanvas: 'Order canvas',
+      deleteCta: 'Delete tribute',
+      deleteConfirmTitle: 'Delete this tribute?',
+      deleteConfirmBody:
+        'This removes the saved image from your gallery. The tribute can\u2019t be recovered.',
+      deleteConfirmCancel: 'Keep it',
+      deleteConfirmConfirm: 'Delete',
+    },
+    galleryFootline: (n: number): string =>
+      n === 1 ? '1 tribute in your gallery.' : `${n} tributes in your gallery.`,
   },
 
   saved: {

@@ -1,27 +1,46 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import type { Tribute } from '@haloframe/shared';
 import { useNavigation } from '../lib/navigation';
+import { useAuth } from '../hooks/useAuth';
+import { useTributes } from '../hooks/useTributes';
+import { triggerDownload } from '../lib/download';
 import { COPY } from '../lib/copy';
 
 /*
- * 2026-04-20 redesign port (claude.ai/design handoff).
- * Final screen of the redesign. Ports the `empty` state only; the
- * populated-state design is archived at
- * `design/MyTributes _standalone_.html` so a future feature sprint can
- * wire real tribute listing without re-designing the gallery.
- *
- * Contract: `useNavigation()` + `useReducedMotion()` preserved. Primary
- * CTA routes to HOME. `hasTributes` is hard-coded `false` until the
- * listing endpoint ships — keeps the populated-state JSX out of the
- * tree entirely rather than rendering hidden/placeholder data.
+ * 2026-04-21 (Phase E). The header + empty state keep their editorial port
+ * from the redesign. A populated state landed on top: a 2-col gallery of
+ * saved tributes, a lightbox sheet with Download / Order Canvas / Delete,
+ * and a confirm dialog for delete. Data comes from `useTributes()`.
  */
 
 const gentleEase = [0.22, 0.61, 0.36, 1] as const;
-const hasTributes = false as const;
+
+function formatDateLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(d);
+}
+
+function flowLabel(t: Tribute): string {
+  return t.flowType === 'reunite' || t.flowType === 'pet_reunite'
+    ? COPY.myTributes.flowLabelReunite
+    : COPY.myTributes.flowLabelEnhance;
+}
 
 export function MyTributesScreen() {
   const nav = useNavigation();
   const reduceMotion = useReducedMotion();
+  const { isAnonymous, isReady } = useAuth();
+  const { tributes, isLoading, error, remove } = useTributes();
+  const [openTribute, setOpenTribute] = useState<Tribute | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Tribute | null>(null);
 
+  const hasTributes = tributes.length > 0;
   const createTribute = () => nav.setTab('HOME');
 
   const anim = (delay: number) =>
@@ -32,6 +51,18 @@ export function MyTributesScreen() {
           animate: { opacity: 1, y: 0 },
           transition: { duration: 0.5, ease: gentleEase, delay },
         };
+
+  // Pre-compute per-tribute display metadata so the gallery render is lean.
+  const cards = useMemo(
+    () =>
+      tributes.map((t) => ({
+        tribute: t,
+        name: t.state.textOverlay?.name ?? null,
+        dateLabel: formatDateLabel(t.createdAt),
+        imageUrl: t.signedImageUrl ?? null,
+      })),
+    [tributes],
+  );
 
   return (
     <div className="my-tributes" data-state={hasTributes ? 'populated' : 'empty'}>
@@ -59,77 +90,242 @@ export function MyTributesScreen() {
         </motion.p>
       </header>
 
-      <section className="my-tributes-empty-wrap" aria-labelledby="my-tributes-empty-title">
-        <motion.div
-          className="my-tributes-ghost-frame my-tributes-framed"
-          aria-hidden="true"
-          {...anim(0.18)}
-        >
-          <span className="my-tributes-corner tl" />
-          <span className="my-tributes-corner tr" />
-          <span className="my-tributes-corner bl" />
-          <span className="my-tributes-corner br" />
-          <div className="my-tributes-halo-glyph">
-            <svg width="100" height="100" viewBox="0 0 100 100" aria-hidden="true">
-              <ellipse
-                cx="50"
-                cy="36"
-                rx="30"
-                ry="7"
-                fill="none"
-                stroke="#D4A95C"
-                strokeWidth="1.2"
-                opacity="0.9"
-              />
-              <ellipse
-                cx="50"
-                cy="36"
-                rx="22"
-                ry="5"
-                fill="none"
-                stroke="#D4A95C"
-                strokeWidth="0.8"
-                opacity="0.5"
-              />
-              <path
-                d="M 50 46 Q 38 46 36 62 L 36 82 Q 36 86 40 86 L 60 86 Q 64 86 64 82 L 64 62 Q 62 46 50 46 Z"
-                fill="none"
-                stroke="#8A7E6E"
-                strokeWidth="1"
-                opacity="0.6"
-              />
-            </svg>
-          </div>
-        </motion.div>
-
-        <motion.h2 className="my-tributes-empty-title" id="my-tributes-empty-title" {...anim(0.24)}>
-          {COPY.myTributes.emptyTitle}
-        </motion.h2>
-
-        <motion.p className="my-tributes-empty-body" {...anim(0.3)}>
-          {COPY.myTributes.emptyBody}
-        </motion.p>
-
-        <motion.div className="my-tributes-empty-ctas" {...anim(0.36)}>
+      {/* Anon users can't have persisted tributes — bridge is disabled. */}
+      {isReady && isAnonymous && (
+        <section className="my-tributes-anon">
+          <h2>{COPY.myTributes.signedInRequiredHeading}</h2>
+          <p>{COPY.myTributes.signedInRequiredBody}</p>
           <button
             type="button"
             className="btn btn-primary"
-            aria-label={COPY.myTributes.emptyCtaAria}
-            onClick={createTribute}
+            onClick={() => nav.push('SIGN_IN')}
           >
-            {COPY.myTributes.emptyCta}
+            {COPY.myTributes.signedInRequiredCta}
           </button>
-          <button type="button" className="btn btn-ghost" onClick={createTribute}>
-            {COPY.myTributes.emptySecondaryCta}
-          </button>
-        </motion.div>
+        </section>
+      )}
 
-        <motion.div className="my-tributes-ornament" aria-hidden="true" {...anim(0.42)}>
-          <span className="my-tributes-ornament-line" />
-          <span className="my-tributes-ornament-dot" />
-          <span className="my-tributes-ornament-line" />
-        </motion.div>
-      </section>
+      {isReady && !isAnonymous && isLoading && !hasTributes && (
+        <p className="my-tributes-loading" aria-live="polite">
+          {COPY.myTributes.loadingLabel}
+        </p>
+      )}
+
+      {isReady && !isAnonymous && error && !isLoading && (
+        <p className="auth-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {isReady && !isAnonymous && hasTributes && (
+        <>
+          <motion.ul
+            className="my-tributes-grid"
+            role="list"
+            {...anim(0.18)}
+          >
+            {cards.map(({ tribute, name, dateLabel, imageUrl }) => (
+              <li key={tribute.id} className="my-tributes-card">
+                <button
+                  type="button"
+                  className="my-tributes-card-btn"
+                  aria-label={COPY.myTributes.cardAriaLabel(name, dateLabel)}
+                  onClick={() => setOpenTribute(tribute)}
+                >
+                  <span className="my-tributes-card-frame">
+                    {imageUrl ? (
+                      <img src={imageUrl} alt={name ?? ''} loading="lazy" />
+                    ) : (
+                      <span className="my-tributes-card-placeholder" />
+                    )}
+                  </span>
+                  <span className="my-tributes-card-meta">
+                    <span className="my-tributes-card-name">
+                      {name ?? COPY.myTributes.cardUntitled}
+                    </span>
+                    <span className="my-tributes-card-date">
+                      {flowLabel(tribute)} · {dateLabel}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </motion.ul>
+          <motion.p className="my-tributes-footline" {...anim(0.28)}>
+            {COPY.myTributes.galleryFootline(tributes.length)}
+          </motion.p>
+        </>
+      )}
+
+      {isReady && !isAnonymous && !hasTributes && !isLoading && (
+        <section className="my-tributes-empty-wrap" aria-labelledby="my-tributes-empty-title">
+          <motion.div
+            className="my-tributes-ghost-frame my-tributes-framed"
+            aria-hidden="true"
+            {...anim(0.18)}
+          >
+            <span className="my-tributes-corner tl" />
+            <span className="my-tributes-corner tr" />
+            <span className="my-tributes-corner bl" />
+            <span className="my-tributes-corner br" />
+            <div className="my-tributes-halo-glyph">
+              <svg width="100" height="100" viewBox="0 0 100 100" aria-hidden="true">
+                <ellipse cx="50" cy="36" rx="30" ry="7" fill="none" stroke="#D4A95C" strokeWidth="1.2" opacity="0.9" />
+                <ellipse cx="50" cy="36" rx="22" ry="5" fill="none" stroke="#D4A95C" strokeWidth="0.8" opacity="0.5" />
+                <path d="M 50 46 Q 38 46 36 62 L 36 82 Q 36 86 40 86 L 60 86 Q 64 86 64 82 L 64 62 Q 62 46 50 46 Z" fill="none" stroke="#8A7E6E" strokeWidth="1" opacity="0.6" />
+              </svg>
+            </div>
+          </motion.div>
+
+          <motion.h2 className="my-tributes-empty-title" id="my-tributes-empty-title" {...anim(0.24)}>
+            {COPY.myTributes.emptyTitle}
+          </motion.h2>
+
+          <motion.p className="my-tributes-empty-body" {...anim(0.3)}>
+            {COPY.myTributes.emptyBody}
+          </motion.p>
+
+          <motion.div className="my-tributes-empty-ctas" {...anim(0.36)}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              aria-label={COPY.myTributes.emptyCtaAria}
+              onClick={createTribute}
+            >
+              {COPY.myTributes.emptyCta}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={createTribute}>
+              {COPY.myTributes.emptySecondaryCta}
+            </button>
+          </motion.div>
+
+          <motion.div className="my-tributes-ornament" aria-hidden="true" {...anim(0.42)}>
+            <span className="my-tributes-ornament-line" />
+            <span className="my-tributes-ornament-dot" />
+            <span className="my-tributes-ornament-line" />
+          </motion.div>
+        </section>
+      )}
+
+      <AnimatePresence>
+        {openTribute && (
+          <motion.div
+            className="my-tributes-lightbox-scrim"
+            role="dialog"
+            aria-modal="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setOpenTribute(null);
+            }}
+          >
+            <motion.div
+              className="my-tributes-lightbox-sheet"
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            >
+              <button
+                type="button"
+                className="my-tributes-lightbox-close"
+                aria-label={COPY.myTributes.lightbox.closeAria}
+                onClick={() => setOpenTribute(null)}
+              >
+                {'\u00d7'}
+              </button>
+              {openTribute.signedImageUrl ? (
+                <img
+                  src={openTribute.signedImageUrl}
+                  alt={openTribute.state.textOverlay?.name ?? ''}
+                  className="my-tributes-lightbox-img"
+                />
+              ) : (
+                <div className="my-tributes-lightbox-placeholder" />
+              )}
+              <div className="my-tributes-lightbox-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!openTribute.signedImageUrl}
+                  onClick={() => {
+                    if (openTribute.signedImageUrl) {
+                      void triggerDownload(openTribute.signedImageUrl);
+                    }
+                  }}
+                >
+                  {COPY.myTributes.lightbox.download}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setOpenTribute(null);
+                    nav.setTab('PRINT_SHOP');
+                  }}
+                >
+                  {COPY.myTributes.lightbox.orderCanvas}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost my-tributes-lightbox-delete"
+                  onClick={() => setConfirmDelete(openTribute)}
+                >
+                  {COPY.myTributes.lightbox.deleteCta}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div
+            className="my-tributes-confirm-scrim"
+            role="alertdialog"
+            aria-modal="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="my-tributes-confirm-sheet"
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            >
+              <h3>{COPY.myTributes.lightbox.deleteConfirmTitle}</h3>
+              <p>{COPY.myTributes.lightbox.deleteConfirmBody}</p>
+              <div className="my-tributes-confirm-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setConfirmDelete(null)}
+                >
+                  {COPY.myTributes.lightbox.deleteConfirmCancel}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary my-tributes-confirm-danger"
+                  onClick={async () => {
+                    const victim = confirmDelete;
+                    setConfirmDelete(null);
+                    setOpenTribute(null);
+                    if (victim) {
+                      await remove(victim.id);
+                    }
+                  }}
+                >
+                  {COPY.myTributes.lightbox.deleteConfirmConfirm}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

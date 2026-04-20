@@ -5566,3 +5566,245 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   color: var(--c-text-ink);
   word-break: break-word;
 }
+
+/* ============================================================================
+ * MyTributes populated state (Phase E) — a 2-col gallery, lightbox sheet,
+ * and delete-confirm dialog. Reuses the existing my-tributes editorial
+ * palette from the empty state, so both states share a visual language.
+ * ==========================================================================*/
+
+.my-tributes-grid {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.my-tributes-card {
+  display: flex;
+}
+
+.my-tributes-card-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  color: inherit;
+}
+
+.my-tributes-card-frame {
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--c-bg-surface, #fff);
+  border: 1px solid var(--c-hairline);
+  position: relative;
+}
+
+.my-tributes-card-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.my-tributes-card-placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(212, 169, 92, 0.12),
+    rgba(138, 126, 110, 0.08)
+  );
+}
+
+.my-tributes-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.my-tributes-card-name {
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 16px;
+  color: var(--c-text-ink);
+}
+
+.my-tributes-card-date {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.my-tributes-footline {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.my-tributes-loading,
+.my-tributes-anon {
+  margin: 24px 0;
+  padding: 24px 20px;
+  border-radius: 14px;
+  background: var(--c-bg-surface, #fff);
+  border: 1px solid var(--c-hairline);
+  color: var(--c-text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.my-tributes-anon h2 {
+  margin: 0 0 8px;
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 20px;
+  color: var(--c-text-ink);
+  font-weight: 400;
+}
+
+.my-tributes-anon p {
+  margin: 0 0 14px;
+}
+
+/* Lightbox — reuses the scrim + sheet pattern from AuthGateModal. */
+.my-tributes-lightbox-scrim,
+.my-tributes-confirm-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 20, 16, 0.52);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 140;
+}
+
+.my-tributes-lightbox-sheet {
+  position: relative;
+  background: var(--c-bg-canvas, #faf3e2);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 24px 60px rgba(28, 20, 16, 0.32);
+}
+
+.my-tributes-lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.6);
+  border: none;
+  color: var(--c-text-ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 10px;
+}
+
+.my-tributes-lightbox-img {
+  width: 100%;
+  max-height: 65vh;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.my-tributes-lightbox-placeholder {
+  aspect-ratio: 4 / 5;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(212, 169, 92, 0.12),
+    rgba(138, 126, 110, 0.08)
+  );
+}
+
+.my-tributes-lightbox-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-tributes-lightbox-delete {
+  color: #a23a33;
+}
+
+/* Confirm dialog — sits on top of the lightbox when delete is tapped. */
+.my-tributes-confirm-scrim {
+  z-index: 150;
+}
+
+.my-tributes-confirm-sheet {
+  background: var(--c-bg-canvas, #faf3e2);
+  border-radius: 18px;
+  padding: 24px 22px 20px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.my-tributes-confirm-sheet h3 {
+  margin: 0;
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--c-text-ink);
+}
+
+.my-tributes-confirm-sheet p {
+  margin: 0;
+  color: var(--c-text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.my-tributes-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.my-tributes-confirm-danger {
+  background: #a23a33;
+  color: #fff;
+}
+
+.my-tributes-confirm-danger:hover {
+  background: #882e28;
+}
+
+@media (min-width: 520px) {
+  .my-tributes-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .my-tributes-lightbox-actions {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}
