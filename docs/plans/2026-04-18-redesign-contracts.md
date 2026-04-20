@@ -92,7 +92,7 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 
 **File:** `apps/web/src/screens/ReuniteFlow.tsx`
 
-**Hooks:** `useNavigation()`
+**Hooks:** `useNavigation()`, `useReducedMotion()` (merging halo + motes guard)
 
 **Props:** none
 
@@ -102,13 +102,14 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 
 **State machine (local):**
 - `step`: `'upload' | 'placement' | 'merging' | 'review' | 'editor'`
-- `mainUrl`, `lovedUrl`, `lovedCutoutUrl`, `lovedIsPet`, `placement` (default `'left'`), `mergedUrl`, `sizeAdjustment` (default 1.0), `savedModalOpen`, `templates`, `error`
+- `mainUrl`, `mainMeta`, `lovedUrl`, `lovedMeta`, `lovedCutoutUrl`, `lovedIsPet`, `placement` (default `'left'`), `mergedUrl`, `sizeAdjustment` (default 1.0), `savedModalOpen`, `templates`, `error`
+- `mainMeta`/`lovedMeta` = `{name, sizeKb}` — file metadata for the filled-state preview chip (filename + KB · READY line)
 
 **User actions:**
 - Upload main + loved photos in `upload` → Continue to `placement`
 - In `placement`: pick placement (`left|right|behind|front`), adjust size slider, Bring Together → `merging` → `mergePhotos` → `review`
-- In `review`: Add Styles → `editor`, OR Save Photo → `triggerDownload` + open `SavedModal`
-- In SavedModal: Order Canvas → PRINT_SHOP, Start Another → reset + nav.reset()
+- In `review`: Add Styles → `editor`, OR Save Photo → `triggerDownload` + open `SavedModal`, OR "Try a different arrangement" link → back to `placement` (clears `mergedUrl`)
+- In SavedModal: Order Canvas → PRINT_SHOP, Start Another → reset + nav.reset(), Close (X or Esc or backdrop) → back to review with focus restored
 
 **Routes to:** PRINT_SHOP, PAYWALL (via Editor), previous screen
 
@@ -116,9 +117,21 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 - Merge call always includes `lovedOneCutoutUrl` when cutout succeeded (server pre-composites for reliable sizing)
 - Placement default is `'left'` (memory: user test showed starting at null forced an extra tap)
 - `PLACEMENT_SUBJECT_DESCRIPTION` is threaded into Editor as `subjectName` so NB2 anchors to the just-added person
-- Size slider range: 0.7–1.4
-- Merging step has no back button (in-flight)
-- `SavedModal` focus trap preserved
+- Size slider range: 0.7–1.4 (server accepts 0.5–2.0 but narrower range preserved for UI predictability)
+- Merging step has no back button (in-flight, no cancel path)
+- `SavedModal` focus trap + Esc close + backdrop click preserved; primary CTA gets initial focus
+- Error shown as inline banner above pane, never as a separate screen — retry stays in context
+- Reduced-motion users get static halo + halo-ring with zero motes (dust specks hidden), rotating caption stops cycling
+
+**Visual port (2026-04-19 redesign):**
+- 4-step stepdots ("STEP 01/04" … "STEP 04/04"), plum eyebrow on steps 1/3, terracotta eyebrow on 2/4
+- Italic-split display headings with gold hand-drawn underline under accent word (`back` / `go` / `bringing` / `this`)
+- Upload dual-card grid (mono kicker + serif h2 + sunk uploader → filled-state preview row with thumb + filename + KB·READY + Change btn)
+- Placement photo-frame with gold L-corners + `.photo-inner[data-placement]` + `.cutout` overlay (absolutely positioned, left/right/behind/front variants) + `--scale` var driven by slider
+- Placement segmented control: 4-up Left/Right/Behind/Front, gold-border cream active state with terracotta text
+- Merging: breathing radial halo + pulsing halo-ring + 8 drifting gold dust motes + two arc sweeps + rotating italic caption (4s interval, 6 lines)
+- Review: photo-frame with `reunite-arrival-glow` keyframe on mount + stacked primary/ghost CTAs + italic dotted-underline "Try a different arrangement"
+- SavedModal: dark scrim, cream card with gold ornament (two hairlines + concentric circle) + h2 with trailing period + italic sub + primary/ghost stack + close X top-right + tab-trap focus management
 
 ---
 

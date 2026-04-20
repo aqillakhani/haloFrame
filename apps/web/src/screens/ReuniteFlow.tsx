@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import type { TributeTemplate } from '@haloframe/shared';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   fetchTemplates,
   mergePhotos,
@@ -11,15 +11,17 @@ import {
 import { triggerDownload } from '../lib/download';
 import { COPY } from '../lib/copy';
 import { useNavigation } from '../lib/navigation';
-import { BackButton } from '../components/BackButton';
-import { UploadZone } from '../components/UploadZone';
-import { LoadingOverlay } from '../components/LoadingOverlay';
 import { SavedModal } from '../components/SavedModal';
-import { Icon } from '../components/icons/Icon';
+import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
 type Placement = 'left' | 'right' | 'behind' | 'front';
 type Step = 'upload' | 'placement' | 'merging' | 'review' | 'editor';
+
+interface FileMeta {
+  name: string;
+  sizeKb: number;
+}
 
 const PLACEMENT_KEYS: Placement[] = ['left', 'right', 'behind', 'front'];
 const PET_LABELS = new Set(['dog', 'cat', 'pet', 'animal']);
@@ -52,7 +54,9 @@ export function ReuniteFlow() {
   const [error, setError] = useState<string | null>(null);
 
   const [mainUrl, setMainUrl] = useState<string | null>(null);
+  const [mainMeta, setMainMeta] = useState<FileMeta | null>(null);
   const [lovedUrl, setLovedUrl] = useState<string | null>(null);
+  const [lovedMeta, setLovedMeta] = useState<FileMeta | null>(null);
   // Background-stripped version of the loved one photo. Used for the
   // placement preview overlay only; the merge endpoint still receives the
   // original photo (Nano Banana 2 handles lighting integration from full
@@ -113,18 +117,26 @@ export function ReuniteFlow() {
 
   const handleMainUpload = async (file: File) => {
     setError(null);
+    setMainMeta({ name: file.name, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
     try {
       const upload = await uploadFile(file);
       setMainUrl(upload.url);
     } catch (err) {
       console.error('[ReuniteFlow] main-upload failed', err);
       setError(COPY.errors.uploadPhoto);
+      setMainMeta(null);
     }
+  };
+
+  const handleMainClear = () => {
+    setMainUrl(null);
+    setMainMeta(null);
   };
 
   const handleLovedUpload = async (file: File) => {
     setError(null);
     setLovedCutoutUrl(null);
+    setLovedMeta({ name: file.name, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
     try {
       const upload = await uploadFile(file);
       setLovedUrl(upload.url);
@@ -143,7 +155,15 @@ export function ReuniteFlow() {
     } catch (err) {
       console.error('[ReuniteFlow] loved-upload failed', err);
       setError(COPY.errors.uploadPhoto);
+      setLovedMeta(null);
     }
+  };
+
+  const handleLovedClear = () => {
+    setLovedUrl(null);
+    setLovedCutoutUrl(null);
+    setLovedMeta(null);
+    setLovedIsPet(false);
   };
 
   const handleBringTogether = async () => {
@@ -181,10 +201,17 @@ export function ReuniteFlow() {
     setSavedModalOpen(true);
   };
 
+  const handleTryAgain = () => {
+    setMergedUrl(null);
+    setStep('placement');
+  };
+
   const handleStartOver = () => {
     setStep('upload');
     setMainUrl(null);
+    setMainMeta(null);
     setLovedUrl(null);
+    setLovedMeta(null);
     setLovedCutoutUrl(null);
     setLovedIsPet(false);
     setPlacement('left');
@@ -205,186 +232,88 @@ export function ReuniteFlow() {
     nav.reset();
   };
 
+  // The editor is its own screen (own header, own layout) — render it
+  // bare without any ReuniteFlow chrome.
+  if (step === 'editor' && mergedUrl) {
+    return (
+      <Editor
+        baseImageUrl={mergedUrl}
+        templates={templates}
+        isPet={lovedIsPet}
+        subjectName={
+          PLACEMENT_SUBJECT_DESCRIPTION[placement][lovedIsPet ? 'pet' : 'person']
+        }
+        placement={placement}
+        onOrderCanvas={() => nav.push('PRINT_SHOP')}
+        onPaywall={() => nav.push('PAYWALL')}
+        onBack={handleBack}
+      />
+    );
+  }
+
   return (
-    <div className="reunite">
-      {step !== 'merging' && step !== 'editor' && (
-        <header className="flow-header">
-          <BackButton onClick={handleBack} />
-          <span className="app-header-title">
-            {step === 'upload' && COPY.reunite.upload.heading}
-            {step === 'placement' && COPY.reunite.placement.heading}
-            {step === 'review' && COPY.reunite.review.heading}
-          </span>
-          <span className="flow-header-spacer" aria-hidden />
-        </header>
-      )}
+    <div className="reunite" data-step={step}>
+      <header className="reunite-chrome">
+        <button
+          type="button"
+          className="reunite-back"
+          onClick={handleBack}
+          disabled={step === 'merging'}
+          aria-label="Back"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <StepDots step={step} />
+      </header>
 
-      {error && (
-        <div className="flow-error" role="alert">
-          <p className="t-body-md">{error}</p>
-          <div className="flow-error-actions">
-            <button type="button" className="btn btn-ghost" onClick={handleBack}>
-              {COPY.errors.mergeWrong.goBack}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={() => setError(null)}>
-              {COPY.errors.general.button}
-            </button>
+      <main className="reunite-content">
+        {error && (
+          <div className="reunite-inline-error" role="alert" aria-live="polite">
+            {error}
           </div>
-        </div>
-      )}
+        )}
 
-      {step === 'upload' && (
-        <section className="flow-pane reunite-upload">
-          <p className="t-body-lg t-muted reunite-helper">{COPY.reunite.upload.subtext}</p>
-          <div className="reunite-dual">
-            <div className="reunite-dual-slot">
-              <h3 className="t-display-md reunite-slot-label">{COPY.reunite.upload.heading}</h3>
-              <UploadZone
-                label={COPY.reunite.upload.heading}
-                hint={COPY.reunite.upload.subtext}
-                onFileSelected={handleMainUpload}
-                previewUrl={mainUrl}
-              />
-            </div>
-            <div className="reunite-dual-slot">
-              <h3 className="t-display-md reunite-slot-label">{COPY.reunite.upload.lovedHeading}</h3>
-              <UploadZone
-                label={COPY.reunite.upload.lovedHeading}
-                hint={COPY.reunite.upload.lovedSubtext}
-                onFileSelected={handleLovedUpload}
-                previewUrl={lovedUrl}
-              />
-            </div>
-          </div>
-          <div className="flow-action">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!mainUrl || !lovedUrl}
-              onClick={() => setStep('placement')}
-            >
-              {COPY.reunite.upload.continueButton} <Icon name="chevronRight" size={16} />
-            </button>
-          </div>
-        </section>
-      )}
-
-      {step === 'placement' && (
-        <section className="flow-pane reunite-placement">
-          {mainUrl && (
-            <div className="placement-photo-frame">
-              <img src={mainUrl} alt="Main photo" className="placement-main-photo" />
-              {(lovedCutoutUrl ?? lovedUrl) && (
-                <img
-                  src={lovedCutoutUrl ?? lovedUrl!}
-                  alt=""
-                  aria-hidden
-                  className={`placement-live-overlay placement-overlay-${placement}${
-                    lovedCutoutUrl ? ' placement-live-overlay--cutout' : ''
-                  }`}
-                  style={{ transform: `translate(-50%, -50%) scale(${sizeAdjustment})` }}
-                />
-              )}
-              <span className="placement-rough-badge" aria-hidden>
-                {COPY.reunite.placement.previewBadge}
-              </span>
-            </div>
-          )}
-          <p className="t-body-sm t-muted placement-rough-hint">
-            {COPY.reunite.placement.previewHint}
-          </p>
-
-          <div className="placement-grid" role="radiogroup" aria-label="Placement">
-            {PLACEMENT_KEYS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                role="radio"
-                aria-checked={placement === p}
-                className={`placement-pill${placement === p ? ' placement-pill--active' : ''}`}
-                onClick={() => setPlacement(p)}
-              >
-                {COPY.reunite.placement.options[p]}
-              </button>
-            ))}
-          </div>
-
-          <div className="placement-size">
-            <label className="t-label-md placement-size-label">
-              {COPY.reunite.placement.sizeLabel}
-            </label>
-            <div className="placement-size-track">
-              <span className="t-body-sm t-muted">{COPY.reunite.placement.sizeSmaller}</span>
-              <input
-                type="range"
-                min="0.7"
-                max="1.4"
-                step="0.05"
-                value={sizeAdjustment}
-                onChange={(e) => setSizeAdjustment(parseFloat(e.target.value))}
-                aria-label={COPY.reunite.placement.sizeLabel}
-                className="placement-size-range"
-              />
-              <span className="t-body-sm t-muted">{COPY.reunite.placement.sizeLarger}</span>
-            </div>
-          </div>
-
-          <div className="placement-action">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleBringTogether}
-            >
-              {COPY.reunite.placement.confirmButton} <Icon name="chevronRight" size={16} />
-            </button>
-          </div>
-        </section>
-      )}
-
-      {step === 'merging' && (
-        <section className="flow-pane reunite-merging">
-          <LoadingOverlay
-            message={COPY.reunite.merging.messages}
-            hint={COPY.reunite.merging.hint}
+        {step === 'upload' && (
+          <UploadPane
+            mainUrl={mainUrl}
+            mainMeta={mainMeta}
+            lovedUrl={lovedUrl}
+            lovedMeta={lovedMeta}
+            lovedCutoutUrl={lovedCutoutUrl}
+            onMainUpload={handleMainUpload}
+            onMainClear={handleMainClear}
+            onLovedUpload={handleLovedUpload}
+            onLovedClear={handleLovedClear}
+            onContinue={() => setStep('placement')}
           />
-        </section>
-      )}
+        )}
 
-      {step === 'review' && mergedUrl && (
-        <section className="flow-pane reunite-review">
-          <div className="reunite-review-frame">
-            <img src={mergedUrl} alt="Merged result" className="reunite-review-image" />
-          </div>
-          <motion.div
-            className="reunite-review-actions"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1], delay: 0.32 }}
-          >
-            <button type="button" className="btn btn-ghost" onClick={handleAddStyles}>
-              {COPY.reunite.review.addStyles}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={handleSavePhoto}>
-              {COPY.reunite.review.savePhoto}
-            </button>
-          </motion.div>
-        </section>
-      )}
+        {step === 'placement' && mainUrl && (
+          <PlacementPane
+            mainUrl={mainUrl}
+            lovedCutoutUrl={lovedCutoutUrl}
+            lovedUrl={lovedUrl}
+            placement={placement}
+            sizeAdjustment={sizeAdjustment}
+            onPlacementChange={setPlacement}
+            onSizeChange={setSizeAdjustment}
+            onConfirm={handleBringTogether}
+          />
+        )}
 
-      {step === 'editor' && mergedUrl && (
-        <Editor
-          baseImageUrl={mergedUrl}
-          templates={templates}
-          isPet={lovedIsPet}
-          subjectName={
-            PLACEMENT_SUBJECT_DESCRIPTION[placement][lovedIsPet ? 'pet' : 'person']
-          }
-          placement={placement}
-          onOrderCanvas={() => nav.push('PRINT_SHOP')}
-          onPaywall={() => nav.push('PAYWALL')}
-          onBack={handleBack}
-        />
-      )}
+        {step === 'merging' && <MergingPane photoUrl={mainUrl} />}
+
+        {step === 'review' && mergedUrl && (
+          <ReviewPane
+            mergedUrl={mergedUrl}
+            onAddStyles={handleAddStyles}
+            onSave={handleSavePhoto}
+            onTryAgain={handleTryAgain}
+          />
+        )}
+      </main>
 
       <SavedModal
         open={savedModalOpen}
@@ -393,5 +322,563 @@ export function ReuniteFlow() {
         onClose={() => setSavedModalOpen(false)}
       />
     </div>
+  );
+}
+
+/* ---------- Step dots ---------- */
+
+interface StepDotsProps {
+  step: Step;
+}
+
+function StepDots({ step }: StepDotsProps) {
+  const STEPS: Step[] = ['upload', 'placement', 'merging', 'review'];
+  const currentIndex = Math.max(STEPS.indexOf(step), 0);
+  const label = COPY.reunite
+    .stepLabel(currentIndex + 1, STEPS.length)
+    .toUpperCase();
+  return (
+    <div className="reunite-stepdots" aria-label="Step indicator">
+      <span className="reunite-stepdots-label">{label}</span>
+      <span className="reunite-stepdots-dots" aria-hidden>
+        {STEPS.map((s, i) => {
+          let cls = 'reunite-stepdot';
+          if (i < currentIndex) cls += ' reunite-stepdot--done';
+          else if (i === currentIndex) cls += ' reunite-stepdot--on';
+          return <i key={s} className={cls} />;
+        })}
+      </span>
+    </div>
+  );
+}
+
+/* ---------- Upload pane ---------- */
+
+interface UploadPaneProps {
+  mainUrl: string | null;
+  mainMeta: FileMeta | null;
+  lovedUrl: string | null;
+  lovedMeta: FileMeta | null;
+  lovedCutoutUrl: string | null;
+  onMainUpload: (file: File) => void;
+  onMainClear: () => void;
+  onLovedUpload: (file: File) => void;
+  onLovedClear: () => void;
+  onContinue: () => void;
+}
+
+function UploadPane({
+  mainUrl,
+  mainMeta,
+  lovedUrl,
+  lovedMeta,
+  lovedCutoutUrl,
+  onMainUpload,
+  onMainClear,
+  onLovedUpload,
+  onLovedClear,
+  onContinue,
+}: UploadPaneProps) {
+  const bothReady = Boolean(mainUrl && lovedUrl);
+  return (
+    <motion.section
+      className="reunite-pane reunite-pane-upload"
+      aria-labelledby="reunite-upload-heading"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="reunite-eyebrow">
+        <span className="reunite-eyebrow-dot" aria-hidden />
+        {COPY.reunite.uploadEyebrow.toUpperCase()}
+      </span>
+      <h1 className="reunite-display" id="reunite-upload-heading">
+        {COPY.reunite.upload.headingBefore}
+        <em>{COPY.reunite.upload.headingItalic}</em>
+        {COPY.reunite.upload.headingAfter}
+      </h1>
+      <p className="reunite-subhead">{COPY.reunite.upload.subhead}</p>
+
+      <motion.div
+        className="reunite-cards-grid"
+        variants={cardReveal}
+        initial="initial"
+        animate="animate"
+        custom={0}
+      >
+        <UploadCard
+          kicker={COPY.reunite.cardKickerMain}
+          heading={COPY.reunite.upload.heading}
+          sub={COPY.reunite.upload.subtext}
+          illustration={<MainPhotoIllustration />}
+          uploadLabel={COPY.reunite.chooseMainCta}
+          previewUrl={mainUrl}
+          previewUsesCutout={false}
+          meta={mainMeta}
+          onFile={onMainUpload}
+          onClear={onMainClear}
+          inputId="reunite-file-main"
+        />
+        <UploadCard
+          kicker={COPY.reunite.cardKickerLoved}
+          heading={COPY.reunite.upload.lovedHeading}
+          sub={COPY.reunite.upload.lovedSubtext}
+          illustration={<LovedPhotoIllustration />}
+          uploadLabel={COPY.reunite.chooseLovedCta}
+          previewUrl={lovedCutoutUrl ?? lovedUrl}
+          previewUsesCutout={Boolean(lovedCutoutUrl)}
+          meta={lovedMeta}
+          onFile={onLovedUpload}
+          onClear={onLovedClear}
+          inputId="reunite-file-loved"
+        />
+      </motion.div>
+
+      <div className="reunite-cta-footer">
+        <button
+          type="button"
+          className="reunite-primary-btn reunite-primary-btn--full"
+          disabled={!bothReady}
+          onClick={onContinue}
+        >
+          {bothReady
+            ? COPY.reunite.upload.continueButton
+            : COPY.reunite.continueDisabledCta}
+        </button>
+      </div>
+    </motion.section>
+  );
+}
+
+/* ---------- Upload card (single photo slot) ---------- */
+
+interface UploadCardProps {
+  kicker: string;
+  heading: string;
+  sub: string;
+  illustration: React.ReactNode;
+  uploadLabel: string;
+  previewUrl: string | null;
+  previewUsesCutout: boolean;
+  meta: FileMeta | null;
+  onFile: (file: File) => void;
+  onClear: () => void;
+  inputId: string;
+}
+
+function UploadCard({
+  kicker,
+  heading,
+  sub,
+  illustration,
+  uploadLabel,
+  previewUrl,
+  previewUsesCutout,
+  meta,
+  onFile,
+  onClear,
+  inputId,
+}: UploadCardProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) onFile(f);
+    // Reset so re-selecting the same file still fires onChange.
+    e.target.value = '';
+  };
+  const filled = Boolean(previewUrl && meta);
+  return (
+    <div className={`reunite-card${filled ? ' reunite-card--filled' : ''}`}>
+      <div className="reunite-card-kicker">{kicker}</div>
+      <h2 className="reunite-card-heading">{heading}</h2>
+      <p className="reunite-card-sub">{sub}</p>
+
+      {filled && previewUrl && meta ? (
+        <div className="reunite-uploader reunite-uploader--filled">
+          <div
+            className={`reunite-preview-thumb${
+              previewUsesCutout ? ' reunite-preview-thumb--cutout' : ''
+            }`}
+          >
+            <img src={previewUrl} alt="" aria-hidden />
+          </div>
+          <div className="reunite-preview-meta">
+            <div className="reunite-preview-name">{meta.name}</div>
+            <div className="reunite-preview-ready">
+              {meta.sizeKb} KB · {COPY.reunite.previewFileReady.toUpperCase()}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="reunite-quiet-btn"
+            onClick={onClear}
+          >
+            {COPY.reunite.changeCta}
+          </button>
+        </div>
+      ) : (
+        <div className="reunite-uploader">
+          <div className="reunite-uploader-illus" aria-hidden>
+            {illustration}
+          </div>
+          <div className="reunite-mono-caps">
+            {COPY.reunite.uploadHint}
+          </div>
+          <button
+            type="button"
+            className="reunite-primary-btn"
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploadLabel}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            id={inputId}
+            accept="image/jpeg,image/png"
+            className="reunite-file-input"
+            onChange={handleChange}
+            aria-label={uploadLabel}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Placement pane ---------- */
+
+interface PlacementPaneProps {
+  mainUrl: string;
+  lovedCutoutUrl: string | null;
+  lovedUrl: string | null;
+  placement: Placement;
+  sizeAdjustment: number;
+  onPlacementChange: (p: Placement) => void;
+  onSizeChange: (n: number) => void;
+  onConfirm: () => void;
+}
+
+function PlacementPane({
+  mainUrl,
+  lovedCutoutUrl,
+  lovedUrl,
+  placement,
+  sizeAdjustment,
+  onPlacementChange,
+  onSizeChange,
+  onConfirm,
+}: PlacementPaneProps) {
+  const overlaySrc = lovedCutoutUrl ?? lovedUrl;
+  return (
+    <motion.section
+      className="reunite-pane reunite-pane-placement"
+      aria-labelledby="reunite-place-heading"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="reunite-eyebrow reunite-eyebrow--terracotta">
+        <span className="reunite-eyebrow-dot" aria-hidden />
+        {COPY.reunite.placementEyebrow.toUpperCase()}
+      </span>
+      <h1 className="reunite-display" id="reunite-place-heading">
+        {COPY.reunite.placement.headingBefore}
+        <em>{COPY.reunite.placement.headingItalic}</em>
+        {COPY.reunite.placement.headingAfter}
+      </h1>
+      <p className="reunite-subhead">{COPY.reunite.placement.subhead}</p>
+
+      <div className="reunite-photo-frame">
+        <span className="reunite-corner reunite-corner--tl" aria-hidden />
+        <span className="reunite-corner reunite-corner--tr" aria-hidden />
+        <span className="reunite-corner reunite-corner--bl" aria-hidden />
+        <span className="reunite-corner reunite-corner--br" aria-hidden />
+        <div
+          className="reunite-photo-inner"
+          data-placement={placement}
+          style={{ ['--scale' as string]: sizeAdjustment }}
+        >
+          <img
+            src={mainUrl}
+            alt="Main photo"
+            className="reunite-photo-main"
+          />
+          {overlaySrc && (
+            <div
+              className={`reunite-cutout${
+                lovedCutoutUrl ? ' reunite-cutout--transparent' : ''
+              }`}
+            >
+              <span className="reunite-rough-badge" aria-hidden>
+                {COPY.reunite.placement.roughBadge}
+              </span>
+              <img src={overlaySrc} alt="" aria-hidden />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="reunite-control-row">
+        <div className="reunite-control-label">
+          <span>
+            {COPY.reunite.placement.placeLabelBefore}
+            <em className="reunite-italic-accent">
+              {COPY.reunite.placement.placeLabelItalic}
+            </em>
+          </span>
+        </div>
+        <div
+          className="reunite-segmented"
+          role="radiogroup"
+          aria-label="Placement"
+        >
+          {PLACEMENT_KEYS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="radio"
+              aria-checked={placement === p}
+              aria-pressed={placement === p}
+              className="reunite-segment"
+              onClick={() => onPlacementChange(p)}
+            >
+              {COPY.reunite.placement.optionsShort[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="reunite-control-row">
+        <div className="reunite-control-label">
+          <span>
+            {COPY.reunite.placement.sizeLabelBefore}
+            <em className="reunite-italic-accent">
+              {COPY.reunite.placement.sizeLabelItalic}
+            </em>
+          </span>
+        </div>
+        <div className="reunite-slider-wrap">
+          <span className="reunite-end-label">
+            {COPY.reunite.placement.sizeSmaller}
+          </span>
+          <input
+            type="range"
+            min="0.7"
+            max="1.4"
+            step="0.01"
+            value={sizeAdjustment}
+            onChange={(e) => onSizeChange(parseFloat(e.target.value))}
+            aria-label={COPY.reunite.placement.sizeLabel}
+            className="reunite-size-slider"
+          />
+          <span className="reunite-end-label">
+            {COPY.reunite.placement.sizeLarger}
+          </span>
+        </div>
+      </div>
+
+      <div className="reunite-cta-footer">
+        <button
+          type="button"
+          className="reunite-primary-btn reunite-primary-btn--full"
+          onClick={onConfirm}
+        >
+          {COPY.reunite.placement.confirmCta}
+        </button>
+      </div>
+    </motion.section>
+  );
+}
+
+/* ---------- Merging pane ---------- */
+
+interface MergingPaneProps {
+  photoUrl: string | null;
+}
+
+function MergingPane({ photoUrl }: MergingPaneProps) {
+  const prefersReduced = useReducedMotion() ?? false;
+  const [captionIndex, setCaptionIndex] = useState(0);
+  const messages = COPY.reunite.merging.messages;
+  useEffect(() => {
+    if (prefersReduced) return;
+    const id = setInterval(() => {
+      setCaptionIndex((i) => (i + 1) % messages.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [prefersReduced, messages.length]);
+  const caption = messages[captionIndex] ?? messages[0];
+  return (
+    <motion.section
+      className="reunite-pane reunite-pane-merging"
+      aria-labelledby="reunite-merge-heading"
+      aria-live="polite"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="reunite-eyebrow">
+        <span className="reunite-eyebrow-dot" aria-hidden />
+        {COPY.reunite.mergingEyebrow.toUpperCase()}
+      </span>
+      <h1 className="reunite-display" id="reunite-merge-heading">
+        {COPY.reunite.merging.headingBefore}
+        <em>{COPY.reunite.merging.headingItalic}</em>
+        {COPY.reunite.merging.headingAfter}
+      </h1>
+
+      <div className="reunite-merging-stage">
+        <div className="reunite-photo-frame">
+          <span className="reunite-corner reunite-corner--tl" aria-hidden />
+          <span className="reunite-corner reunite-corner--tr" aria-hidden />
+          <span className="reunite-corner reunite-corner--bl" aria-hidden />
+          <span className="reunite-corner reunite-corner--br" aria-hidden />
+          <div className="reunite-photo-inner reunite-photo-inner--merging">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt=""
+                className="reunite-photo-main reunite-photo-main--dim"
+                aria-hidden
+              />
+            ) : (
+              <div className="reunite-photo-placeholder" aria-hidden />
+            )}
+            <div
+              className="reunite-halo"
+              data-reduced={prefersReduced ? 'true' : 'false'}
+              aria-hidden
+            />
+            <div
+              className="reunite-halo-ring"
+              data-reduced={prefersReduced ? 'true' : 'false'}
+              aria-hidden
+            />
+            {!prefersReduced && (
+              <div className="reunite-motes" aria-hidden>
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
+            <div className="reunite-arcs" aria-hidden>
+              <div className="reunite-arc reunite-arc--left" />
+              <div className="reunite-arc reunite-arc--right" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="reunite-merging-caption">{caption}</p>
+      <p className="reunite-merging-hint">
+        {COPY.reunite.merging.hint.toUpperCase()}
+      </p>
+    </motion.section>
+  );
+}
+
+/* ---------- Review pane ---------- */
+
+interface ReviewPaneProps {
+  mergedUrl: string;
+  onAddStyles: () => void;
+  onSave: () => void;
+  onTryAgain: () => void;
+}
+
+function ReviewPane({ mergedUrl, onAddStyles, onSave, onTryAgain }: ReviewPaneProps) {
+  return (
+    <motion.section
+      className="reunite-pane reunite-pane-review"
+      aria-labelledby="reunite-review-heading"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="reunite-eyebrow reunite-eyebrow--terracotta">
+        <span className="reunite-eyebrow-dot" aria-hidden />
+        {COPY.reunite.reviewEyebrow.toUpperCase()}
+      </span>
+      <h1 className="reunite-display" id="reunite-review-heading">
+        {COPY.reunite.review.headingBefore}
+        <em>{COPY.reunite.review.headingItalic}</em>
+        {COPY.reunite.review.headingAfter}
+      </h1>
+      <p className="reunite-subhead">{COPY.reunite.review.subhead}</p>
+
+      <div className="reunite-photo-frame reunite-photo-frame--reveal">
+        <span className="reunite-corner reunite-corner--tl" aria-hidden />
+        <span className="reunite-corner reunite-corner--tr" aria-hidden />
+        <span className="reunite-corner reunite-corner--bl" aria-hidden />
+        <span className="reunite-corner reunite-corner--br" aria-hidden />
+        <div className="reunite-photo-inner">
+          <img
+            src={mergedUrl}
+            alt="Merged result"
+            className="reunite-photo-main"
+          />
+        </div>
+      </div>
+
+      <div className="reunite-review-actions">
+        <button
+          type="button"
+          className="reunite-primary-btn reunite-primary-btn--full"
+          onClick={onAddStyles}
+        >
+          {COPY.reunite.review.addStylesCta}
+        </button>
+        <button
+          type="button"
+          className="reunite-ghost-btn reunite-ghost-btn--full"
+          onClick={onSave}
+        >
+          {COPY.reunite.review.savePhotoCta}
+        </button>
+      </div>
+      <div className="reunite-review-try">
+        <button
+          type="button"
+          className="reunite-link-btn"
+          onClick={onTryAgain}
+        >
+          {COPY.reunite.review.tryDifferentCta}
+        </button>
+      </div>
+    </motion.section>
+  );
+}
+
+/* ---------- Illustrations ---------- */
+
+function MainPhotoIllustration() {
+  return (
+    <svg viewBox="0 0 80 80" fill="none" aria-hidden>
+      <rect x="6" y="16" width="68" height="50" rx="6" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="28" cy="36" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M18 58c0-6 4.5-11 10-11s10 5 10 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="44" cy="32" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M32 58c0-7 5.5-13 12-13s12 6 12 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="58" cy="38" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M50 58c0-5 3.5-9 8-9s8 4 8 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LovedPhotoIllustration() {
+  return (
+    <svg viewBox="0 0 80 80" fill="none" aria-hidden>
+      <circle cx="40" cy="40" r="28" stroke="currentColor" strokeWidth="0.8" opacity="0.4" strokeDasharray="1 3" />
+      <rect x="18" y="14" width="44" height="56" rx="4" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="40" cy="34" r="8" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M24 62c0-8 7-14 16-14s16 6 16 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="40" cy="34" r="13" stroke="#D4A95C" strokeWidth="1" opacity="0.7" strokeDasharray="2 4" />
+    </svg>
   );
 }

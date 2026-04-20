@@ -84,12 +84,33 @@ export const COPY = {
   },
 
   reunite: {
+    // 2026-04-19 claude.ai/design port — italic-split headings + per-step
+    // eyebrows + stepdot labels. Four steps (upload → placement → merging
+    // → review) with an overlaid saved modal.
+    uploadEyebrow: 'Path two \u00b7 Reunite',
+    placementEyebrow: 'Step two \u00b7 Where',
+    mergingEyebrow: 'Step three \u00b7 Bringing together',
+    reviewEyebrow: 'Step four \u00b7 How it looks',
+    stepLabel: (current: number, total: number) =>
+      `Step ${String(current).padStart(2, '0')} / ${String(total).padStart(2, '0')}`,
+    uploadHint: 'Any JPEG or PNG',
+    cardKickerMain: 'Photo one \u00b7 the gathering',
+    cardKickerLoved: 'Photo two \u00b7 their likeness',
+    chooseMainCta: 'Choose main photo',
+    chooseLovedCta: 'Choose their photo',
+    continueDisabledCta: 'Add both photos to continue',
+    previewFileReady: 'Ready',
+    changeCta: 'Change',
     upload: {
       heading: 'Pick the main photo',
       subtext: 'This is the photo you want to add someone to',
       lovedHeading: 'Pick their photo',
       lovedSubtext: 'Choose a clear photo of your loved one',
       continueButton: 'Continue',
+      headingBefore: 'Bring them ',
+      headingItalic: 'back',
+      headingAfter: ' into the family photograph.',
+      subhead: 'Two photographs. One to place them into, and one of them.',
     },
     placement: {
       heading: 'Where should they go?',
@@ -99,25 +120,47 @@ export const COPY = {
         behind: 'Behind',
         front: 'In Front',
       } as Record<string, string>,
+      // Single-word labels for the new four-up segmented control.
+      optionsShort: {
+        left: 'Left',
+        right: 'Right',
+        behind: 'Behind',
+        front: 'Front',
+      } as Record<string, string>,
       sizeLabel: 'Their size',
       sizeSmaller: 'Smaller',
       sizeLarger: 'Larger',
       confirmButton: 'Bring Them Together',
       previewBadge: 'Rough Preview',
       previewHint: 'Final result will look natural \u2014 we\u2019ll blend the lighting and shadows after you continue.',
+      headingBefore: 'Where should they ',
+      headingItalic: 'go',
+      headingAfter: '?',
+      subhead: 'Gentle preview \u2014 we\u2019ll blend the light after you continue.',
+      placeLabelBefore: 'Their ',
+      placeLabelItalic: 'place',
+      sizeLabelBefore: 'Their ',
+      sizeLabelItalic: 'size',
+      roughBadge: 'Rough preview',
+      confirmCta: 'Bring them together',
     },
     merging: {
-      // Cycled every ~4s while the merge runs so a 20-second wait feels
-      // narrated, not silent. Keep each line short + warm.
+      // Cycled every ~4s while the merge runs so a 60–90s wait feels
+      // narrated, not silent. Keep each line short + warm. 2026-04-19
+      // redesign: switched to the design handoff's copy ladder so the
+      // caption reads like a camera-room whisper, not a progress bar.
       messages: [
-        'Bringing them together\u2026',
         'Matching the lighting\u2026',
-        'Adjusting the sunlight\u2026',
-        'Feathering the edges\u2026',
-        'Adding a natural shadow\u2026',
-        'Finishing touches\u2026',
+        'Softening the edges where they meet\u2026',
+        'Adding a natural shadow beneath them\u2026',
+        'Warming the tones to match the room\u2026',
+        'Settling them into the scene\u2026',
+        'Holding the moment steady\u2026',
       ] as const,
       hint: 'This takes about 60\u201390 seconds',
+      headingBefore: 'We\u2019re ',
+      headingItalic: 'bringing',
+      headingAfter: ' them together.',
     },
     review: {
       heading: 'How does this look?',
@@ -125,6 +168,13 @@ export const COPY = {
       looksGood: 'Looks Good',
       savePhoto: 'Save to Photos',
       addStyles: 'Add Styles',
+      headingBefore: 'How does ',
+      headingItalic: 'this',
+      headingAfter: ' look?',
+      subhead: 'You can add a memorial style next, or save it as it is.',
+      addStylesCta: 'Add a memorial style',
+      savePhotoCta: 'Save photo',
+      tryDifferentCta: 'Try a different arrangement',
     },
     mergeFailed:
       'That didn\u2019t work \u2014 try again or pick a different spot.',
@@ -181,10 +231,14 @@ export const COPY = {
   },
 
   saved: {
-    title: 'Saved to your photos',
+    // 2026-04-19 redesign: copy tone tightened to match ReuniteFlow's
+    // saved-modal handoff. Trailing period on `title` is load-bearing —
+    // the design renders it as a full-stop "done." moment.
+    title: 'Saved to your photos.',
     subtitle: 'What would you like to do next?',
     orderCanvas: 'Order Canvas',
-    startAnother: 'Start Another Photo',
+    startAnother: 'Start another photo',
+    closeAria: 'Close',
   },
 
   subscription: {
