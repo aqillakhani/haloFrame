@@ -51,6 +51,12 @@ Thumbs.db
 # Test coverage
 coverage/
 
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+apps/web/.playwright-results/
+
 # Spike outputs (image dumps from fal.ai during de-risking)
 spike-results/
 docs/spike-results/*.png
