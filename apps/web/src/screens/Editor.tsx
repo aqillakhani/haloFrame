@@ -11,9 +11,11 @@ import {
 } from '../lib/api';
 import { triggerDownload } from '../lib/download';
 import { useSubscription } from '../hooks/useSubscription';
+import { useAuth } from '../hooks/useAuth';
 import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
+import { AuthGateModal } from '../components/AuthGateModal';
 
 type Placement = 'left' | 'right' | 'behind' | 'front';
 
@@ -88,8 +90,11 @@ export function Editor({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bumpCount, bump] = useState(0);
+  const [authGateOpen, setAuthGateOpen] = useState(false);
+  const pendingSaveRef = useRef(false);
 
   const { snapshot, canAfford, refetch: refetchSubscription } = useSubscription();
+  const { isAnonymous, isReady: authReady } = useAuth();
 
   const cacheRef = useRef<Record<string, CacheEntry>>({});
   const inflightRef = useRef<Map<string, Promise<string | null>>>(new Map());
@@ -322,6 +327,14 @@ export function Editor({
     // loading) still wants a file; don't leave them stuck.
     if (activeSelection.length === 0) {
       void triggerDownload(baseImageUrl);
+      return;
+    }
+    // Sign-in gate: anon users must authenticate before the first save.
+    // `pendingSaveRef` lets the post-sign-in continuation re-enter this
+    // handler without re-prompting.
+    if (authReady && isAnonymous) {
+      pendingSaveRef.current = true;
+      setAuthGateOpen(true);
       return;
     }
     const key = comboKey(activeSelection, INTENSITY);
@@ -633,6 +646,20 @@ export function Editor({
           </button>
         </div>
       </div>
+      <AuthGateModal
+        open={authGateOpen}
+        onClose={() => {
+          setAuthGateOpen(false);
+          pendingSaveRef.current = false;
+        }}
+        onAuthed={() => {
+          setAuthGateOpen(false);
+          if (pendingSaveRef.current) {
+            pendingSaveRef.current = false;
+            void handleSave();
+          }
+        }}
+      />
     </div>
   );
 }
