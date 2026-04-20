@@ -61,6 +61,14 @@ tributeRouter.use(requireAuth);
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+// @types/express v5 types req.params values as string | string[], but Express
+// 4's runtime only yields strings for colon-style routes. Narrow once per site.
+function requireIdParam(raw: string | string[] | undefined): string {
+  if (typeof raw !== 'string') throw errors.invalidRequest('Invalid route parameter');
+  return raw;
+}
+
 interface DbTribute {
   id: string;
   user_id: string;
@@ -169,7 +177,7 @@ tributeRouter.post(
   async (req, res, next) => {
     try {
       const userId = req.user!.id;
-      const tributeId = req.params.id!;
+      const tributeId = requireIdParam(req.params.id);
       const { slot } = req.body as ReturnType<typeof uploadPhotoRequestSchema.parse>;
 
       const tribute = await loadTribute(userId, tributeId);
@@ -201,7 +209,7 @@ tributeRouter.post(
 tributeRouter.post('/:id/segment', async (req, res, next) => {
   try {
     const userId = req.user!.id;
-    const tributeId = req.params.id!;
+    const tributeId = requireIdParam(req.params.id);
     const tribute = await loadTribute(userId, tributeId);
 
     if (!tribute.state.mainPhotoUrl) {
@@ -261,7 +269,7 @@ tributeRouter.post(
   async (req, res, next) => {
     try {
       const userId = req.user!.id;
-      const tributeId = req.params.id!;
+      const tributeId = requireIdParam(req.params.id);
       const { subjectIndex, subjectName } = req.body as ReturnType<
         typeof selectSubjectRequestSchema.parse
       >;
@@ -303,7 +311,7 @@ tributeRouter.post(
   async (req, res, next) => {
     try {
       const userId = req.user!.id;
-      const tributeId = req.params.id!;
+      const tributeId = requireIdParam(req.params.id);
       const { placement, subjectName } = req.body as ReturnType<
         typeof mergeRequestSchema.parse
       >;
@@ -375,7 +383,7 @@ tributeRouter.post(
   async (req, res, next) => {
     try {
       const userId = req.user!.id;
-      const tributeId = req.params.id!;
+      const tributeId = requireIdParam(req.params.id);
       const { templateIds, intensity } = req.body as ReturnType<
         typeof applyTemplateRequestSchema.parse
       >;
@@ -492,7 +500,7 @@ tributeRouter.post(
   async (req, res, next) => {
     try {
       const userId = req.user!.id;
-      const tributeId = req.params.id!;
+      const tributeId = requireIdParam(req.params.id);
       const { textOverlay, borderStyle } = req.body as ReturnType<
         typeof finalizeRequestSchema.parse
       >;
@@ -523,7 +531,7 @@ tributeRouter.post(
 tributeRouter.post('/:id/hd', async (req, res, next) => {
   try {
     const userId = req.user!.id;
-    const tributeId = req.params.id!;
+    const tributeId = requireIdParam(req.params.id);
     const tribute = await loadTribute(userId, tributeId);
 
     const profile = await loadProfile(userId);
@@ -617,7 +625,7 @@ tributeRouter.post('/:id/hd', async (req, res, next) => {
 tributeRouter.get('/:id', async (req, res, next) => {
   try {
     const userId = req.user!.id;
-    const tributeId = req.params.id!;
+    const tributeId = requireIdParam(req.params.id);
     const tribute = await loadTribute(userId, tributeId);
     ok(res, { tribute: dbToTribute(tribute) });
   } catch (err) {
@@ -650,7 +658,7 @@ tributeRouter.get('/', async (req, res, next) => {
 tributeRouter.delete('/:id', async (req, res, next) => {
   try {
     const userId = req.user!.id;
-    const tributeId = req.params.id!;
+    const tributeId = requireIdParam(req.params.id);
     await loadTribute(userId, tributeId); // verify ownership
     await deleteTributeAssets({ userId, tributeId });
     await supabaseAdmin.from('tributes').delete().eq('id', tributeId);
