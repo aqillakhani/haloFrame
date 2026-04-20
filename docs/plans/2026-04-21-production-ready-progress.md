@@ -37,3 +37,10 @@ every task result, and every blocker goes here in the order it happens.
 **Action:** Authored `apps/web/tests/e2e/home-loads.spec.ts` asserting the headline `/For the ones we carry with us/i` via `getByRole('heading')`. Killed 3 stale dev-server node processes (days 2-4 old) that were holding 5173/5174/4000 and serving a broken bundle. Discovered latent bug: Vite's default `envDir` is `apps/web/`, so the repo-root `.env` with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` was never loaded, making `createClient('','')` throw at module init and white-screening the app. Fixed by setting `envDir: resolve(__dirname, '../..')` in `vite.config.ts`.
 **Verification:** Fresh `npx playwright test home-loads` → 1 passed. Console shows Supabase client constructed (no `supabaseUrl is required` anymore).
 **Result:** pass
+**Commit:** `6367765 chore(test): add home smoke E2E and fix Vite envDir for monorepo .env`
+
+## 2026-04-20 — Phase A, Task A3: test:e2e scripts
+
+**Action:** Added `test:e2e` and `test:e2e:ui` scripts to `apps/web/package.json`.
+**Verification:** `npm --workspace=@haloframe/web run test:e2e` → 1 passed, 12.2s.
+**Result:** pass
