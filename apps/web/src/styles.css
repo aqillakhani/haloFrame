@@ -1855,11 +1855,12 @@ body[data-editor-active] .tab-bar { display: none; }
   background: transparent;
   color: var(--c-ink-_2);
   border: 1px solid var(--c-rule-base);
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-family: "Inter Tight", system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
-  min-height: 36px;
+  /* WCAG 2.5.8 — minimum 44×44 CSS px touch target. */
+  min-height: 44px;
   border-radius: 10px;
   cursor: pointer;
   transition: background 180ms var(--e-standard), color 180ms var(--e-standard);
