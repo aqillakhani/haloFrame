@@ -329,16 +329,26 @@ placement?: 'left' | 'right' | 'behind' | 'front'
 
 **Props:** none
 
-**Reads:** `COPY.myTributes.*`, `HaloIllustration`
+**Reads:** `COPY.myTributes.*` (eyebrow, italic-split heading, subhead, emptyTitle, emptyBody, emptyCta, emptyCtaAria, emptySecondaryCta, populatedFooter)
 
 **User actions:**
-- Tap primary CTA → `nav.setTab('HOME')`
+- Tap primary CTA ("Create a tribute") → `nav.setTab('HOME')`
+- Tap secondary ghost ("See how it works") → also `nav.setTab('HOME')` (no marketing page yet)
 
 **Routes to:** HOME (via setTab)
 
 **Contract invariants:**
-- Empty-state only (real saved-tribute list comes post-MVP). New design should preserve the illustration-led empty pattern.
-- `useReducedMotion` respected for the gentle float animation.
+- `hasTributes` constant is hard-coded `false` until the listing backend ships. When that lands, swap the constant for a real list query and mount the populated-state JSX (design archived at `design/MyTributes.standalone.html`).
+- `useReducedMotion` skips the rise + stagger entirely — on reduced-motion the content renders with `initial={false}` so nothing animates in.
+- No `HaloIllustration` component usage — the ghost-frame's halo glyph is inline SVG scoped to this screen (separate visual language from the Home brand mark).
+
+**Visual port checklist (screen 8, commit {hash}):**
+- Shared header: plum mono eyebrow "MEMORIAL GALLERY" + italic-split serif "Your *gallery*." (trailing period load-bearing) + italic subhead "Every tribute you've made lives here, waiting quietly."
+- Ghost frame: 240×320 mobile / 320×420 desktop. Radial gold-soft inner glow over cream→sunk gradient + 4 gold-L `.my-tributes-corner` marks + faint (0.3 opacity) halo-over-silhouette glyph centered.
+- Empty-title italic serif 40/48px "Your first tribute will arrive here." with trailing period.
+- Two CTAs column-on-mobile, row-on-desktop. Primary carries `aria-label="Create your first tribute"` so screen readers get the full invitation even though the visual trims to "Create a tribute".
+- Gold hairline + dot + hairline ornament below CTAs (`.my-tributes-ornament*`). Locally scoped — SavedModal has its own ornament styles.
+- Rise animation staggered 0ms → 420ms across eyebrow, title, subhead, frame, title, body, CTAs, ornament. Reduced-motion bypasses entirely.
 
 ---
 

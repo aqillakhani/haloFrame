@@ -244,9 +244,25 @@ export const COPY = {
   },
 
   myTributes: {
-    emptyHeading: 'No tributes yet',
-    emptySubtext: 'Your saved tributes will appear here',
-    emptyCta: 'Create Your First Tribute',
+    // 2026-04-20 redesign port. Shared header above both states; empty
+    // state ports now, populated state is designed and archived at
+    // `design/MyTributes _standalone_.html` — ships when listing backend lands.
+    eyebrow: 'MEMORIAL GALLERY',
+    headingBefore: 'Your ',
+    headingItalic: 'gallery',
+    headingAfter: '.',
+    subhead: "Every tribute you've made lives here, waiting quietly.",
+
+    emptyTitle: 'Your first tribute will arrive here.',
+    emptyBody:
+      "When you remember someone with a halo or a reunion, their photo will rest in this gallery. We'll keep them here for you.",
+    emptyCta: 'Create a tribute',
+    emptyCtaAria: 'Create your first tribute',
+    emptySecondaryCta: 'See how it works',
+
+    // Reserved for future populated-state port. Count string is rendered
+    // by a small helper that picks the word ("One"/"Two"/…) at wire-up time.
+    populatedFooter: 'Your gallery grows with every tribute.',
   },
 
   saved: {

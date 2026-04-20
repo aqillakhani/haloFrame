@@ -3221,34 +3221,252 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   }
 }
 
-/* ---- Empty states ---- */
-.empty {
+/* ---- MyTributesScreen (2026-04-20 claude.ai/design port) ----
+   Tab-two destination. Shared header over two states: `empty` (this
+   port) and `populated` (archived design, not yet wired). Class
+   prefix `.my-tributes-*` to avoid collision with other `.empty-*`
+   legacy classes and keep the namespace discoverable. */
+
+.my-tributes {
+  padding: 32px var(--l-screenPaddingMobile) 32px;
+  padding-bottom: calc(var(--l-tabBarHeight) + 48px + env(safe-area-inset-bottom));
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .my-tributes {
+    padding: 48px 32px 80px;
+    max-width: 960px;
+  }
+}
+
+/* ---- header (shared across empty + populated) ---- */
+.my-tributes-header {
+  padding: 8px 4px 28px;
+}
+
+.my-tributes-eyebrow {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-plum-base);
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+.my-tributes-title {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  color: var(--c-text-ink);
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  .my-tributes-title {
+    font-size: 56px;
+  }
+}
+
+.my-tributes-italic-accent {
+  font-style: italic;
+  font-weight: 300;
+  color: var(--c-text-ink);
+  position: relative;
+  display: inline-block;
+}
+
+.my-tributes-underline {
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  bottom: -2px;
+  height: 8px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.my-tributes-underline path {
+  fill: none;
+  stroke: var(--c-gold-base);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.my-tributes-subhead {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  margin: 14px 0 0;
+  max-width: 30ch;
+}
+
+@media (min-width: 900px) {
+  .my-tributes-subhead {
+    font-size: 20px;
+    max-width: 48ch;
+  }
+}
+
+/* ---- gold-L corner marks (scoped; .editor-corner is a separate
+   editor-specific version with its own sizing) ---- */
+.my-tributes-framed {
+  position: relative;
+}
+
+.my-tributes-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.my-tributes-corner::before,
+.my-tributes-corner::after {
+  content: '';
+  position: absolute;
+  background: var(--c-gold-base);
+}
+
+.my-tributes-corner::before { width: 100%; height: 1.5px; }
+.my-tributes-corner::after  { width: 1.5px; height: 100%; }
+
+.my-tributes-corner.tl { top: 8px; left: 8px; }
+.my-tributes-corner.tl::before { top: 0; left: 0; }
+.my-tributes-corner.tl::after  { top: 0; left: 0; }
+
+.my-tributes-corner.tr { top: 8px; right: 8px; }
+.my-tributes-corner.tr::before { top: 0; right: 0; }
+.my-tributes-corner.tr::after  { top: 0; right: 0; }
+
+.my-tributes-corner.bl { bottom: 8px; left: 8px; }
+.my-tributes-corner.bl::before { bottom: 0; left: 0; }
+.my-tributes-corner.bl::after  { bottom: 0; left: 0; }
+
+.my-tributes-corner.br { bottom: 8px; right: 8px; }
+.my-tributes-corner.br::before { bottom: 0; right: 0; }
+.my-tributes-corner.br::after  { bottom: 0; right: 0; }
+
+/* ---- empty state ---- */
+.my-tributes-empty-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 20px;
-  padding: 64px var(--l-screenPaddingMobile) 32px;
-  padding-bottom: calc(var(--l-tabBarHeight) + 32px + env(safe-area-inset-bottom));
+  padding: 16px 4px 48px;
 }
 
-.empty .hairline-short {
-  width: 48px;
+.my-tributes-ghost-frame {
+  position: relative;
+  width: 240px;
+  height: 320px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--c-rule-base);
+  background:
+    radial-gradient(ellipse at center, rgba(239, 217, 166, 0.22), transparent 65%),
+    linear-gradient(180deg, var(--c-surface-card) 0%, var(--c-surface-sunk) 100%);
+  box-shadow:
+    0 1px 0 rgba(42, 35, 27, 0.02),
+    0 20px 40px -28px rgba(42, 35, 27, 0.12);
 }
 
-.empty-illustration {
-  color: var(--c-text-ink);
+@media (min-width: 900px) {
+  .my-tributes-ghost-frame {
+    width: 320px;
+    height: 420px;
+  }
+}
+
+.my-tributes-halo-glyph {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   opacity: 0.3;
 }
 
-.empty-headline {
-  max-width: 320px;
-  margin: 0;
+.my-tributes-halo-glyph svg {
+  display: block;
 }
 
-.empty-body {
-  max-width: 320px;
-  margin: 0;
+.my-tributes-empty-title {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 40px;
+  line-height: 1.1;
+  color: var(--c-text-ink);
+  margin: 40px 0 0;
+  letter-spacing: -0.01em;
+  max-width: 16ch;
+  text-wrap: pretty;
+}
+
+@media (min-width: 900px) {
+  .my-tributes-empty-title {
+    font-size: 48px;
+  }
+}
+
+.my-tributes-empty-body {
+  font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+  margin: 20px 0 0;
+  max-width: 34ch;
+  text-wrap: pretty;
+}
+
+@media (min-width: 900px) {
+  .my-tributes-empty-body {
+    font-size: 16px;
+    max-width: 42ch;
+  }
+}
+
+.my-tributes-empty-ctas {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .my-tributes-empty-ctas {
+    flex-direction: row;
+  }
+}
+
+/* ---- ornament (gold hairline + dot + hairline) ---- */
+.my-tributes-ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0 0;
+}
+
+.my-tributes-ornament-line {
+  width: 40px;
+  height: 1px;
+  background: var(--c-gold-base);
+  opacity: 0.6;
+}
+
+.my-tributes-ornament-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-gold-base);
 }
 
 /* ---- SavedModal (2026-04-19 claude.ai/design port) ----
