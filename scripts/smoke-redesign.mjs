@@ -125,6 +125,15 @@ async function apiPost(path, jwt, body) {
   return { status: res.status, body: json };
 }
 
+async function apiDelete(path, jwt) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${jwt}` },
+  });
+  const json = await res.json().catch(() => ({}));
+  return { status: res.status, body: json };
+}
+
 async function main() {
   // 0. API reachable
   try {
@@ -184,6 +193,52 @@ async function main() {
       deny.status === 402 && deny.body?.error?.code === 'insufficient_credits',
       `status=${deny.status} code=${deny.body?.error?.code}`,
     );
+
+    // 4. /api/tribute bridge — save-spike-result + list + delete round-trip.
+    // finalImageUrl is a public stock image; rehost may or may not succeed
+    // depending on whether the dev host has outbound internet — either way
+    // the tribute row must be inserted and reachable via GET /.
+    const saveRes = await apiPost('/api/tribute/save-spike-result', jwt, {
+      flowType: 'enhance',
+      isPet: false,
+      templateIds: ['halo_and_wings'],
+      intensity: 'medium',
+      finalImageUrl: 'https://placehold.co/1024x1024/FAF3E2/4A3D2F.png',
+      saveId: `smoke-${Date.now()}`,
+    });
+    const bridgeId = saveRes.body?.data?.tribute?.id;
+    check(
+      'POST /api/tribute/save-spike-result → 201 with tribute id',
+      saveRes.status === 201 && typeof bridgeId === 'string' && bridgeId.length > 0,
+      `status=${saveRes.status} id=${bridgeId ?? 'missing'}`,
+    );
+
+    const list = await apiGet('/api/tribute/', jwt);
+    check(
+      'GET /api/tribute/ lists the new tribute',
+      list.status === 200 &&
+        Array.isArray(list.body?.data?.tributes) &&
+        list.body.data.tributes.some((t) => t.id === bridgeId),
+      `count=${list.body?.data?.tributes?.length ?? '?'}`,
+    );
+
+    if (bridgeId) {
+      const del = await apiDelete(`/api/tribute/${bridgeId}`, jwt);
+      check(
+        'DELETE /api/tribute/:id removes the tribute',
+        del.status === 200 && del.body?.data?.deleted === true,
+        `status=${del.status} deleted=${del.body?.data?.deleted}`,
+      );
+
+      const reList = await apiGet('/api/tribute/', jwt);
+      check(
+        'GET /api/tribute/ after delete → tribute gone',
+        reList.status === 200 &&
+          Array.isArray(reList.body?.data?.tributes) &&
+          !reList.body.data.tributes.some((t) => t.id === bridgeId),
+        `count=${reList.body?.data?.tributes?.length ?? '?'}`,
+      );
+    }
   } finally {
     if (userId) await deleteAuthUser(userId);
   }

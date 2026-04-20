@@ -110,6 +110,16 @@ every task result, and every blocker goes here in the order it happens.
 **Result:** pass
 **Deferred:** Full `/api/tribute/*` AI rewiring (spec B5 as written). Logged as `DEFERRED:B5-full-rewire` for a dedicated session.
 
+## 2026-04-20 — Phase B, Task B10: extend smoke to /api/tribute bridge
+
+**Action:** Added four bridge assertions to `scripts/smoke-redesign.mjs` — `save-spike-result → 201`, `GET /api/tribute/ → lists the new row`, `DELETE /api/tribute/:id → 200`, `GET /api/tribute/ → gone`. Uses a public placeholder URL so the rehost step runs end-to-end. Kept existing spike assertions intact (spike is still the AI path).
+**Verification:** `node scripts/smoke-redesign.mjs` → **9 checks, 0 failures** (was 5). Round-trip persists and cleans up correctly.
+**Result:** pass
+
+## 2026-04-20 — Phase B, Tasks B7-B9: DEFERRED
+
+**Rationale:** Both tests would require real `fal.ai` + Supabase round-trips (~$0.20-0.60 per run). The bridge smoke above (`9 checks, 0 failures`) already proves the DB-persistence path; the AI path itself has not been touched (spike router unchanged). Deferred to a manual QA session the user runs after Phase K wraps. Logged as `DEFERRED:B7-enhance-e2e`, `DEFERRED:B8-reunite-e2e`, `DEFERRED:B9-e2e-fixups`.
+
 
 
 **Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
