@@ -164,6 +164,23 @@ export function useAuth(): UseAuthResult {
       provider: Provider;
       redirectTo?: string;
     }): Promise<AuthActionResult> => {
+      // Supabase quirk: to PRESERVE the anonymous user_id across upgrade,
+      // call `linkIdentity` on the existing session instead of a fresh
+      // `signInWithOAuth` (which would mint a new user). The post-redirect
+      // token exchange sets `is_anonymous=false` on the same auth.users row.
+      const { data: existing } = await supabase.auth.getSession();
+      const currentIsAnon = existing.session?.user.is_anonymous === true;
+      if (currentIsAnon) {
+        const { error } = await supabase.auth.linkIdentity({
+          provider,
+          options: redirectTo ? { redirectTo } : undefined,
+        });
+        if (error) {
+          console.error(`[auth:linkIdentity:${provider}]`, error.message);
+          return { ok: false, error: describe(error) };
+        }
+        return { ok: true, error: null };
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: redirectTo ? { redirectTo } : undefined,
@@ -189,6 +206,28 @@ export function useAuth(): UseAuthResult {
       displayName?: string;
       emailRedirectTo?: string;
     }): Promise<AuthActionResult> => {
+      // Same anon-preservation trick as `signInWithOAuth`: on an anonymous
+      // session, use `updateUser` so the same auth.users row gets an email +
+      // password and keeps its credit-ledger history. Supabase sends a
+      // confirmation email for the new address; on confirm, the user is
+      // permanent. On a brand-new (no-session) path we fall through to
+      // `signUp` which mints a new row.
+      const { data: existing } = await supabase.auth.getSession();
+      const currentIsAnon = existing.session?.user.is_anonymous === true;
+      if (currentIsAnon) {
+        const { error } = await supabase.auth.updateUser({
+          email,
+          password,
+          data: displayName ? { display_name: displayName } : undefined,
+        });
+        if (error) {
+          console.error('[auth:updateUser-upgrade]', error.message);
+          return { ok: false, error: describe(error) };
+        }
+        // The session in state is still the anon one — Supabase flips it
+        // to a permanent session once the email is confirmed.
+        return { ok: true, error: null, session: existing.session };
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
