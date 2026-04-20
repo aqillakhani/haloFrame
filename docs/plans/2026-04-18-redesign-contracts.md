@@ -46,7 +46,7 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 
 **File:** `apps/web/src/screens/EnhanceFlow.tsx`
 
-**Hooks:** `useNavigation()`
+**Hooks:** `useNavigation()`, `useReducedMotion()` (on the breathing halo animation)
 
 **Props:** none
 
@@ -54,25 +54,37 @@ Routing lives in `apps/web/src/lib/navigation.tsx`. Screen enum: `HOME`, `ENHANC
 - `fetchTemplates()` → populates `templates` state
 - `uploadFile(file)` → returns `{url, mime, sizeBytes}`
 - `segmentImage(imageUrl, detectPets=true)` → `SegmentResult` with `imageWidth`, `imageHeight`, `subjects[]`
-- `COPY.enhance.*` (upload, segmenting, selectSubject)
+- `COPY.enhance.*` — new 2026-04-19 keys: `uploadEyebrow`, `segmentingEyebrow`, `selectEyebrow`, `stepLabel(current,total)`, `tryAgainCta`, `errorHint`, italic-split `*.headingBefore`/`headingItalic`/`headingAfter` for each step, `upload.prefaceLabel`, `upload.footText`, `selectSubject.helper`
 
 **State machine (local):**
 - `step`: `'upload' | 'segmenting' | 'select_subject' | 'editor'`
 - `uploadedUrl`, `segmentation`, `selectedSubjectIndex`, `templates`, `error`
 
+**Renders (per step):**
+- **Chrome (always, except editor):** quiet 44×44 back button (sunk fill, rule border, terracotta focus ring) and a mono-caps stepdots pill ("STEP 01 / 03") with gold done-dots + terracotta on-dot. On error, the stepdots label swaps to the `errorHint` ("PLEASE TRY ANOTHER").
+- **Upload:** plum eyebrow `PATH ONE · ENHANCE`, italic-accent heading ("Pick a *photograph* of the one you're honoring."), italic subhead, a gold-dot/diamond flourish rule, then a warm upload card — inner dashed frame, a frame-and-halo illustration (no camera/cloud/person), the italic "A single photograph, softly lit." preface, mono "ANY JPEG OR PNG" helper, a terracotta "Choose from Photos" button that wraps a hidden `<input type="file">`, and an italic foot "Take a quiet moment — there's no rush."
+- **Segmenting:** plum eyebrow `STEP TWO · LOOKING`, heading "A quiet moment while we *look*.", a dimmed photo frame (gold corner L-marks), a slow-breathing gold halo overlay + pulsing gold ring, caption "Looking at your photo…" with mono "JUST A FEW SECONDS" sub. Back button disabled (in-flight).
+- **Select subject:** terracotta eyebrow `STEP THREE · CHOOSE`, heading "Who is *this* for?", subhead "Tap their number.", flourish, the SubjectSelector photo frame with its numbered pill badges, and a Continue CTA that stays disabled until a pill is tapped.
+- **Error banner:** rose-tinted inline banner above the upload card when `error` is set — carries either `COPY.enhance.noFaces` or `COPY.enhance.segmentFailed`.
+- **Editor step** is rendered bare (no EnhanceFlow chrome) — the Editor screen owns its own header.
+
 **User actions:**
 - Upload photo in `upload` step → `handleUpload(file)` → transitions through `segmenting` to either `select_subject` (2+ subjects) or `editor` (1 subject)
 - In `select_subject` step: pick a subject via `SubjectSelector`, then Continue → `editor`
-- Back button semantics: pop nav from upload, else retreat one step
+- Back button semantics: pop nav from upload, else retreat one step; **disabled during `segmenting`** because the in-flight segment has no clean cancel path
 - No subjects detected → error copy, reset to upload
+- Reduced-motion users get a static halo (opacity 0.7, no breathe animation)
 
 **Routes to:** PAYWALL (via Editor), PRINT_SHOP (via Editor), previous screen (via pop)
 
 **Contract invariants:**
 - Pet detection must still run on segment (`detectPets: true`)
-- Subject-selector step only shown for 2+ detected subjects
+- Subject-selector step only shown for 2+ detected subjects; single-subject photos skip straight to Editor
 - Editor mounted with `isPet`, `baseImageUrl`, `subjects`, `selectedSubjectIndex`, `imageWidth`, `imageHeight`, `templates`, `onOrderCanvas`, `onPaywall`, `onBack`
 - AbortController cancels template fetch + preloads on unmount
+- Back button is disabled (not hidden) during `segmenting` so the tap target stays present but inert
+- `SubjectSelector` keeps its force-relaxation logic (resolveBadgeOverlap) — only the pill visual changed (gold-bordered cream circle with dashed spinning ring; terracotta fill when selected)
+- Error state renders inline above the upload card, not as a separate screen, so the user can retry in place
 
 ---
 

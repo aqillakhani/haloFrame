@@ -467,69 +467,104 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .loading-dots span { animation: none; opacity: 0.6; }
 }
 
-/* ---- SubjectSelector ---- */
+/* ---- SubjectSelector (2026-04-19 redesign) ----
+   Photo frame with corner L-marks, numbered pills at each detected subject.
+   The `resolveBadgeOverlap` logic in SubjectSelector.tsx keeps pills from
+   piling up on overlapping subjects — the visual here is just the marker. */
 .subject-canvas {
   position: relative;
   display: inline-block;
-  background: var(--c-bg-surfaceRaised);
+  background: var(--c-surface-sunk);
   padding: 8px;
-  border-radius: var(--r-sm);
-  box-shadow: var(--sh-frame), var(--sh-soft);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 251, 240, 0.6),
+    0 2px 0 rgba(42, 35, 27, 0.06),
+    0 20px 40px -24px rgba(42, 35, 27, 0.4);
 }
 
 .subject-image {
   display: block;
   max-width: 100%;
   height: auto;
-  border-radius: var(--r-xs);
+  border-radius: 12px;
 }
 
 .subject-badge {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   width: 44px;
   height: 44px;
-  border-radius: 9999px;
-  background: var(--c-bg-surface);
-  color: var(--c-brand-primary);
-  border: 2px solid var(--c-brand-primary);
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: 50%;
+  background: var(--c-surface-card);
+  color: var(--c-text-ink);
+  border: 2px solid var(--c-gold-base);
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-size: 19px;
+  font-weight: 400;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--sh-soft);
+  box-shadow:
+    0 0 0 4px rgba(250, 243, 226, 0.85),
+    0 2px 0 rgba(42, 35, 27, 0.15),
+    0 8px 20px -8px rgba(42, 35, 27, 0.45);
   cursor: pointer;
   transition:
-    background var(--d-base) var(--e-standard),
-    color var(--d-base) var(--e-standard),
-    transform var(--d-base) var(--e-standard);
+    background 180ms var(--e-standard),
+    color 180ms var(--e-standard),
+    border-color 180ms var(--e-standard),
+    transform 120ms var(--e-standard),
+    box-shadow 180ms var(--e-standard);
+}
+
+/* Decorative dashed ring that slowly spins behind the pill. Pure ornament —
+   signals "tap target" without the heaviness of an outline. */
+.subject-badge::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 1px dashed rgba(212, 169, 92, 0.5);
+  pointer-events: none;
+  animation: subject-badge-spin 18s linear infinite;
+}
+
+@keyframes subject-badge-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subject-badge::before { animation: none; }
 }
 
 .subject-badge:hover,
 .subject-badge:focus-visible {
-  transform: scale(1.05);
+  transform: scale(1.06);
 }
 
 .subject-badge--active {
-  background: var(--c-brand-primary);
-  color: var(--c-text-onBronze);
+  background: var(--c-terracotta-base);
+  color: #FFF9EC;
+  border-color: var(--c-terracotta-ink);
+  box-shadow:
+    0 0 0 6px rgba(160, 80, 60, 0.18),
+    0 8px 20px -8px rgba(160, 80, 60, 0.55);
 }
 
 /* Leader line from a displaced badge back to the subject's centroid —
    drawn when overlap resolution has pushed the badge off the person's
-   center, so the badge\u2192subject mapping stays obvious. Sits under the
-   badge circles. */
+   center, so the badge→subject mapping stays obvious. */
 .subject-leaders {
   position: absolute;
   top: 0;
   left: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
 }
 
 .subject-leader-line {
-  stroke: var(--c-brand-primary);
+  stroke: var(--c-gold-base);
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-dasharray: 3 4;
@@ -1242,36 +1277,490 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   }
 }
 
-/* ---- EnhanceFlow ---- */
-.enhance-headline {
+/* ---- EnhanceFlow (2026-04-19 claude.ai/design port) ----
+   Pre-editor flow: upload → segmenting → select_subject → editor. The
+   editor is a separate screen that takes over rendering — everything
+   below only styles the three pre-editor states plus the inline error
+   banner that can appear under the upload heading. */
+
+.enhance {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--c-surface-app);
+  padding-bottom: calc(var(--l-tabBarHeight) + 24px + env(safe-area-inset-bottom));
+}
+
+/* --- Chrome (back + stepdots) --- */
+.enhance-chrome {
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.enhance-back {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-btn);
+  background: var(--c-surface-sunk);
+  border: 1px solid var(--c-rule-base);
+  display: grid;
+  place-items: center;
+  color: var(--c-text-ink);
+  cursor: pointer;
+  padding: 0;
+  transition: background 180ms var(--e-standard),
+              border-color 180ms var(--e-standard),
+              transform 120ms var(--e-standard);
+}
+
+.enhance-back:hover:not(:disabled) {
+  background: var(--c-surface-card);
+  border-color: var(--c-rule-strong);
+}
+
+.enhance-back:active:not(:disabled) { transform: scale(0.96); }
+
+.enhance-back:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.enhance-stepdots {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--c-surface-sunk);
+  border: 1px solid var(--c-rule-base);
+  border-radius: var(--r-pill);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_2);
+}
+
+.enhance-stepdot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-rule-strong);
+  display: inline-block;
+}
+
+.enhance-stepdot--on { background: var(--c-terracotta-base); }
+.enhance-stepdot--done { background: var(--c-gold-base); }
+
+.enhance-stepdots-label { margin-left: 6px; }
+
+/* --- Content container --- */
+.enhance-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 32px;
+  overflow: visible;
+}
+
+.enhance-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Shared eyebrow, display heading, subhead, flourish --- */
+.enhance-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-plum-base);
+  font-weight: 500;
+}
+
+.enhance-eyebrow--terracotta { color: var(--c-terracotta-base); }
+
+.enhance-eyebrow-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-gold-base);
+  box-shadow: 0 0 0 3px rgba(212, 169, 92, 0.25);
+}
+
+.enhance-display {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 300;
+  font-size: 34px;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--c-text-ink);
+  margin: 14px 0 10px;
+  text-wrap: balance;
+}
+
+.enhance-display em {
+  font-style: italic;
+  font-weight: 300;
+  color: var(--c-terracotta-base);
+  position: relative;
+}
+
+/* Gold hand-drawn underline under the italic accent word. Pure ornament. */
+.enhance-display em::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 6px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 6' preserveAspectRatio='none'><path d='M1 4 Q 30 1 60 3 T 119 3' stroke='%23D4A95C' stroke-width='1.2' fill='none' stroke-linecap='round' opacity='0.85'/></svg>") center/100% 100% no-repeat;
+  pointer-events: none;
+}
+
+.enhance-subhead {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--c-ink-_2);
+  margin: 0 0 24px;
+  text-wrap: pretty;
+}
+
+.enhance-flourish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.enhance-flourish-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--c-rule-strong) 30%, var(--c-rule-strong) 70%, transparent);
+}
+
+.enhance-flourish-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-gold-base);
+  box-shadow: 0 0 0 3px rgba(212, 169, 92, 0.2);
+}
+
+.enhance-flourish-diamond {
+  width: 6px;
+  height: 6px;
+  background: var(--c-gold-base);
+  transform: rotate(45deg);
+  opacity: 0.85;
+}
+
+/* --- Inline error under the upload heading --- */
+.enhance-inline-error {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  background: var(--c-rose-soft);
+  border: 1px solid var(--c-rose-ring);
+  border-radius: 12px;
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 13.5px;
+  color: var(--c-rose-base);
+  line-height: 1.45;
+}
+
+/* --- Upload card --- */
+.enhance-upload-card {
+  position: relative;
+  background: var(--c-surface-card);
+  border: 1px solid var(--c-rule-base);
+  border-radius: var(--r-xl);
+  padding: 32px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 1px 0 rgba(42, 35, 27, 0.04), 0 12px 28px -20px rgba(42, 35, 27, 0.18);
+  overflow: hidden;
+}
+
+.enhance-upload-card::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(
+    circle,
+    rgba(239, 217, 166, 0.55) 0%,
+    rgba(239, 217, 166, 0.25) 35%,
+    rgba(239, 217, 166, 0) 65%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.enhance-upload-card > * { position: relative; z-index: 1; }
+
+.enhance-upload-frame {
+  width: 100%;
+  border: 1.5px dashed var(--c-rule-strong);
+  border-radius: 16px;
+  padding: 28px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(239, 217, 166, 0.14), rgba(239, 217, 166, 0));
+}
+
+.enhance-illus {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 20px;
+}
+
+.enhance-illus svg { display: block; width: 100%; height: 100%; }
+
+.enhance-upload-label {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  font-size: 17px;
+  color: var(--c-text-ink);
+  margin-bottom: 4px;
   text-align: center;
-  margin: 0;
+}
+
+.enhance-upload-helper {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+  margin-bottom: 18px;
+}
+
+/* Scoped primary button — shared with Continue on select-subject pane. */
+.enhance-upload-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-radius: var(--r-btn);
+  background: var(--c-terracotta-base);
+  color: #FFF9EC;
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.005em;
+  min-height: 48px;
+  border: 0;
+  cursor: pointer;
+  transition: background 180ms var(--e-standard),
+              transform 120ms var(--e-standard),
+              box-shadow 180ms var(--e-standard);
+  box-shadow: 0 1px 0 rgba(122, 58, 39, 0.4), 0 8px 18px -10px rgba(122, 58, 39, 0.55);
+}
+
+.enhance-upload-button:hover:not(:disabled) { background: var(--c-terracotta-ink); }
+.enhance-upload-button:active:not(:disabled) { transform: translateY(1px); }
+
+.enhance-upload-button:disabled {
+  background: var(--c-surface-sunk);
+  color: var(--c-ink-_3);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.enhance-upload-button--full { width: 100%; }
+
+.enhance-upload-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.enhance-upload-foot {
+  margin-top: 18px;
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--c-ink-_3);
+  text-align: center;
+}
+
+/* --- Photo frame (shared by segmenting + select_subject) --- */
+.enhance-photo-frame {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 20px;
+  background: var(--c-surface-sunk);
+  border: 1px solid var(--c-rule-base);
+  position: relative;
+  overflow: hidden;
+  margin: 8px 0 22px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 251, 240, 0.6),
+    0 2px 0 rgba(42, 35, 27, 0.06),
+    0 20px 40px -24px rgba(42, 35, 27, 0.4);
+}
+
+.enhance-photo-frame--dim .enhance-photo-img,
+.enhance-photo-frame--dim .enhance-photo-placeholder {
+  filter: brightness(0.85) saturate(0.85);
+}
+
+.enhance-photo-img,
+.enhance-photo-placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.enhance-photo-placeholder {
+  background: linear-gradient(180deg, #EADFC6 0%, #D9C9A8 100%);
+}
+
+.enhance-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--c-gold-base);
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.enhance-corner--tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; border-top-left-radius: 4px; }
+.enhance-corner--tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; border-top-right-radius: 4px; }
+.enhance-corner--bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; border-bottom-left-radius: 4px; }
+.enhance-corner--br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; border-bottom-right-radius: 4px; }
+
+/* --- Breathing halo (segmenting) --- */
+.enhance-halo-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(212, 169, 92, 0.85) 0%,
+    rgba(212, 169, 92, 0.45) 20%,
+    rgba(212, 169, 92, 0.15) 38%,
+    rgba(212, 169, 92, 0) 58%
+  );
+  mix-blend-mode: screen;
+  animation: enhance-halo-breathe 1.4s ease-in-out infinite;
+}
+
+.enhance-halo-ring {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-gold-base);
+  pointer-events: none;
+  opacity: 0.45;
+  animation: enhance-halo-ring-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes enhance-halo-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(0.98); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+@keyframes enhance-halo-ring-pulse {
+  0%, 100% { opacity: 0.2; transform: translateX(-50%) scale(0.92); }
+  50% { opacity: 0.6; transform: translateX(-50%) scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enhance-halo-overlay,
+  .enhance-halo-overlay[data-reduced="true"] { animation: none; opacity: 0.7; transform: none; }
+  .enhance-halo-ring,
+  .enhance-halo-ring[data-reduced="true"] { animation: none; opacity: 0.4; transform: translateX(-50%); }
+}
+
+/* --- Segmenting caption --- */
+.enhance-seg-caption { text-align: center; }
+
+.enhance-seg-caption-line {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--c-text-ink);
+  margin-bottom: 8px;
+}
+
+.enhance-seg-caption-sub {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+/* --- Select-subject layout overrides for SubjectSelector --- */
+.enhance-select-canvas {
+  margin: 0 0 18px;
+}
+
+.enhance-select-canvas .subject-canvas {
+  display: block;
+  width: 100%;
+}
+
+.enhance-select-canvas .subject-image { width: 100%; }
+
+.enhance-cta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .enhance-helper {
   text-align: center;
-  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+  min-height: 14px;
 }
 
-.enhance-segmenting {
-  position: relative;
-  min-height: 480px;
-  align-items: center;
-}
+/* --- Desktop layout --- */
+@media (min-width: 768px) {
+  .enhance-chrome {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
 
-.enhance-segmenting-photo {
-  display: block;
-  max-width: 100%;
-  border-radius: var(--r-sm);
-  box-shadow: var(--sh-frame), var(--sh-soft);
-  opacity: 0.4;
-  margin: 0 auto 24px;
-}
+  .enhance-content {
+    padding: 32px 40px 48px;
+    max-width: 640px;
+    margin: 0 auto;
+    width: 100%;
+  }
 
-.enhance-select-canvas {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0 24px;
+  .enhance-display { font-size: 42px; }
+  .enhance-subhead { font-size: 17px; }
+  .enhance-upload-card { padding: 40px 32px 28px; }
+  .enhance-upload-frame { padding: 36px 28px 28px; }
+  .enhance-illus { width: 140px; height: 140px; }
 }
 
 /* ---- ReuniteFlow ---- */

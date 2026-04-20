@@ -79,6 +79,14 @@ export const color = {
     ink: '#556F5F',
     soft: '#E1EAE0',
   },
+  /** Rose — reserved for gentle error/alert tints (info icons, banners).
+   * Dimmer + warmer than a standard error red so memorial flows don't
+   * feel like form-validation failures. */
+  rose: {
+    base: '#C48A7E',
+    soft: '#F6E2D9',
+    ring: '#EAC9BD',
+  },
   /** Warm halo gold — signature color for the brand mark and halos. */
   gold: {
     base: '#D4A95C',
@@ -191,4 +199,5 @@ export type TokenColorPath =
   | `terracotta.${keyof typeof color.terracotta}`
   | `plum.${keyof typeof color.plum}`
   | `sage.${keyof typeof color.sage}`
-  | `gold.${keyof typeof color.gold}`;
+  | `gold.${keyof typeof color.gold}`
+  | `rose.${keyof typeof color.rose}`;

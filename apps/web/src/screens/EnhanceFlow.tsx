@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TributeTemplate } from '@haloframe/shared';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   fetchTemplates,
   preloadSampleImages,
@@ -10,11 +11,8 @@ import {
 } from '../lib/api';
 import { COPY } from '../lib/copy';
 import { useNavigation } from '../lib/navigation';
-import { BackButton } from '../components/BackButton';
-import { UploadZone } from '../components/UploadZone';
 import { SubjectSelector } from '../components/SubjectSelector';
-import { LoadingOverlay } from '../components/LoadingOverlay';
-import { Icon } from '../components/icons/Icon';
+import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
 type Step = 'upload' | 'segmenting' | 'select_subject' | 'editor';
@@ -101,114 +99,349 @@ export function EnhanceFlow() {
     }
   };
 
-  const handleSubjectSelect = (index: number) => {
-    setSelectedSubjectIndex(index);
-  };
-
   const handleContinue = () => {
     if (selectedSubjectIndex !== null) {
       setStep('editor');
     }
   };
 
+  // The editor is its own screen (own header, own layout) — render it
+  // bare without any of the EnhanceFlow chrome.
+  if (step === 'editor' && uploadedUrl && segmentation) {
+    return (
+      <Editor
+        baseImageUrl={uploadedUrl}
+        subjects={segmentation.subjects.map((s) => ({
+          centroid: s.centroid,
+          bbox: s.bbox,
+          maskUrl: s.maskUrl,
+        }))}
+        selectedSubjectIndex={selectedSubjectIndex ?? 0}
+        imageWidth={segmentation.imageWidth}
+        imageHeight={segmentation.imageHeight}
+        templates={templates}
+        isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
+        onOrderCanvas={() => nav.push('PRINT_SHOP')}
+        onPaywall={() => nav.push('PAYWALL')}
+        onBack={handleBack}
+      />
+    );
+  }
+
   return (
-    <div className="enhance">
-      {step !== 'segmenting' && step !== 'editor' && (
-        <header className="flow-header">
-          <BackButton onClick={handleBack} />
-          <span className="app-header-title">
-            {step === 'upload' && COPY.enhance.upload.heading}
-            {step === 'select_subject' && COPY.enhance.selectSubject.heading}
-          </span>
-          <span className="flow-header-spacer" aria-hidden />
-        </header>
-      )}
+    <div className="enhance" data-step={step}>
+      <header className="enhance-chrome">
+        <button
+          type="button"
+          className="enhance-back"
+          onClick={handleBack}
+          disabled={step === 'segmenting'}
+          aria-label="Back"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <StepDots step={step} error={Boolean(error)} />
+      </header>
+
+      <main className="enhance-content">
+        {step === 'upload' && (
+          <UploadPane onUpload={handleUpload} error={error} />
+        )}
+
+        {step === 'segmenting' && (
+          <SegmentingPane photoUrl={uploadedUrl} />
+        )}
+
+        {step === 'select_subject' && segmentation && uploadedUrl && (
+          <SelectSubjectPane
+            segmentation={segmentation}
+            uploadedUrl={uploadedUrl}
+            selectedSubjectIndex={selectedSubjectIndex}
+            onSelect={setSelectedSubjectIndex}
+            onContinue={handleContinue}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ---------- Step chrome ---------- */
+
+interface StepDotsProps {
+  step: Step;
+  error: boolean;
+}
+
+function StepDots({ step, error }: StepDotsProps) {
+  // Only three meaningful steps for the indicator — upload → segmenting →
+  // select. Editor is a separate screen; error is a pause, not a step.
+  const STEPS: Step[] = ['upload', 'segmenting', 'select_subject'];
+  const currentIndex = STEPS.indexOf(step);
+  const label = error
+    ? COPY.enhance.errorHint.toUpperCase()
+    : COPY.enhance.stepLabel(Math.max(currentIndex + 1, 1), STEPS.length).toUpperCase();
+
+  return (
+    <div className="enhance-stepdots" aria-label="Step indicator">
+      {STEPS.map((s, i) => {
+        let cls = 'enhance-stepdot';
+        if (i < currentIndex) cls += ' enhance-stepdot--done';
+        else if (i === currentIndex) cls += ' enhance-stepdot--on';
+        return <i key={s} className={cls} />;
+      })}
+      <span className="enhance-stepdots-label">{label}</span>
+    </div>
+  );
+}
+
+/* ---------- Upload pane ---------- */
+
+interface UploadPaneProps {
+  onUpload: (file: File) => void;
+  error: string | null;
+}
+
+function UploadPane({ onUpload, error }: UploadPaneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUpload(file);
+    // Reset so re-selecting the same file still fires onChange.
+    e.target.value = '';
+  };
+
+  return (
+    <motion.section
+      className="enhance-pane enhance-pane-upload"
+      aria-labelledby="enhance-upload-heading"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="enhance-eyebrow">
+        <span className="enhance-eyebrow-dot" aria-hidden />
+        {COPY.enhance.uploadEyebrow.toUpperCase()}
+      </span>
+      <h1 className="enhance-display" id="enhance-upload-heading">
+        {COPY.enhance.upload.headingBefore}
+        <em>{COPY.enhance.upload.headingItalic}</em>
+        {COPY.enhance.upload.headingAfter}
+      </h1>
+      <p className="enhance-subhead">{COPY.enhance.upload.subtext}</p>
+      <div className="enhance-flourish" aria-hidden>
+        <span className="enhance-flourish-line" />
+        <span className="enhance-flourish-dot" />
+        <span className="enhance-flourish-diamond" />
+        <span className="enhance-flourish-dot" />
+        <span className="enhance-flourish-line" />
+      </div>
 
       {error && (
-        <div className="flow-error" role="alert">
-          <p className="t-body-md">{error}</p>
-          <div className="flow-error-actions">
-            <button type="button" className="btn btn-ghost" onClick={handleBack}>
-              {COPY.errors.mergeWrong.goBack}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={() => setError(null)}>
-              {COPY.errors.general.button}
-            </button>
-          </div>
+        <div className="enhance-inline-error" role="alert" aria-live="polite">
+          {error}
         </div>
       )}
 
-      {step === 'upload' && (
-        <section className="flow-pane enhance-upload">
-          <h1 className="t-display-lg enhance-headline">{COPY.enhance.upload.heading}</h1>
-          <hr className="hairline-short" aria-hidden />
-          <p className="t-body-lg t-muted enhance-helper">{COPY.enhance.upload.subtext}</p>
-          <UploadZone
-            label={COPY.enhance.upload.uploadLabel}
-            hint={COPY.enhance.upload.uploadHint}
-            onFileSelected={handleUpload}
-          />
-        </section>
-      )}
-
-      {step === 'segmenting' && (
-        <section className="flow-pane enhance-segmenting">
-          {uploadedUrl && (
-            <img src={uploadedUrl} alt="" className="enhance-segmenting-photo" aria-hidden />
-          )}
-          <LoadingOverlay
-            message={COPY.enhance.segmenting.message}
-            hint={COPY.enhance.segmenting.hint}
-          />
-        </section>
-      )}
-
-      {step === 'select_subject' && segmentation && uploadedUrl && (
-        <section className="flow-pane enhance-select">
-          <p className="t-body-md t-muted enhance-helper">
-            {COPY.enhance.selectSubject.subtext}
-          </p>
-          <div className="enhance-select-canvas">
-            <SubjectSelector
-              imageUrl={uploadedUrl}
-              imageWidth={segmentation.imageWidth}
-              imageHeight={segmentation.imageHeight}
-              subjects={segmentation.subjects}
-              selectedIndex={selectedSubjectIndex}
-              onSelect={handleSubjectSelect}
+      <motion.div
+        className="enhance-upload-card"
+        variants={cardReveal}
+        initial="initial"
+        animate="animate"
+        custom={0}
+      >
+        <div className="enhance-upload-frame">
+          <FrameHaloIllustration />
+          <div className="enhance-upload-label">{COPY.enhance.upload.prefaceLabel}</div>
+          <div className="enhance-upload-helper">{COPY.enhance.upload.uploadHint}</div>
+          <button
+            type="button"
+            className="enhance-upload-button"
+            onClick={() => inputRef.current?.click()}
+          >
+            {COPY.enhance.upload.uploadLabel}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="enhance-upload-input"
+              onChange={handleChange}
+              aria-label={COPY.enhance.upload.uploadLabel}
             />
-          </div>
-          <div className="flow-action">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={selectedSubjectIndex === null}
-              onClick={handleContinue}
-            >
-              Continue <Icon name="chevronRight" size={16} />
-            </button>
-          </div>
-        </section>
-      )}
+          </button>
+        </div>
+        <div className="enhance-upload-foot">{COPY.enhance.upload.footText}</div>
+      </motion.div>
+    </motion.section>
+  );
+}
 
-      {step === 'editor' && uploadedUrl && segmentation && (
-        <Editor
-          baseImageUrl={uploadedUrl}
-          subjects={segmentation.subjects.map((s) => ({
-            centroid: s.centroid,
-            bbox: s.bbox,
-            maskUrl: s.maskUrl,
-          }))}
-          selectedSubjectIndex={selectedSubjectIndex ?? 0}
+/* ---------- Segmenting pane ---------- */
+
+interface SegmentingPaneProps {
+  photoUrl: string | null;
+}
+
+function SegmentingPane({ photoUrl }: SegmentingPaneProps) {
+  const prefersReduced = useReducedMotion() ?? false;
+  return (
+    <motion.section
+      className="enhance-pane enhance-pane-segmenting"
+      aria-labelledby="enhance-segmenting-heading"
+      aria-live="polite"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="enhance-eyebrow">
+        <span className="enhance-eyebrow-dot" aria-hidden />
+        {COPY.enhance.segmentingEyebrow.toUpperCase()}
+      </span>
+      <h1 className="enhance-display" id="enhance-segmenting-heading">
+        {COPY.enhance.segmenting.headingBefore}
+        <em>{COPY.enhance.segmenting.headingItalic}</em>
+        {COPY.enhance.segmenting.headingAfter}
+      </h1>
+
+      <div className="enhance-photo-frame enhance-photo-frame--dim" aria-label="Your photo">
+        <span className="enhance-corner enhance-corner--tl" aria-hidden />
+        <span className="enhance-corner enhance-corner--tr" aria-hidden />
+        <span className="enhance-corner enhance-corner--bl" aria-hidden />
+        <span className="enhance-corner enhance-corner--br" aria-hidden />
+        {photoUrl ? (
+          <img src={photoUrl} alt="" className="enhance-photo-img" aria-hidden />
+        ) : (
+          <div className="enhance-photo-placeholder" aria-hidden />
+        )}
+        <div
+          className="enhance-halo-ring"
+          data-reduced={prefersReduced ? 'true' : 'false'}
+          aria-hidden
+        />
+        <div
+          className="enhance-halo-overlay"
+          data-reduced={prefersReduced ? 'true' : 'false'}
+          aria-hidden
+        />
+      </div>
+
+      <div className="enhance-seg-caption">
+        <div className="enhance-seg-caption-line">{COPY.enhance.segmenting.message}</div>
+        <div className="enhance-seg-caption-sub">
+          {COPY.enhance.segmenting.hint.toUpperCase()}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+/* ---------- Select subject pane ---------- */
+
+interface SelectSubjectPaneProps {
+  segmentation: SegmentResult;
+  uploadedUrl: string;
+  selectedSubjectIndex: number | null;
+  onSelect: (index: number) => void;
+  onContinue: () => void;
+}
+
+function SelectSubjectPane({
+  segmentation,
+  uploadedUrl,
+  selectedSubjectIndex,
+  onSelect,
+  onContinue,
+}: SelectSubjectPaneProps) {
+  return (
+    <motion.section
+      className="enhance-pane enhance-pane-select"
+      aria-labelledby="enhance-select-heading"
+      variants={heroText}
+      initial="initial"
+      animate="animate"
+    >
+      <span className="enhance-eyebrow enhance-eyebrow--terracotta">
+        <span className="enhance-eyebrow-dot" aria-hidden />
+        {COPY.enhance.selectEyebrow.toUpperCase()}
+      </span>
+      <h1 className="enhance-display" id="enhance-select-heading">
+        {COPY.enhance.selectSubject.headingBefore}
+        <em>{COPY.enhance.selectSubject.headingItalic}</em>
+        {COPY.enhance.selectSubject.headingAfter}
+      </h1>
+      <p className="enhance-subhead">{COPY.enhance.selectSubject.subtext}</p>
+      <div className="enhance-flourish" aria-hidden>
+        <span className="enhance-flourish-line" />
+        <span className="enhance-flourish-dot" />
+        <span className="enhance-flourish-diamond" />
+        <span className="enhance-flourish-dot" />
+        <span className="enhance-flourish-line" />
+      </div>
+
+      <div className="enhance-select-canvas">
+        <SubjectSelector
+          imageUrl={uploadedUrl}
           imageWidth={segmentation.imageWidth}
           imageHeight={segmentation.imageHeight}
-          templates={templates}
-          isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
-          onOrderCanvas={() => nav.push('PRINT_SHOP')}
-          onPaywall={() => nav.push('PAYWALL')}
-          onBack={handleBack}
+          subjects={segmentation.subjects}
+          selectedIndex={selectedSubjectIndex}
+          onSelect={onSelect}
         />
-      )}
+      </div>
+
+      <div className="enhance-cta-row">
+        <button
+          type="button"
+          className="enhance-upload-button enhance-upload-button--full"
+          disabled={selectedSubjectIndex === null}
+          onClick={onContinue}
+        >
+          Continue
+        </button>
+        <div className="enhance-helper">
+          {selectedSubjectIndex === null
+            ? COPY.enhance.selectSubject.helper
+            : '\u00a0'}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+/* ---------- Upload illustration ---------- */
+
+// Quiet frame-with-halo illustration — no camera, no cloud, no people. The
+// image slot is a warm paper color with horizontal rule marks so it reads
+// as "a photograph waiting to be placed" rather than a generic upload icon.
+function FrameHaloIllustration() {
+  return (
+    <div className="enhance-illus" aria-hidden>
+      <svg viewBox="0 0 120 120">
+        <defs>
+          <linearGradient id="enhance-illus-frame" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor="var(--c-surface-sunk)" />
+            <stop offset="1" stopColor="#EADFC6" />
+          </linearGradient>
+          <radialGradient id="enhance-illus-halo" cx="60" cy="42" r="34" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="var(--c-gold-soft)" stopOpacity="0.9" />
+            <stop offset="0.5" stopColor="var(--c-gold-base)" stopOpacity="0.35" />
+            <stop offset="1" stopColor="var(--c-gold-base)" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="60" cy="42" r="34" fill="url(#enhance-illus-halo)" />
+        <ellipse cx="60" cy="36" rx="22" ry="6" fill="none" stroke="var(--c-gold-base)" strokeWidth="1.5" opacity="0.85" />
+        <rect x="26" y="34" width="68" height="72" rx="6" fill="url(#enhance-illus-frame)" stroke="var(--c-rule-strong)" strokeWidth="1.2" />
+        <rect x="32" y="40" width="56" height="60" rx="3" fill="var(--c-surface-card)" stroke="var(--c-rule-base)" strokeWidth="1" />
+        <g opacity="0.55" stroke="var(--c-rule-base)" strokeWidth="1">
+          <line x1="32" y1="56" x2="88" y2="56" />
+          <line x1="32" y1="68" x2="88" y2="68" />
+          <line x1="32" y1="80" x2="88" y2="80" />
+          <line x1="32" y1="92" x2="88" y2="92" />
+        </g>
+      </svg>
     </div>
   );
 }

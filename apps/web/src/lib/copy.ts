@@ -40,19 +40,43 @@ export const COPY = {
   },
 
   enhance: {
+    // New 2026-04-19 design keys — italic-split headings + per-step eyebrows.
+    uploadEyebrow: 'Path one \u00b7 Enhance',
+    segmentingEyebrow: 'Step two \u00b7 Looking',
+    selectEyebrow: 'Step three \u00b7 Choose',
+    stepLabel: (current: number, total: number) =>
+      `Step ${String(current).padStart(2, '0')} / ${String(total).padStart(2, '0')}`,
+    tryAgainCta: 'Try another photo',
+    errorHint: 'Please try another',
     upload: {
+      // Legacy flat string kept for any pre-port consumers.
       heading: 'Pick a photo',
-      subtext: 'Pick a photo of your loved one or your family',
+      // Italic-split form used by the redesign.
+      headingBefore: 'Pick a ',
+      headingItalic: 'photograph',
+      headingAfter: ' of the one you\u2019re honoring.',
+      subtext: 'Pick a photo of your loved one or your family.',
+      prefaceLabel: 'A single photograph, softly lit.',
       uploadLabel: 'Choose from Photos',
       uploadHint: 'Any JPEG or PNG',
+      footText: 'Take a quiet moment \u2014 there\u2019s no rush.',
     },
     segmenting: {
+      // Legacy flat strings.
       message: 'Looking at your photo\u2026',
       hint: 'Just a few seconds',
+      // Italic-split form used by the redesign.
+      headingBefore: 'A quiet moment while we ',
+      headingItalic: 'look',
+      headingAfter: '.',
     },
     selectSubject: {
       heading: 'Who is this for?',
-      subtext: 'Tap their number',
+      headingBefore: 'Who is ',
+      headingItalic: 'this',
+      headingAfter: ' for?',
+      subtext: 'Tap their number.',
+      helper: 'Tap a number to choose',
     },
     noFaces:
       'We couldn\u2019t find anyone in this photo \u2014 try a clearer one.',
