@@ -5530,3 +5530,39 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* Settings → Account row. Lists email + provider with a ghost sign-out
+ * button underneath. For anon users it shows "Anonymous tribute in
+ * progress" and a sign-in CTA. */
+.settings-account {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 22px;
+  background: var(--c-bg-surface, #fff);
+  border: 1px solid var(--c-hairline);
+  border-radius: 14px;
+  margin-top: 20px;
+}
+
+.settings-account-line {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-text-ink);
+  align-items: baseline;
+}
+
+.settings-account-label {
+  color: var(--c-text-muted);
+  font-size: 13px;
+  min-width: 96px;
+  letter-spacing: 0.02em;
+}
+
+.settings-account-value {
+  font-weight: 500;
+  color: var(--c-text-ink);
+  word-break: break-word;
+}

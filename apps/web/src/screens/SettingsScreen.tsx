@@ -6,7 +6,15 @@ import {
 import { useNavigation } from '../lib/navigation';
 import { COPY } from '../lib/copy';
 import { useSubscription } from '../hooks/useSubscription';
+import { useAuth } from '../hooks/useAuth';
 import { heroText, cardReveal } from '../lib/motion';
+
+function providerLabel(providers: string[] | undefined): string {
+  if (!providers || providers.length === 0) return 'Email';
+  const first = providers[0] ?? 'email';
+  if (first === 'email') return 'Email';
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
 
 function planDisplayName(planId: SubscriptionPlanId): string {
   // SUBSCRIPTION_PLANS_UI collapses heritage_monthly + heritage_annual under
@@ -44,12 +52,26 @@ function formatRenewalDate(iso: string | null): string | null {
 }
 
 export function SettingsScreen() {
-  const { push } = useNavigation();
+  const { push, reset } = useNavigation();
   const { snapshot } = useSubscription();
+  const { session, isAnonymous, signOut } = useAuth();
   const planId: SubscriptionPlanId = snapshot?.planId ?? 'free';
   const creditsRemaining = snapshot?.creditsRemaining ?? 0;
   const renewsOn = formatRenewalDate(snapshot?.renewsOn ?? null);
   const isPaid = planId !== 'free';
+  const email = session?.user?.email ?? null;
+  // Supabase embeds providers under `app_metadata.providers`. Fall back to
+  // `identities[].provider` if the property is absent.
+  const appMeta = (session?.user?.app_metadata ?? {}) as {
+    providers?: string[];
+    provider?: string;
+  };
+  const providers = appMeta.providers ?? (appMeta.provider ? [appMeta.provider] : []);
+
+  async function handleSignOut() {
+    await signOut();
+    reset();
+  }
 
   // Restore-purchase wiring lands with the backend entitlement refactor
   // (see memory/project_pricing_strategy.md). For now this is a no-op.
@@ -148,6 +170,57 @@ export function SettingsScreen() {
           {COPY.subscription.restoreCta}
         </motion.button>
       </div>
+
+      <motion.section
+        className="settings-account"
+        aria-labelledby="settings-account-heading"
+        variants={cardReveal}
+        initial="initial"
+        animate="animate"
+        custom={3}
+      >
+        <span className="settings-eyebrow" id="settings-account-heading">
+          <span>{COPY.auth.settings.accountEyebrow}</span>
+        </span>
+        {isAnonymous || !email ? (
+          <>
+            <p className="settings-account-line">{COPY.auth.settings.anon}</p>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => push('SIGN_IN')}
+            >
+              {COPY.auth.settings.anonCta}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="settings-account-line">
+              <span className="settings-account-label">
+                {COPY.auth.settings.emailLabel}
+              </span>
+              <span className="settings-account-value">{email}</span>
+            </p>
+            {providers.length > 0 && (
+              <p className="settings-account-line">
+                <span className="settings-account-label">
+                  {COPY.auth.settings.providerLabel}
+                </span>
+                <span className="settings-account-value">
+                  {providerLabel(providers)}
+                </span>
+              </p>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={handleSignOut}
+            >
+              {COPY.auth.settings.signOut}
+            </button>
+          </>
+        )}
+      </motion.section>
 
       <motion.p
         className="settings-fine-print"
