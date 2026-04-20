@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { TributeTemplate } from '@haloframe/shared';
 import {
   applyTemplate,
@@ -13,7 +13,6 @@ import { useSubscription } from '../hooks/useSubscription';
 import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
-import { BackButton } from '../components/BackButton';
 
 type Placement = 'left' | 'right' | 'behind' | 'front';
 
@@ -390,10 +389,6 @@ export function Editor({
     isSaving ||
     currentFinalInflight;
 
-  const viewerLoadingLabel = isSaving || currentFinalInflight
-    ? COPY.loading.makingPerfect
-    : COPY.editor.creating;
-
   // Save button is always "Save to Photos" except while the save is in
   // flight (then "Making it perfect…" and disabled). Tapping save with
   // no style picked downloads the original photo — handleSave branches
@@ -401,112 +396,203 @@ export function Editor({
   // style" / "Loading preview…" labels, but that made the button feel
   // conditionally broken when users just wanted to save what they saw.
   const finalizing = isSaving || currentFinalInflight;
-  const saveLabel = finalizing ? COPY.loading.makingPerfect : COPY.editor.saveButton;
+  const saveLabel = finalizing ? COPY.editor.savingButton : COPY.editor.saveButton;
   const saveDisabled = finalizing;
 
+  // The data-state drives the stage CSS (dim, halo visibility, rotating
+  // caption, ready-rule, finalizing pill) in a single attribute so state
+  // transitions stay in lockstep with the React state. Order matters:
+  // error trumps saving, saving trumps loading, styledUrl means ready,
+  // otherwise idle.
+  const dataState: 'idle' | 'loading-preview' | 'preview-ready' | 'saving' | 'error' = error
+    ? 'error'
+    : finalizing
+      ? 'saving'
+      : viewerLoading
+        ? 'loading-preview'
+        : hasStyled
+          ? 'preview-ready'
+          : 'idle';
+
+  // Rotating italic caption below the stage during loading-preview and
+  // saving. Cycles every 4s. Reduced-motion users see the first line
+  // only (still narrated, no motion).
+  const prefersReduced = useReducedMotion() ?? false;
+  const captionPool: readonly string[] | null =
+    dataState === 'loading-preview'
+      ? COPY.editor.loadingCaptions
+      : dataState === 'saving'
+        ? COPY.editor.savingCaptions
+        : null;
+  const [captionIndex, setCaptionIndex] = useState(0);
+  useEffect(() => {
+    setCaptionIndex(0);
+    if (!captionPool || captionPool.length <= 1 || prefersReduced) return;
+    const id = window.setInterval(
+      () => setCaptionIndex((i) => (i + 1) % captionPool.length),
+      4000,
+    );
+    return () => window.clearInterval(id);
+    // `captionPool` identity only changes when dataState changes to a
+    // value with a different pool — stable refs from COPY.editor.
+  }, [captionPool, prefersReduced]);
+  const rotatingCaption = captionPool ? (captionPool[captionIndex] ?? captionPool[0] ?? '') : '';
+
+  const creditBadgeLabel = COPY.subscription.tributesShort(snapshot?.creditsRemaining ?? 0);
+
   return (
-    <div className="editor">
-      <header className="flow-header editor-header">
-        {onBack && <BackButton onClick={onBack} />}
-        <span className="app-header-title">Editing tribute</span>
-        <span className="flow-header-badge t-label-md">
-          {COPY.subscription.tributesShort(snapshot?.creditsRemaining ?? 0)}
-        </span>
+    <div className="editor" data-state={dataState}>
+      <header className="editor-header">
+        {onBack ? (
+          <button
+            type="button"
+            className="editor-back"
+            onClick={onBack}
+            aria-label={COPY.editor.backAria}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+        ) : (
+          <span className="editor-back-placeholder" aria-hidden />
+        )}
+        <div className="editor-title">{COPY.editor.header}</div>
+        <div className="editor-credit-badge" aria-label={creditBadgeLabel}>
+          <span className="editor-credit-dot" aria-hidden />
+          <span>{creditBadgeLabel}</span>
+        </div>
       </header>
 
-      <div className="editor-stage" ref={stageRef}>
-        <ImageViewer
-          src={displayUrl}
-          alt="Your tribute"
-          loading={viewerLoading}
-          loadingLabel={viewerLoadingLabel}
-        />
-        <div className="editor-stage-toolbar">
-          <div className="editor-chips" role="tablist" aria-label="View">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={!showOriginal}
-              className={`editor-chip${!showOriginal ? ' editor-chip--active' : ''}`}
-              onClick={() => setShowOriginal(false)}
-              disabled={!hasStyled}
+      <main className="editor-workbench">
+        <section className="editor-stage-wrap" aria-label="Tribute preview">
+          <div className="editor-frame" ref={stageRef}>
+            <span className="editor-corner editor-corner--tl" aria-hidden />
+            <span className="editor-corner editor-corner--tr" aria-hidden />
+            <span className="editor-corner editor-corner--bl" aria-hidden />
+            <span className="editor-corner editor-corner--br" aria-hidden />
+            <ImageViewer src={displayUrl} alt="Your tribute" loading={viewerLoading} />
+            <div className="editor-halo" aria-hidden />
+          </div>
+
+          <div className="editor-stage-caption" aria-live="polite">
+            {rotatingCaption && (
+              <>
+                <span className="editor-stage-caption-hr" aria-hidden />
+                <span>{rotatingCaption}</span>
+                <span className="editor-stage-caption-hr" aria-hidden />
+              </>
+            )}
+          </div>
+          <div className="editor-viewer-hint">{COPY.editor.viewerHint}</div>
+
+          <div className="editor-chips-row">
+            <div
+              className="editor-chips"
+              role="tablist"
+              aria-label="Compare original and styled"
             >
-              {COPY.editor.styledChip}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={showOriginal}
-              className={`editor-chip${showOriginal ? ' editor-chip--active' : ''}`}
-              onClick={() => setShowOriginal(true)}
-              disabled={!hasStyled}
-            >
-              {COPY.editor.originalChip}
-            </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!showOriginal}
+                className="editor-chip"
+                onClick={() => setShowOriginal(false)}
+                disabled={!hasStyled}
+              >
+                {COPY.editor.styledChip}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={showOriginal}
+                className="editor-chip"
+                onClick={() => setShowOriginal(true)}
+                disabled={!hasStyled}
+              >
+                {COPY.editor.originalChip}
+              </button>
+            </div>
           </div>
-          <span className="t-body-sm t-muted">{COPY.editor.viewerHint}</span>
-        </div>
-        {error && (
-          <div className="flow-error editor-error" role="alert">
-            <p className="t-body-md">{error}</p>
+
+          {error && (
+            <div className="editor-err-banner" role="alert">
+              <span className="editor-err-dot" aria-hidden />
+              <em>{error}</em>
+            </div>
+          )}
+        </section>
+
+        <section className="editor-gallery-section" aria-label="Style gallery">
+          <div className="editor-section-head">
+            <h3 className="editor-section-heading">
+              {COPY.editor.styleHeadingBefore}
+              <em>{COPY.editor.styleHeadingItalic}</em>
+              {COPY.editor.styleHeadingAfter}
+            </h3>
+            <div className="editor-section-hairline" aria-hidden />
+            <span className="editor-section-helper">{COPY.editor.styleHelper}</span>
           </div>
-        )}
-      </div>
 
-      <div className="editor-controls">
-        {preloading && (
-          <div className="preload-banner" role="status" aria-live="polite">
-            <span className="preload-dot" aria-hidden />
-            <span className="t-body-sm">{COPY.editor.preparingStyles(preloadDone, preloadTotal)}</span>
-          </div>
-        )}
+          {preloading && (
+            <div className="editor-preload" role="status" aria-live="polite">
+              <span className="editor-preload-pulse" aria-hidden />
+              <span>{COPY.editor.preparingStyles(preloadDone, preloadTotal)}</span>
+            </div>
+          )}
 
-        <TemplateGallery
-          templates={visibleTemplates}
-          selectedIds={selectedIds}
-          readyIds={readyIds}
-          onToggle={handleTemplateToggle}
-          disabled={isSaving}
-        />
-      </div>
+          <TemplateGallery
+            templates={visibleTemplates}
+            selectedIds={selectedIds}
+            readyIds={readyIds}
+            onToggle={handleTemplateToggle}
+            disabled={isSaving}
+          />
+        </section>
+      </main>
 
-      {finalizing && (
-        <div className="editor-finalizing" role="status" aria-live="polite">
-          <span className="finalizing-pill">{COPY.loading.makingPerfect}</span>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {hasStyled && (
-          <motion.hr
-            key="ready-hairline"
-            className="hairline-short editor-ready-hairline"
+      <div className="editor-actionbar">
+        <div className="editor-actionbar-inner">
+          <motion.span
+            key="ready-rule"
+            className="editor-ready-rule"
             aria-hidden
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.85 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1], delay: 0.06 }}
+            animate={{ opacity: hasStyled ? 1 : 0 }}
+            transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1] }}
           />
-        )}
-      </AnimatePresence>
-
-      <div className="editor-action-bar">
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={onOrderCanvas}
-          disabled={isSaving}
-        >
-          {COPY.editor.orderCanvas}
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary editor-save"
-          onClick={handleSave}
-          disabled={saveDisabled}
-        >
-          {saveLabel}
-        </button>
+          {finalizing && (
+            <div className="editor-finalizing" role="status" aria-live="polite">
+              {COPY.editor.savingButton}
+            </div>
+          )}
+          <button
+            type="button"
+            className="editor-btn editor-btn--ghost"
+            onClick={onOrderCanvas}
+            disabled={isSaving}
+          >
+            {COPY.editor.orderCanvas}
+          </button>
+          <button
+            type="button"
+            className="editor-btn editor-btn--primary"
+            onClick={handleSave}
+            disabled={saveDisabled}
+          >
+            {saveLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

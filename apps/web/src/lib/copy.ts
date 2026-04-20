@@ -182,14 +182,31 @@ export const COPY = {
 
   editor: {
     styleHeading: 'Pick a style',
+    // 2026-04-19 redesign: italic-split form for the gold-underlined accent.
+    styleHeadingBefore: 'Pick a ',
+    styleHeadingItalic: 'style',
+    styleHeadingAfter: '',
     styleHelper: 'Tap a style to apply it',
     styledChip: 'Styled',
     originalChip: 'Original',
     viewerHint: 'Pinch to zoom \u00b7 drag to pan \u00b7 double-click to reset',
     creating: 'Creating your tribute\u2026',
+    // Rotating italic captions below the stage while a render is in-flight.
+    // Cycled every 4s so a 5–20s wait feels narrated, not silent. Keep each
+    // line short + warm.
+    loadingCaptions: [
+      'Creating your tribute\u2026',
+      'Finding the light\u2026',
+      'Making it perfect\u2026',
+    ] as const,
+    savingCaptions: [
+      'Making it perfect\u2026',
+      'Preparing your tribute\u2026',
+    ] as const,
     styleFailed:
       'Something went wrong \u2014 let\u2019s try again.',
     saveButton: 'Save to Photos',
+    savingButton: 'Making it perfect\u2026',
     orderCanvas: 'Order Canvas',
     startOver: 'Start Over',
     tryDifferentPosition: 'Try Again',
@@ -197,6 +214,8 @@ export const COPY = {
     seeTribute: 'See Your Tribute',
     preparingStyles: (done: number, total: number) =>
       `Preparing your styles\u2026 ${done}/${total} ready`,
+    header: 'Editing tribute',
+    backAria: 'Back',
   },
 
   loading: {

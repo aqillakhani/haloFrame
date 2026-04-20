@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion';
 import type { TributeTemplate } from '@haloframe/shared';
-import { COPY } from '../lib/copy';
-import { Icon } from './icons/Icon';
 
 interface TemplateGalleryProps {
   templates: TributeTemplate[];
@@ -23,6 +21,9 @@ interface TemplateGalleryProps {
 
 const gentleEase = [0.22, 0.61, 0.36, 1] as const;
 
+// 2026-04-19 claude.ai/design port — the parent `.editor-gallery-section`
+// supplies the heading, hairline, helper + preload banner. This component
+// only renders the tile grid itself.
 export function TemplateGallery({
   templates,
   selectedIds,
@@ -31,67 +32,75 @@ export function TemplateGallery({
   disabled,
 }: TemplateGalleryProps) {
   return (
-    <section className="template-section">
-      <header className="template-section-header">
-        <h3 className="t-display-md">{COPY.editor.styleHeading}</h3>
-        <hr className="hairline-short" aria-hidden />
-        <p className="t-body-sm t-muted">{COPY.editor.styleHelper}</p>
-      </header>
-      <div className="template-grid" role="radiogroup" aria-label="Tribute styles">
-        {templates.map((t, i) => {
-          const selected = selectedIds.includes(t.id);
-          const ready = !readyIds || readyIds.has(t.id);
-          const isDisabled = !!disabled || !ready;
-          const classes = [
-            'template-tile',
-            selected ? 'template-tile--selected' : '',
-            ready ? '' : 'template-tile--pending',
-          ]
-            .filter(Boolean)
-            .join(' ');
-          return (
-            <motion.button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-label={t.name}
-              aria-busy={!ready}
-              disabled={isDisabled}
-              className={classes}
-              onClick={() => onToggle(t.id)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, ease: gentleEase, delay: 0.12 + i * 0.07 }}
-            >
-              <div className="template-tile-photo">
-                {t.sampleImageUrl ? (
-                  <img
-                    src={t.sampleImageUrl}
-                    alt=""
-                    decoding="async"
-                    // @ts-expect-error fetchpriority is valid HTML but missing
-                    // from React DOM types in this version.
-                    fetchpriority="high"
-                  />
-                ) : (
-                  <div className="template-tile-photo-empty" aria-hidden />
-                )}
-                {selected && (
-                  <span className="template-tile-check" aria-hidden>
-                    <Icon name="check" size={14} />
-                  </span>
-                )}
-                {!ready && <span className="template-tile-dot" aria-hidden />}
-              </div>
-              <div className="template-tile-meta">
-                <p className="t-label-sm t-muted">{t.category}</p>
-                <p className="t-label-md">{t.name}</p>
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-    </section>
+    <div
+      className="editor-tile-grid"
+      role="radiogroup"
+      aria-label="Memorial styles"
+    >
+      {templates.map((t, i) => {
+        const selected = selectedIds.includes(t.id);
+        const ready = !readyIds || readyIds.has(t.id);
+        const isDisabled = !!disabled || !ready;
+        const classes = [
+          'editor-tile',
+          selected ? 'editor-tile--selected' : '',
+          ready ? '' : 'editor-tile--pending',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        return (
+          <motion.button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={t.name}
+            aria-busy={!ready}
+            disabled={isDisabled}
+            className={classes}
+            onClick={() => onToggle(t.id)}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: gentleEase, delay: 0.08 + i * 0.06 }}
+          >
+            <div className="editor-tile-media">
+              {t.sampleImageUrl ? (
+                <img
+                  src={t.sampleImageUrl}
+                  alt=""
+                  decoding="async"
+                  // @ts-expect-error fetchpriority is valid HTML but missing
+                  // from React DOM types in this version.
+                  fetchpriority="high"
+                />
+              ) : (
+                <div className="editor-tile-media-empty" aria-hidden />
+              )}
+              {selected && (
+                <span className="editor-tile-check" aria-hidden>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12l4.5 4.5L19 7" />
+                  </svg>
+                </span>
+              )}
+              {!ready && <span className="editor-tile-rose-dot" aria-hidden />}
+            </div>
+            <div className="editor-tile-caption">
+              <span className="editor-tile-cat">{t.category}</span>
+              <span className="editor-tile-name">{t.name}</span>
+            </div>
+          </motion.button>
+        );
+      })}
+    </div>
   );
 }

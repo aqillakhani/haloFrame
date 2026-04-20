@@ -181,6 +181,20 @@ placement?: 'left' | 'right' | 'behind' | 'front'
 - Save on cached final downloads without charging (re-download of a paid tribute)
 - `AbortController` cancels inflight preview calls on unmount
 - Badge displays `snapshot?.creditsRemaining ?? 0` — never hardcoded
+- Stage reveal keeps the `stageRef + classList remove → forced reflow → classList add` pattern — DO NOT refactor to `useLayoutEffect` or `framer-motion`: the forced `offsetHeight` read is what makes the CSS animation restart on every styled URL change
+
+**Visual port (2026-04-19 redesign):**
+- `data-state` on `.editor` root drives all five states (`idle | loading-preview | preview-ready | saving | error`) — CSS reads it for halo visibility + photo dim + caption display + ready-rule opacity + finalizing-pill render
+- Header: sunk-back button + serif "Editing tribute" + gold-tinted mono-caps credit badge (`N tributes` from `tributesShort()`)
+- Stage: `.editor-frame` with gradient paper background + gold L-corners as siblings + `.image-viewport` (pinch/pan) with inner vignette + fine grain overlay. Stage reveal glow toggled via `.editor-stage--revealing` class driven by stageRef + forced reflow
+- Breathing gold `.editor-halo` visible only during `loading-preview` + `saving`; static opacity for reduced-motion users
+- Rotating italic stage caption (4s cycle) below the frame — `loadingCaptions` ladder during preview render, `savingCaptions` during save. Reduced-motion users see first line only.
+- Italic serif viewer hint below caption ("Pinch to zoom · drag to pan · double-click to reset")
+- Original/Styled chip toggle in a sunk-surface pill; both disabled until a styled preview exists
+- Inline rose-tinted error banner INSIDE the stage section (italic serif, rose-dot prefix) — never a full-screen takeover
+- Gallery section: italic-underlined "Pick a **style**" heading + gold hairline + mono-caps helper, rose-tinted preload banner while 1K previews batch-prepare
+- Tile grid: 2-col mobile / 3-col desktop (≥768px). Selected tile: terracotta 2px border + terracotta-cream check chip in top-right. Pending tile: rose shimmer overlay (1.8s cycle) + rose dot + muted caption name; `aria-busy="true"`. Reduced-motion users lose the shimmer animation only.
+- Fixed bottom action bar with a page-gradient fade: ghost "Order Canvas" + terracotta primary "Save to Photos" (swaps to "Making it perfect…" while saving). Gold ready-rule fades in above the bar once `hasStyled`. Italic finalizing pill floats above the bar during save.
 
 ---
 

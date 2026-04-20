@@ -10,9 +10,14 @@ export interface ImageOverlay {
 interface ImageViewerProps {
   src: string;
   alt: string;
-  /** When true, show a loading shade over the image */
+  /**
+   * When true, the viewport gets a `loading` class so the outer stage
+   * CSS can dim the photo + surface a breathing halo. The caller owns
+   * the loading caption (rendered as a sibling of the viewer, not an
+   * overlay) per the 2026-04-19 redesign — keeps the frame visually
+   * uncluttered while work is in-flight.
+   */
   loading?: boolean;
-  loadingLabel?: string;
   /**
    * Rough static overlays stacked on top of the base image. Used during
    * exploration to hint what the final render will include, without
@@ -29,7 +34,7 @@ interface ImageViewerProps {
  * View transform is local — it does NOT affect the underlying image, so
  * switching styles mid-zoom preserves the composition exactly.
  */
-export function ImageViewer({ src, alt, loading, loadingLabel, overlays }: ImageViewerProps) {
+export function ImageViewer({ src, alt, loading, overlays }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
@@ -110,14 +115,6 @@ export function ImageViewer({ src, alt, loading, loadingLabel, overlays }: Image
           />
         ))}
       </div>
-      {loading && (
-        <div className="loading-shade" role="status" aria-live="polite">
-          <div className="loading-pill">
-            <span className="spinner small" />
-            <span>{loadingLabel ?? 'Creating your tribute\u2026'}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
