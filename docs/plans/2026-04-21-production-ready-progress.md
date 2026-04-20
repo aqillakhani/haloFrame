@@ -89,6 +89,12 @@ every task result, and every blocker goes here in the order it happens.
 **Verification:** `.env.example` renders cleanly, no syntax issues.
 **Result:** pass
 
+## 2026-04-20 — Phase B, Task B4: mount tributeRouter with SPIKE_MODE=false
+
+**Action:** Flipped `SPIKE_MODE=true` → `SPIKE_MODE=false` in the worktree `.env`. Also updated the header comment in `.env` so future readers understand both modes (was worded as if `SPIKE_MODE=true` is the default — it's now the opposite for prod). Mount logic itself (in `apps/api/src/index.ts`) was already correct from prior work — nothing to code-change.
+**Verification:** Restarted `npm run dev:api` — log shows both `Subscription routes mounted (credit ledger active)` and `Full-product routes mounted`. `curl http://localhost:4000/health` → `{spikeMode: false}`. `curl http://localhost:4000/api/tribute/` → 401 `unauthenticated` (correct — tribute router live and guarding with `requireAuth`).
+**Result:** pass
+
 
 **Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
 
