@@ -4,6 +4,10 @@ import { resolve } from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  // `./` makes the built bundle portable for Capacitor (WKWebView loads from
+  // `file://` so absolute `/assets/…` URLs break). Vercel tolerates the
+  // relative paths without change.
+  base: './',
   // The monorepo has a single .env at the repo root. Without envDir, Vite
   // would look in apps/web/ and miss VITE_SUPABASE_URL etc., leaving the
   // Supabase client unable to boot.
