@@ -169,27 +169,41 @@ placement?: 'left' | 'right' | 'behind' | 'front'
 
 **Reads:**
 - `SUBSCRIPTION_PLANS_UI` (plans + top-ups)
-- `COPY.subscription.*`
+- `COPY.subscription.*` — new keys added for the 2026-04-19 port: `paywallHeadingBefore`/`paywallHeadingItalic`/`paywallHeadingAfter` (italic-accent split), `paywallEyebrow`, `paywallNoSelectionCta`. Existing `paywallSubheadPlural`, `paywallFooterLine1`/`paywallFooterLine2`, `planCta`, `rolloverNone`/`rollover2Months`, `topupHeading`/`topupSubtitle`, `creditsPerCycle`, `continueCta` still used.
 - `snapshot.planId`, `snapshot.creditsRemaining`
 - `startPurchase({planId, successUrl, cancelUrl})` — returns `{checkoutUrl?}` on success, throws `ApiRequestError` with details.code on 501
 
 **State:** `selected: SubscriptionPlanId | null`, `purchaseError: string | null`
 
+**Renders:**
+- Dismissable close button (X) top-right — 44×44 tap target with sunk-surface fill + rule-strong hover
+- Hero: decorative gold `HaloOrnament` (desktop only), terracotta "MEMBERSHIP" eyebrow, italic-accented "Continue *honoring* them." headline with `honoring` in plum, italic subhead reporting tributes used
+- Radiogroup of three plan cards (Keepsake, Heritage, Heritage Annual). Heritage Annual renders a gold-dotted "Best Value" kicker via its `tag` field. Selected card gets a 1.5px gold border + 3px gold-soft glow ring + subtle gold gradient hairline at the bottom edge.
+- Each plan card shows: name, price + period, italic subtitle, rule hairline, credits line (annual plans use a composite "N a month · M a year" form), rollover line in mono caps.
+- Single primary CTA below the plan cards — terracotta, disabled ("Choose a plan to begin") until a plan is selected, plan-specific copy once chosen ("Begin Keepsake membership", etc.).
+- Error banner below the CTA for purchase failures — rose-tinted, `role="alert" aria-live="assertive"`, with info icon.
+- "Add more tributes" section below a rule divider: serif heading + italic subhead + two side-by-side top-up chips (Tribute 4-pack, Single tribute). Top-ups are visually smaller and quieter than the plan cards.
+- Footer: two mono-caps lines — "Subscriptions renew automatically." / "Cancel anytime in Settings."
+
 **User actions:**
-- Tap a plan card → `selected = planId` (visual highlight + SR announce)
+- Tap a plan card → `selected = planId` (visual highlight + SR announce). Keyboard: Enter/Space on a focused card also selects.
 - Confirm → `startPurchase` → if `checkoutUrl` present, `window.location.assign(url)`; else refetch + pop
 - On 501 with `details.code === 'web_checkout_not_configured'` → set friendly purchase error ("Web checkout is coming soon. Use the iOS or Android app to subscribe.")
-- Close → `nav.pop()`
+- Close (X button or Escape key) → `nav.pop()`
+- Top-up chips are currently visual-only (no purchase wiring yet) — they remain focusable and keyboard-reachable so the a11y tree is intact for when top-up checkout lands.
 
 **Routes to:** previous screen (via pop), external Stripe/RC checkout (via URL assign)
 
 **Contract invariants:**
 - Plans come from `SUBSCRIPTION_PLANS_UI`, not hardcoded — adding a plan in shared adds it here automatically
-- Focus-trap dialog behavior preserved (headingRef.focus on mount, restore on exit)
+- Focus-trap dialog behavior preserved (headingRef.focus on mount, restore on exit via post-unmount `main button` query)
 - `aria-live="polite"` SR announcement for plan selection
 - Purchase error rendered as `role="alert" aria-live="assertive"`
 - Top-ups ("Tribute 4-pack", "Single tribute") rendered as a secondary section, not a primary plan card
 - "Free" plan intentionally omitted (user is already free and out of credits)
+- Primary CTA stays disabled until a plan is selected — no auto-selection of the "best" plan
+- Escape key closes the modal (keyboard-first users never trap themselves)
+- Heritage Annual's `tag === 'Best Value'` is the single source for the kicker; removing the tag in shared removes the kicker here automatically
 
 ---
 

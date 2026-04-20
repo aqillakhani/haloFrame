@@ -7,15 +7,14 @@ import {
 } from '@haloframe/shared';
 import { useNavigation } from '../lib/navigation';
 import { COPY } from '../lib/copy';
-import { Icon } from '../components/icons/Icon';
 import { heroText, cardReveal } from '../lib/motion';
-import { easing } from '../lib/tokens';
 import { useSubscription } from '../hooks/useSubscription';
 import { startPurchase, ApiRequestError } from '../lib/api';
 
-// Free is intentionally omitted from the paywall: the user is already on Free
-// and has run out, so the "You've used your 2 tributes" subhead does the work
-// a disabled "Your current plan" card would do — gentler, less cluttered.
+// Free is intentionally omitted from the paywall: the user is already on
+// Free and has run out, so the "You've used your 2 tributes" subhead does
+// the work a disabled "Your current plan" card would do — gentler, less
+// cluttered.
 const SUBSCRIPTION_IDS: SubscriptionPlanId[] = [
   'keepsake_monthly',
   'heritage_monthly',
@@ -24,10 +23,27 @@ const SUBSCRIPTION_IDS: SubscriptionPlanId[] = [
 
 const TOPUP_IDS: SubscriptionPlanId[] = ['topup_4pack', 'topup_single'];
 
-const gentleEase = [...easing.gentle] as [number, number, number, number];
-
 function planById(id: SubscriptionPlanId): SubscriptionPlanUI | undefined {
   return SUBSCRIPTION_PLANS_UI.find((p) => p.id === id);
+}
+
+/** Composite credits line used on a plan card. Annual plans show the
+ * "N per month · M per year" form so the yearly total is legible; others
+ * fall back to the simple per-cycle copy. */
+function creditsLineFor(plan: SubscriptionPlanUI): string {
+  if (plan.cadence === 'annual') {
+    const annual = plan.credits * 12;
+    return `${plan.credits} tributes a month \u00b7 ${annual} a year`;
+  }
+  return COPY.subscription.creditsPerCycle(plan.credits, plan.period);
+}
+
+/** Rollover line below the credits line. Absent = don't render. */
+function rolloverLineFor(plan: SubscriptionPlanUI): string | null {
+  if (plan.cadence === 'one-time' || plan.cadence === 'lifetime') return null;
+  return plan.rolloverMonths > 0
+    ? COPY.subscription.rollover2Months
+    : COPY.subscription.rolloverNone;
 }
 
 export function PaywallScreen() {
@@ -75,10 +91,9 @@ export function PaywallScreen() {
     }
   }
 
-  // Initial focus on the heading announces the dialog to screen readers
-  // ("heading, Continue honoring them"). Heading carries tabindex="-1" so
-  // it's programmatically focusable but not in the normal Tab order — first
-  // Tab lands on the Close button.
+  // Initial focus on the heading announces the dialog to screen readers.
+  // Heading carries tabindex="-1" so it's programmatically focusable but
+  // not in the normal Tab order — first Tab lands on the Close button.
   //
   // On close: AnimatePresence mode="wait" (in App.tsx) unmounts the trigger
   // screen before the paywall mounts, so capturing the opener element on
@@ -114,6 +129,18 @@ export function PaywallScreen() {
     (p): p is SubscriptionPlanUI => Boolean(p),
   );
 
+  const selectedPlan = selected ? planById(selected) : null;
+  const ctaLabel = selectedPlan
+    ? (COPY.subscription.planCta[selectedPlan.id] ?? COPY.subscription.continueCta)
+    : COPY.subscription.paywallNoSelectionCta;
+
+  // Credits used for the subhead. Paywall only opens when the balance hit
+  // zero, so plan.credits == credits used (they've spent everything the
+  // plan granted).
+  const creditsUsed = snapshot
+    ? (planById(snapshot.planId)?.credits ?? 0)
+    : 0;
+
   return (
     <div
       className="paywall"
@@ -121,61 +148,63 @@ export function PaywallScreen() {
       aria-modal="true"
       aria-labelledby="paywall-heading"
     >
-      <button
-        type="button"
-        className="paywall-close btn-icon"
-        onClick={pop}
-        aria-label={COPY.subscription.paywallCloseAria}
-      >
-        <Icon name="close" size={20} />
-      </button>
-
       <div className="paywall-scroll">
-        <motion.header
+        <header className="paywall-header">
+          <button
+            type="button"
+            className="paywall-close"
+            onClick={pop}
+            aria-label={COPY.subscription.paywallCloseAria}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden fill="none">
+              <path
+                d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </header>
+
+        <motion.section
           className="paywall-hero"
           variants={heroText}
           initial="initial"
           animate="animate"
         >
+          <HaloOrnament />
+          <span className="paywall-eyebrow">
+            {COPY.subscription.paywallEyebrow}
+          </span>
           <h1
             id="paywall-heading"
-            className="t-display-lg"
+            className="paywall-heading"
             ref={headingRef}
             tabIndex={-1}
           >
-            {COPY.subscription.paywallHeading}
+            {COPY.subscription.paywallHeadingBefore}
+            <em>{COPY.subscription.paywallHeadingItalic}</em>
+            {COPY.subscription.paywallHeadingAfter}
           </h1>
-          {snapshot?.creditsRemaining === 0 && (
-            <p className="t-body-md t-muted paywall-subhead">
-              {COPY.subscription.paywallSubheadPlural(
-                planById(snapshot.planId)?.credits ?? 0,
-              )}
-            </p>
-          )}
-          {purchaseError && (
-            <p
-              className="t-body-sm paywall-error"
-              role="alert"
-              aria-live="assertive"
-            >
-              {purchaseError}
-            </p>
-          )}
-        </motion.header>
+          <p className="paywall-subhead">
+            {COPY.subscription.paywallSubheadPlural(creditsUsed)}
+          </p>
+        </motion.section>
 
-        {/* Announces plan selection + available action to screen readers.
-            Polite so it queues rather than interrupts whatever was being
-            read. Visually hidden — the rose arrival provides the visual
-            equivalent. */}
+        {/* Announces plan selection to screen readers. Polite so it queues
+            rather than interrupts. Visually hidden. */}
         <div className="sr-only" role="status" aria-live="polite">
-          {selected
-            ? `${planById(selected)?.name ?? ''} selected. ${
-                COPY.subscription.planCta[selected] ?? ''
-              }`
+          {selectedPlan
+            ? `${selectedPlan.name} selected, ${selectedPlan.displayPrice}${selectedPlan.period}`
             : ''}
         </div>
 
-        <section className="paywall-plans" aria-label="Subscription plans">
+        <section
+          className="paywall-plans"
+          role="radiogroup"
+          aria-label="Membership plans"
+        >
           {subscriptions.map((plan, i) => (
             <PlanCard
               key={plan.id}
@@ -183,48 +212,57 @@ export function PaywallScreen() {
               index={i}
               selected={selected === plan.id}
               onSelect={() => setSelected(plan.id)}
-              onConfirm={handlePurchase}
               reduced={prefersReduced}
             />
           ))}
         </section>
 
-        <hr className="paywall-divider" aria-hidden />
-
-        <section
-          className="paywall-plans paywall-plans--topup"
-          aria-label="One-time purchases"
-        >
-          <motion.h2
-            className="t-label-sm t-muted paywall-topup-heading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: prefersReduced ? 0 : 0.9, duration: 0.32 }}
+        <div className="paywall-cta-block">
+          <motion.button
+            type="button"
+            className="paywall-cta"
+            onClick={handlePurchase}
+            disabled={!selectedPlan}
+            variants={cardReveal}
+            initial="initial"
+            animate="animate"
+            custom={3}
           >
-            One tribute at a time
-          </motion.h2>
-          {topups.map((plan, i) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              index={subscriptions.length + i}
-              topup
-              selected={selected === plan.id}
-              onSelect={() => setSelected(plan.id)}
-              onConfirm={handlePurchase}
-              reduced={prefersReduced}
-            />
-          ))}
+            {ctaLabel}
+          </motion.button>
+          {purchaseError && (
+            <div className="paywall-error" role="alert" aria-live="assertive">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+                <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M8 4.5v4.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                <circle cx="8" cy="11" r="0.9" fill="currentColor" />
+              </svg>
+              <span>{purchaseError}</span>
+            </div>
+          )}
+        </div>
+
+        <section className="paywall-topups" aria-label="One-time purchases">
+          <hr className="paywall-divider" aria-hidden />
+          <div className="paywall-topups-heading">
+            <h2>{COPY.subscription.topupHeading}</h2>
+            <p>{COPY.subscription.topupSubtitle}</p>
+          </div>
+          <div className="paywall-topups-grid">
+            {topups.map((t, i) => (
+              <TopupChip key={t.id} plan={t} index={i} />
+            ))}
+          </div>
         </section>
 
         <motion.footer
           className="paywall-footer"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: prefersReduced ? 0 : 1.2, duration: 0.32 }}
+          transition={{ delay: prefersReduced ? 0 : 1.0, duration: 0.32 }}
         >
-          <p className="t-label-sm t-faint">{COPY.subscription.paywallFooterLine1}</p>
-          <p className="t-label-sm t-faint">{COPY.subscription.paywallFooterLine2}</p>
+          <span>{COPY.subscription.paywallFooterLine1}</span>
+          <span>{COPY.subscription.paywallFooterLine2}</span>
         </motion.footer>
       </div>
     </div>
@@ -234,104 +272,108 @@ export function PaywallScreen() {
 interface PlanCardProps {
   plan: SubscriptionPlanUI;
   index: number;
-  topup?: boolean;
   selected: boolean;
   onSelect: () => void;
-  onConfirm: () => void;
   reduced: boolean;
 }
 
-function PlanCard({
-  plan,
-  index,
-  topup,
-  selected,
-  onSelect,
-  onConfirm,
-  reduced,
-}: PlanCardProps) {
-  const ctaLabel = COPY.subscription.planCta[plan.id] ?? COPY.subscription.continueCta;
-  const isSubscription = plan.cadence === 'monthly' || plan.cadence === 'annual';
-  const classes = [
-    'paywall-card',
-    topup ? 'paywall-card--topup' : '',
-    selected ? 'paywall-card--selected' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
+function PlanCard({ plan, index, selected, onSelect }: PlanCardProps) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  }
   return (
     <motion.div
-      className={classes}
+      className={selected ? 'paywall-plan paywall-plan--selected' : 'paywall-plan'}
+      role="radio"
+      aria-checked={selected}
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={onKeyDown}
       variants={cardReveal}
       initial="initial"
       animate="animate"
       custom={index}
     >
-      <button
-        type="button"
-        className="paywall-card-button"
-        onClick={onSelect}
-        aria-pressed={selected}
-      >
-        <div className="paywall-card-head">
-          <div className="paywall-card-name">
-            <h3 className="t-display-md">{plan.name}</h3>
-            {plan.tag && (
-              <span className="paywall-card-tag t-label-sm">{plan.tag}</span>
-            )}
-          </div>
-          <div className="paywall-card-price">
-            <span className="t-display-md">{plan.displayPrice}</span>
-            {plan.period && <span className="t-body-sm t-muted">{plan.period}</span>}
-          </div>
+      {plan.tag && (
+        <div className="paywall-plan-kicker">
+          <span className="paywall-plan-kicker-dot" aria-hidden />
+          <span>{plan.tag}</span>
         </div>
-        {plan.subtitle && (
-          <p className="t-body-sm t-muted paywall-card-subtitle">{plan.subtitle}</p>
-        )}
-        {isSubscription && (
-          <p className="t-body-sm paywall-card-credits">
-            {COPY.subscription.creditsPerCycle(plan.credits, plan.period)}
-            {plan.rolloverMonths > 0 && (
-              <span className="t-muted"> · {plan.rolloverMonths}mo rollover</span>
-            )}
-          </p>
-        )}
-      </button>
-
-      {selected && (
-        <motion.div
-          layoutId="paywall-arrival"
-          className="paywall-arrival"
-          transition={{ duration: reduced ? 0.12 : 0.4, ease: gentleEase }}
-        >
-          <motion.hr
-            className="paywall-rose-hairline"
-            aria-hidden
-            initial={reduced ? { opacity: 0 } : { scaleX: 0, opacity: 1 }}
-            animate={reduced ? { opacity: 1 } : { scaleX: 1, opacity: 1 }}
-            transition={{
-              duration: reduced ? 0.12 : 0.56,
-              ease: gentleEase,
-              delay: reduced ? 0 : 0.12,
-            }}
-          />
-          <motion.button
-            type="button"
-            className="btn btn-primary paywall-cta"
-            onClick={onConfirm}
-            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
-            animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
-            transition={{
-              duration: reduced ? 0.12 : 0.32,
-              ease: gentleEase,
-              delay: reduced ? 0 : 0.36,
-            }}
-          >
-            {ctaLabel}
-          </motion.button>
-        </motion.div>
       )}
+      <div className="paywall-plan-head">
+        <h3 className="paywall-plan-name">{plan.name}</h3>
+        <div className="paywall-plan-price">
+          <span className="paywall-plan-price-value">{plan.displayPrice}</span>
+          {plan.period && (
+            <span className="paywall-plan-price-period">{plan.period}</span>
+          )}
+        </div>
+      </div>
+      {plan.subtitle && (
+        <p className="paywall-plan-subtitle">{plan.subtitle}</p>
+      )}
+      <hr className="paywall-plan-hairline" aria-hidden />
+      <div className="paywall-plan-credits">{creditsLineFor(plan)}</div>
+      {rolloverLineFor(plan) && (
+        <span className="paywall-plan-rollover">{rolloverLineFor(plan)}</span>
+      )}
+      {selected && <div className="paywall-plan-glow" aria-hidden />}
     </motion.div>
+  );
+}
+
+interface TopupChipProps {
+  plan: SubscriptionPlanUI;
+  index: number;
+}
+
+function TopupChip({ plan, index }: TopupChipProps) {
+  const creditsLabel = plan.credits === 1 ? '1 tribute' : `${plan.credits} tributes`;
+  return (
+    <motion.button
+      type="button"
+      className="paywall-topup"
+      variants={cardReveal}
+      initial="initial"
+      animate="animate"
+      custom={4 + index}
+    >
+      <div className="paywall-topup-head">
+        <span className="paywall-topup-name">{plan.name}</span>
+        <span className="paywall-topup-price">{plan.displayPrice}</span>
+      </div>
+      <div className="paywall-topup-credits">{creditsLabel}</div>
+      {plan.subtitle && (
+        <span className="paywall-topup-note">{plan.subtitle}</span>
+      )}
+    </motion.button>
+  );
+}
+
+function HaloOrnament() {
+  // Decorative ring + beam above the heading. Only visible on desktop via
+  // CSS — on mobile the calmer single-column layout doesn't need it.
+  return (
+    <svg
+      className="paywall-halo-ornament"
+      aria-hidden
+      width="64"
+      height="20"
+      viewBox="0 0 64 20"
+    >
+      <defs>
+        <linearGradient id="paywall-halo-gradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="var(--c-gold-soft)" stopOpacity="0" />
+          <stop offset="0.5" stopColor="var(--c-gold-base)" />
+          <stop offset="1" stopColor="var(--c-gold-soft)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line x1="0" y1="10" x2="64" y2="10" stroke="url(#paywall-halo-gradient)" strokeWidth="0.8" />
+      <circle cx="32" cy="10" r="2.2" fill="var(--c-gold-base)" />
+      <circle cx="32" cy="10" r="5" fill="none" stroke="var(--c-gold-base)" strokeOpacity="0.35" strokeWidth="0.6" />
+    </svg>
   );
 }

@@ -169,7 +169,14 @@ export const COPY = {
     subheading: 'Every tribute you save uses one credit. Pick the plan that fits.',
 
     // Paywall mid-flow variant (user hit Save with zero tributes remaining)
-    paywallHeading: 'Continue honoring them.',
+    // Heading is split so the italic/plum accent word can be styled independently.
+    paywallHeadingBefore: 'Continue ',
+    paywallHeadingItalic: 'honoring',
+    paywallHeadingAfter: ' them.',
+    /** Terracotta eyebrow kicker above the heading. */
+    paywallEyebrow: 'Membership',
+    /** Shown on the primary CTA when no plan is selected yet. */
+    paywallNoSelectionCta: 'Choose a plan to begin',
     paywallSubheadPlural: (n: number) =>
       n === 1
         ? 'You\u2019ve used your 1 tribute.'
