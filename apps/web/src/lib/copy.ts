@@ -368,9 +368,63 @@ export const COPY = {
   },
 
   printShop: {
+    // 2026-04-19 claude.ai/design port: italic-split heading, hero preview
+    // section, size gallery grouped by S/M/L, coming-soon modal.
     heading: 'Order a Canvas',
-    subheading: 'Gallery-wrapped, ready to hang. Ships in 5\u20137 days.',
+    headingBefore: 'Order a ',
+    headingItalic: 'canvas',
+    headingAfter: '',
+    eyebrow: 'Path three \u00b7 Memorial canvas',
+    stepLabel: 'Step 07',
+    heroEyebrow: 'Memorial canvas \u00b7 Preview',
+    heroCaption: 'Where the memorial lives.',
+    subheading: 'Gallery-wrapped, museum-quality cotton canvas. Ships in 5\u20137 days.',
+    sizeHeadingBefore: 'Pick a ',
+    sizeHeadingItalic: 'size',
+    sizeHeadingAfter: '',
+    sizeHelper: 'Tap a size to order',
+    filters: {
+      all: 'All sizes',
+      small: 'Small',
+      medium: 'Medium',
+      large: 'Large',
+    } as Record<string, string>,
+    groupLabels: {
+      small: 'SMALL',
+      medium: 'MEDIUM',
+      large: 'LARGE',
+    } as Record<string, string>,
+    mostLovedTag: 'Most loved',
     cta: 'Order',
+    // Per-size descriptions — written for warmth, not SKU. Keyed by the
+    // canvas option id from PrintShopScreen (canvas_8x10, etc.). See
+    // project_pricing_strategy memory for the price ladder; prices stay
+    // in the inline CANVAS_OPTIONS list in the screen.
+    sizeDescriptions: {
+      canvas_8x10: 'For a bedside table or a desk.',
+      canvas_8x12: 'A quiet gift for a friend or relative.',
+      canvas_12x12: 'A square portrait for a mantel.',
+      canvas_12x16: 'Bedroom wall or mantel.',
+      canvas_16x16: 'The shared shelf above a reading nook.',
+      canvas_16x20: 'The hallway to the family room.',
+      canvas_16x24: 'A living-room focal point.',
+      canvas_20x20: 'A statement above the piano.',
+      canvas_20x24: 'A centerpiece for the memorial wall.',
+    } as Record<string, string>,
+    aboutLabel: 'About the canvas',
+    aboutLines: [
+      'Cotton canvas wrapped over a wooden frame. Satin matte finish to reduce glare.',
+      'Hung with a sawtooth hanger. No framing tools needed.',
+    ] as const,
+    contactPill: 'Questions about a size? write us.',
+    // Coming-soon modal (shown when user taps Order). Shares scrim +
+    // ornament + focus-trap pattern with SavedModal but with its own
+    // copy + classes so each screen's checkout-end moment stays distinct.
+    modalTitle: 'This shop is opening soon.',
+    modalSub: 'We\u2019ll let you know when canvas orders are live. Thank you for waiting with us.',
+    modalWaitCta: 'I\u2019ll wait',
+    modalKeepCta: 'Keep my tribute',
+    modalCloseAria: 'Close',
     comingSoon: 'Checkout is coming soon.',
   },
 

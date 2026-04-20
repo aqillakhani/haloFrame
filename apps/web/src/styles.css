@@ -3334,79 +3334,916 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   .saved-modal-title { font-size: 34px; }
 }
 
-/* ---- PrintShopScreen ---- */
+/* ---- PrintShopScreen (2026-04-19 claude.ai/design port) ----
+   Viewing room for gallery-wrapped canvases. Hero vignette (canvas on a
+   warm painted wall with picture rail + sconce glow + gold L-corners +
+   silhouette halo), size gallery grouped by S/M/L with chips filter,
+   9 cards with proportional swatches hung from a nail, footer with
+   "About the canvas" + contact pill, and a coming-soon modal overlay
+   that shares the ornament + focus-trap pattern with SavedModal but
+   has its own scrim/card classes so the two modals stay independent. */
+
 .print-shop {
-  gap: 24px;
+  min-height: 100vh;
+  background: var(--c-surface-app);
+  padding-bottom: calc(var(--l-tabBarHeight) + 24px + env(safe-area-inset-bottom));
+  position: relative;
 }
 
-.print-shop-header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.canvas-grid {
+.print-shop-chrome {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-
-@media (min-width: 560px) {
-  .canvas-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-.canvas-card {
-  display: flex;
-  flex-direction: column;
-  background: var(--c-bg-surface);
-  border-radius: var(--r-lg);
-  box-shadow: var(--sh-soft);
-  overflow: hidden;
-}
-
-.canvas-card-photo {
-  aspect-ratio: 4 / 3;
-  display: flex;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
-  justify-content: center;
-  background: var(--c-bg-surfaceRaised);
-  color: var(--c-brand-primary);
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 20px 0;
+}
+
+.print-shop-back {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-btn);
+  background: var(--c-surface-sunk);
+  border: 1px solid var(--c-rule-base);
+  display: grid;
+  place-items: center;
+  color: var(--c-text-ink);
+  cursor: pointer;
+  padding: 0;
+  transition: background 150ms var(--e-standard), border-color 150ms var(--e-standard);
+}
+
+.print-shop-back:hover { background: #EFE6D0; border-color: var(--c-rule-strong); }
+.print-shop-back:focus-visible { outline: 2px solid var(--c-terracotta-base); outline-offset: 2px; }
+
+.print-shop-back-placeholder {
+  width: 44px;
+  height: 44px;
+  display: block;
+}
+
+.print-shop-step {
+  text-align: center;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+.print-shop-shell {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 0 20px 0;
+  position: relative;
+}
+
+@media (min-width: 768px) {
+  .print-shop-chrome { padding-left: 40px; padding-right: 40px; }
+  .print-shop-shell { max-width: 1100px; padding: 0 40px; }
+}
+
+/* --- Heading block (eyebrow + italic display + subhead, decorative
+   "07/09" numeral in the corner) --- */
+.print-shop-heading-block {
+  margin-top: 18px;
+  position: relative;
+}
+
+.print-shop-numeral {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 96px;
+  line-height: 0.8;
+  color: var(--c-gold-soft);
+  letter-spacing: -0.04em;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.print-shop-numeral-slash {
+  font-size: 54px;
+  opacity: 0.7;
+  margin: 0 2px;
+}
+
+.print-shop-numeral-of {
+  font-size: 36px;
   opacity: 0.55;
 }
 
-.canvas-card-body {
-  padding: 16px 18px 18px;
+.print-shop-heading-block > *:not(.print-shop-numeral) {
+  position: relative;
+  z-index: 1;
+}
+
+.print-shop-eyebrow {
+  display: inline-block;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-plum-base);
+  font-weight: 500;
+}
+
+.print-shop-display {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--c-text-ink);
+  margin: 8px 0 0;
+  text-wrap: balance;
+}
+
+.print-shop-display em {
+  font-style: italic;
+  font-weight: 300;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'><path d='M1 4 C 20 1, 40 5, 60 2.5 S 90 5, 99 3' fill='none' stroke='%23D4A95C' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 6px;
+}
+
+.print-shop-subhead {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--c-ink-_2);
+  margin: 14px 0 0;
+  text-wrap: pretty;
+}
+
+/* --- Hero vignette (canvas on a wall) --- */
+.print-shop-hero {
+  margin-top: 22px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--c-rule-base);
+  background: var(--c-surface-card);
+  padding: 18px 18px 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+.print-shop-hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.print-shop-hero-eyebrow-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-gold-base);
+}
+
+.print-shop-hero-eyebrow-label {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-plum-base);
+  font-weight: 500;
+}
+
+.print-shop-wall {
+  position: relative;
+  aspect-ratio: 4 / 3.2;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 42% at 50% -4%, rgba(255, 238, 200, 0.85), rgba(255, 238, 200, 0) 70%),
+    radial-gradient(120% 70% at 30% 20%, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(100% 100% at 80% 100%, rgba(111, 81, 121, 0.10), rgba(111, 81, 121, 0) 60%),
+    linear-gradient(180deg, #F3E8D9 0%, #ECDDC9 55%, #E3D2BA 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+
+.print-shop-wall::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.04) 0 2px, rgba(0, 0, 0, 0) 2px 6px),
+    repeating-linear-gradient(5deg, rgba(0, 0, 0, 0.015) 0 1px, rgba(0, 0, 0, 0) 1px 5px);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.print-shop-wall::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14%;
+  background: linear-gradient(180deg, rgba(42, 35, 27, 0) 0%, rgba(42, 35, 27, 0.06) 100%);
+  border-top: 1px solid rgba(42, 35, 27, 0.06);
+  pointer-events: none;
+}
+
+.print-shop-rail {
+  position: absolute;
+  top: 10%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(122, 90, 60, 0) 0%, rgba(122, 90, 60, 0.22) 20%, rgba(122, 90, 60, 0.22) 80%, rgba(122, 90, 60, 0) 100%);
+}
+
+.print-shop-rail::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1px;
+  height: 2px;
+  background: linear-gradient(180deg, rgba(42, 35, 27, 0.05), rgba(42, 35, 27, 0));
+}
+
+.print-shop-sconce {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 236, 190, 1) 0%, rgba(255, 236, 190, 0) 70%);
+  filter: blur(1px);
+}
+
+.print-shop-canvas-mount {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58%;
+  aspect-ratio: 4 / 5;
+  filter:
+    drop-shadow(0 18px 28px rgba(42, 35, 27, 0.18))
+    drop-shadow(0 3px 6px rgba(42, 35, 27, 0.12));
+}
+
+.print-shop-canvas-mount::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  bottom: -5px;
+  height: 7px;
+  background: linear-gradient(180deg, #b6926a 0%, #7a5a3c 100%);
+  border-radius: 0 0 2px 2px;
+  filter: blur(0.3px);
+}
+
+.print-shop-canvas-mount::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: -5px;
+  width: 3px;
+  background: linear-gradient(180deg, #a98a63 0%, #7a5a3c 100%);
+}
+
+.print-shop-canvas-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background:
+    radial-gradient(75% 60% at 50% 38%, rgba(239, 217, 166, 0.9) 0%, rgba(239, 217, 166, 0) 60%),
+    radial-gradient(50% 40% at 50% 62%, rgba(160, 80, 60, 0.18) 0%, rgba(160, 80, 60, 0) 70%),
+    linear-gradient(180deg, #F6E9CF 0%, #E9C998 45%, #B67A55 100%);
+  overflow: hidden;
+}
+
+.print-shop-canvas-halo {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(239, 217, 166, 0) 45%,
+    rgba(239, 217, 166, 0.75) 55%,
+    rgba(239, 217, 166, 0) 72%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.print-shop-canvas-silhouette {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 62%;
+  height: 72%;
+  background:
+    radial-gradient(38% 30% at 50% 22%, rgba(42, 35, 27, 0.55) 0%, rgba(42, 35, 27, 0) 72%),
+    radial-gradient(60% 60% at 50% 90%, rgba(42, 35, 27, 0.55) 0%, rgba(42, 35, 27, 0) 70%);
+  filter: blur(1px);
+}
+
+.print-shop-canvas-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--c-gold-base);
+  pointer-events: none;
+}
+
+.print-shop-canvas-corner--tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.print-shop-canvas-corner--tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.print-shop-canvas-corner--bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.print-shop-canvas-corner--br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+.print-shop-hero-ornament {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.print-shop-hero-ornament-hairline {
+  width: 72px;
+  height: 1px;
+  background: var(--c-gold-base);
+}
+
+.print-shop-hero-ornament-flourish {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-shop-hero-ornament-flourish span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-gold-base);
+  opacity: 0.6;
+}
+
+.print-shop-hero-ornament-flourish span:nth-child(2) {
+  opacity: 1;
+  width: 5px;
+  height: 5px;
+}
+
+.print-shop-hero-caption {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 13.5px;
+  color: var(--c-ink-_3);
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* --- Section head (italic-underlined "Pick a size") + filter chips --- */
+.print-shop-section-head {
+  margin-top: 40px;
+  position: relative;
+}
+
+.print-shop-section-arc {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 78px;
+  height: 40px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.print-shop-section-heading {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  color: var(--c-text-ink);
+  margin: 0;
+}
+
+.print-shop-section-heading em {
+  font-style: italic;
+  font-weight: 300;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'><path d='M1 4 C 20 1, 40 5, 60 2.5 S 90 5, 99 3' fill='none' stroke='%23D4A95C' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 6px;
+}
+
+.print-shop-section-hairline {
+  width: 44px;
+  height: 1px;
+  background: var(--c-gold-base);
+  margin: 12px 0 8px;
+}
+
+.print-shop-section-helper {
+  display: inline-block;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+.print-shop-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.print-shop-chip {
+  flex: 0 0 auto;
+  background: var(--c-surface-card);
+  border: 1px solid var(--c-rule-base);
+  border-radius: 9999px;
+  padding: 8px 14px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms var(--e-standard), border-color 150ms var(--e-standard), color 150ms var(--e-standard);
+}
+
+.print-shop-chip:hover { border-color: var(--c-rule-strong); }
+
+.print-shop-chip[aria-selected="true"] {
+  background: var(--c-text-ink);
+  color: var(--c-surface-app);
+  border-color: var(--c-text-ink);
+}
+
+.print-shop-chip:focus-visible {
+  outline: 2px solid var(--c-terracotta-base);
+  outline-offset: 2px;
+}
+
+/* --- Size grid + card --- */
+.print-shop-grid {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 600px) {
+  .print-shop-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+}
+
+@media (min-width: 1024px) {
+  .print-shop-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+}
+
+.print-shop-card {
+  position: relative;
+  background: var(--c-surface-card);
+  border: 1px solid var(--c-rule-base);
+  border-radius: var(--r-xl);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 200ms var(--e-standard), box-shadow 200ms var(--e-standard);
+}
+
+.print-shop-card:hover {
+  border-color: var(--c-rule-strong);
+  box-shadow: 0 2px 0 rgba(42, 35, 27, 0.02), 0 12px 28px -18px rgba(42, 35, 27, 0.18);
+}
+
+.print-shop-card-loved {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(180deg, #F5DCA0 0%, #E6C37B 100%);
+  color: #5a3e12;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 9px 5px 20px;
+  border-radius: 9999px;
+  border: 1px solid #d9b368;
+  z-index: 2;
+  box-shadow: 0 2px 6px -2px rgba(160, 120, 40, 0.35);
+}
+
+.print-shop-card-loved::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FFF;
+  box-shadow: 0 0 6px 1px rgba(255, 240, 200, 0.9);
+}
+
+.print-shop-swatch-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0 4px;
+  position: relative;
+}
+
+.print-shop-swatch-nail {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #b49060 0%, #6b4a2a 80%);
+  box-shadow: 0 1px 1px rgba(42, 35, 27, 0.2);
+  margin-bottom: -2px;
+}
+
+.print-shop-swatch-thread {
+  position: absolute;
+  top: 16px;
+  width: 1px;
+  height: 14px;
+  background: linear-gradient(180deg, rgba(122, 90, 60, 0.6), rgba(122, 90, 60, 0.1));
+}
+
+.print-shop-swatch {
+  width: var(--sw-w, 140px);
+  max-width: 100%;
+  height: var(--sw-h, 140px);
+  background: linear-gradient(160deg, #FBEFD0 0%, #ECD09A 55%, #D4A95C 100%);
+  border-radius: 3px;
+  position: relative;
+  box-shadow:
+    inset 0 0 0 1px rgba(42, 35, 27, 0.06),
+    0 10px 20px -12px rgba(42, 35, 27, 0.22),
+    0 2px 4px -2px rgba(42, 35, 27, 0.12);
+}
+
+.print-shop-card[data-group="small"] .print-shop-swatch {
+  background: linear-gradient(160deg, #FDF3D8 0%, #F1D9A6 55%, #DDB573 100%);
+}
+
+.print-shop-card[data-group="medium"] .print-shop-swatch {
+  background:
+    radial-gradient(120% 100% at 20% 10%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(160deg, #F8E6C2 0%, #E9C58F 50%, #C8925B 100%);
+}
+
+.print-shop-card[data-group="large"] .print-shop-swatch {
+  background:
+    radial-gradient(120% 100% at 80% 10%, rgba(111, 81, 121, 0.18) 0%, rgba(111, 81, 121, 0) 60%),
+    linear-gradient(160deg, #F1D9AE 0%, #D9AF72 55%, #B07B44 100%);
+}
+
+.print-shop-swatch::before,
+.print-shop-swatch::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--c-gold-base);
+}
+
+.print-shop-swatch::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.print-shop-swatch::after  { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+.print-shop-swatch-corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--c-gold-base);
+}
+
+.print-shop-swatch-corner--tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.print-shop-swatch-corner--bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+
+.print-shop-measure {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+.print-shop-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.print-shop-card-title {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--c-text-ink);
+  margin: 0;
+}
+
+.print-shop-card-desc {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--c-ink-_2);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.print-shop-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-rule-base);
+}
+
+.print-shop-card-price {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-weight: 500;
+  font-size: 19px;
+  color: var(--c-text-ink);
+  letter-spacing: -0.005em;
+}
+
+.print-shop-order-btn {
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--r-btn);
+  padding: 11px 18px;
+  background: var(--c-terracotta-base);
+  color: #FFF7EA;
+  transition: background 150ms var(--e-standard), transform 80ms var(--e-standard);
+}
+
+.print-shop-order-btn:hover { background: var(--c-terracotta-ink); }
+.print-shop-order-btn:active { transform: translateY(1px); }
+.print-shop-order-btn:focus-visible { outline: 2px solid var(--c-terracotta-base); outline-offset: 2px; }
+
+/* --- Footer (About the canvas + contact pill) --- */
+.print-shop-foot {
+  margin-top: 40px;
+  padding-top: 24px;
+}
+
+.print-shop-foot-hairline {
+  width: 100%;
+  height: 1px;
+  background: var(--c-gold-base);
+  opacity: 0.6;
+  margin: 0 0 18px;
+}
+
+.print-shop-foot-label {
+  display: inline-block;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-_3);
+}
+
+.print-shop-foot-lines {
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.canvas-card-name {
+.print-shop-foot-lines p {
   margin: 0;
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 15px;
+  color: var(--c-ink-_2);
+  text-wrap: pretty;
 }
 
-.canvas-card-desc {
-  margin: 0;
+.print-shop-contact-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  background: var(--c-plum-soft);
+  color: var(--c-plum-base);
+  border: 1px solid #E1D3E5;
+  padding: 9px 14px;
+  border-radius: 9999px;
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 150ms var(--e-standard);
 }
 
-.canvas-card-footer {
-  margin-top: 10px;
+.print-shop-contact-pill:hover { background: #E4D5E7; }
+
+.print-shop-contact-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-plum-base);
+}
+
+/* --- Coming-soon modal (shares ornament + focus-trap vocabulary with
+   SavedModal, but with its own classes so each modal's copy/position
+   can evolve independently). --- */
+.print-shop-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 35, 27, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  padding: 20px;
+  z-index: calc(var(--z-tabBar) + 30);
 }
 
-.canvas-card-price {
-  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
-  font-size: 22px;
-  font-weight: 400;
+.print-shop-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--c-surface-card);
+  border: 1px solid var(--c-rule-base);
+  border-radius: var(--r-xl);
+  padding: 28px 24px 24px;
+  position: relative;
+  box-shadow: 0 30px 60px -20px rgba(42, 35, 27, 0.4);
+}
+
+.print-shop-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: var(--c-surface-sunk);
+  border: 1px solid var(--c-rule-base);
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--c-text-ink);
+  transition: background 150ms var(--e-standard);
 }
 
-.canvas-card-cta {
-  min-width: 96px;
+.print-shop-modal-close:hover { background: #ECE2CA; }
+.print-shop-modal-close:focus-visible { outline: 2px solid var(--c-terracotta-base); outline-offset: 2px; }
+
+.print-shop-modal-ornament {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 14px;
+}
+
+.print-shop-modal-ornament-line {
+  width: 64px;
+  height: 1px;
+  background: var(--c-gold-base);
+}
+
+.print-shop-modal-ornament-line--short {
+  width: 28px;
+}
+
+.print-shop-modal-ornament-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-gold-base);
+}
+
+.print-shop-modal-ornament-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--c-gold-base);
+  margin-top: 2px;
+  position: relative;
+}
+
+.print-shop-modal-ornament-ring::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1px solid var(--c-gold-soft);
+}
+
+.print-shop-modal-title {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--c-text-ink);
+  margin: 4px 6px 10px;
+  text-wrap: pretty;
+}
+
+.print-shop-modal-sub {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--c-ink-_2);
+  text-align: center;
+  margin: 0 6px 22px;
+  text-wrap: pretty;
+}
+
+.print-shop-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.print-shop-modal-primary,
+.print-shop-modal-ghost {
+  width: 100%;
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: var(--r-btn);
+  padding: 14px 22px;
+  transition: background 150ms var(--e-standard), transform 80ms var(--e-standard);
+}
+
+.print-shop-modal-primary {
+  background: var(--c-terracotta-base);
+  color: #FFF7EA;
+  border: 1px solid var(--c-terracotta-base);
+}
+
+.print-shop-modal-primary:hover { background: var(--c-terracotta-ink); border-color: var(--c-terracotta-ink); }
+.print-shop-modal-primary:active { transform: translateY(1px); }
+.print-shop-modal-primary:focus-visible { outline: 2px solid var(--c-terracotta-base); outline-offset: 2px; }
+
+.print-shop-modal-ghost {
+  background: transparent;
+  color: var(--c-text-ink);
+  border: 1px solid var(--c-rule-strong);
+}
+
+.print-shop-modal-ghost:hover { background: var(--c-surface-sunk); }
+.print-shop-modal-ghost:active { transform: translateY(1px); }
+.print-shop-modal-ghost:focus-visible { outline: 2px solid var(--c-terracotta-base); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .print-shop-scrim,
+  .print-shop-modal { transition: none !important; }
 }
 
 /* Visually hidden but available to assistive tech. Used for live regions

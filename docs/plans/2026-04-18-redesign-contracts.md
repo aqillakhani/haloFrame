@@ -287,24 +287,37 @@ placement?: 'left' | 'right' | 'behind' | 'front'
 
 **File:** `apps/web/src/screens/PrintShopScreen.tsx`
 
-**Hooks:** none (static catalog for MVP)
+**Hooks:** `useNavigation()` (only for the coming-soon modal's "Keep my tribute" → `nav.pop()`)
 
 **Props:** none
 
 **Reads:**
-- `CANVAS_OPTIONS` (9 sizes, inline — single-file change when provider lands)
-- `COPY.printShop.*`
-- `FrameIllustration` placeholder
+- `CANVAS_OPTIONS` (9 sizes, inline — single-file change when provider lands; each entry carries `group: 'small' | 'medium' | 'large'` and optional `mostLoved`)
+- `COPY.printShop.*` (heading, filters, groupLabels, sizeDescriptions keyed by canvas id, mostLovedTag, contactPill, modal*)
 
 **User actions:**
-- Tap "Order" on any canvas card → `window.alert(COPY.printShop.comingSoon)` placeholder
+- Tap a filter chip ("All Sizes" / Small / Medium / Large) → sets local filter state
+- Tap "Order" on any canvas card → opens local `ComingSoonModal` (focus-trapped, Escape + Tab-wrap)
+- Tap "I'll wait — notify me" → closes modal, stays on PrintShop
+- Tap "Keep my tribute" → `nav.pop()` (returns to Editor review or wherever the user came from)
 
-**Routes to:** nothing yet (post-MVP: Stripe checkout or external print provider)
+**Routes to:** `pop()` only (no forward nav yet; post-MVP: Stripe checkout or external print provider)
 
 **Contract invariants:**
 - 9 canvas sizes with exact prices from `memory/project_pricing_strategy.md`:
   - 8×10 $46.99, 8×12 $47.99, 12×12 $50.99, 12×16 $52.99, 16×16 $57.99, 16×20 $62.99, 16×24 $66.99, 20×20 $70.99, 20×24 $72.99
-- Replacing the placeholder alert is intentionally a single-file change (stays inline, not in shared)
+- `canvas_12x16` carries `mostLoved: true` (reflected as gold chip in card corner)
+- Replacing the placeholder modal with real checkout is intentionally a single-file change (stays inline, not in shared)
+
+**Visual port checklist (screen 7, commit 9dd2b68):**
+- Hero "viewing room" vignette: plaster noise background + brass rail + sconce glow + canvas mount with gold L-corners + silhouette + halo glyph
+- Heading block: decorative numeral `07/09` next to section head, arc SVG underline on size heading
+- Filter chips use `data-state="active"` for gold fill
+- Size grid is 1/2/3-col responsive; card swatches scale via `swatchDimensions()` (width=140 / height capped at 170 from portrait aspect ratio)
+- Card swatch art: nail + hanging thread + portrait swatch tinted per size group; "Most loved" gold chip lives inside the card corner for 12×16 only
+- Coming-soon modal shares SavedModal's ornament language (two hairlines + dot + concentric ring), but is a **local** component to avoid premature extraction
+- Focus trap: Escape closes, Tab wraps head↔tail focusable, initial focus on close button
+- Contact pill lives below the grid, visually off-grid so it doesn't compete with cards
 
 ---
 
