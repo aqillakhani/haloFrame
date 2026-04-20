@@ -58,3 +58,16 @@ every task result, and every blocker goes here in the order it happens.
 **Action:** Scaffolded `.github/workflows/ci.yml`. Pipeline: checkout → Node 20 → `npm ci` → `npm run typecheck` → `vitest --run` → (secret-gated) Playwright install + E2E → (secret-gated) `scripts/smoke-redesign.mjs`. Uses output flags `has_supabase` / `has_fal` so the workflow is green on a fresh fork without secrets; emits `::warning::` line when gated steps are skipped. Uploads the Playwright HTML report as an artifact.
 **Verification:** `python -c "yaml.safe_load(open(ci.yml))"` → YAML OK. Eyeballed the step graph.
 **Result:** pass
+**Commit:** `405e5b8 chore(ci): scaffold github actions for typecheck+unit+e2e+smoke`
+
+## 2026-04-20 — Phase A, Task A7 / exit gate
+
+**Action:** Ran each command in the exit gate from a clean slate (ports 5173/4000 confirmed free after killing 3 stale 2-4-day-old node procs):
+- `npm run typecheck` — green
+- `npm --workspace=@haloframe/web run test:unit` — 3/3 green, 398ms
+- `npm --workspace=@haloframe/web run test:e2e` — 1/1 green, 9.7s (webServer boots `npm run dev` fresh)
+- `node scripts/smoke-redesign.mjs` (run earlier against a dev API) — 5/5 green
+**Verification:** See above per-command results.
+**Result:** pass — Phase A exit gate met. Ready for Phase B.
+**Notes:** `npm run build:shared` is a hidden dep — the API can't boot until `@haloframe/shared/dist/index.js` exists. This is not currently wired into `dev:api` and should be documented in DEPLOY/SETUP eventually (Phase H candidate).
+
