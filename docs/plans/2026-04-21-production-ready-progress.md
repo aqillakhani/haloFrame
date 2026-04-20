@@ -44,3 +44,10 @@ every task result, and every blocker goes here in the order it happens.
 **Action:** Added `test:e2e` and `test:e2e:ui` scripts to `apps/web/package.json`.
 **Verification:** `npm --workspace=@haloframe/web run test:e2e` → 1 passed, 12.2s.
 **Result:** pass
+**Commit:** `2d2d668 chore(test): add test:e2e and test:e2e:ui npm scripts`
+
+## 2026-04-20 — Phase A, Task A4: Vitest unit tests
+
+**Action:** Installed `vitest@4.1.4` and `@vitest/ui`. Added `apps/web/vitest.config.ts` (excludes `tests/**` so Vitest doesn't collide with Playwright specs, aliases `@haloframe/shared`). Added `test`, `test:unit`, `test:unit:ui` scripts. Authored `apps/web/src/lib/copy.test.ts` with three cases exercising `COPY.home.badgeOfFree`, `COPY.enhance.stepLabel`, and the split-headline concatenation.
+**Verification:** `npm --workspace=@haloframe/web run test:unit` → 3 tests passed, 409ms. `npm run typecheck` green across all workspaces.
+**Result:** pass
