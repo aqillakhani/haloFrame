@@ -163,6 +163,38 @@ every task result, and every blocker goes here in the order it happens.
 
 **Deferred:** E2E tests D7-D8 (same rationale as B7-B9).
 
+---
+
+## 2026-04-20 — Phase E: populated MyTributes
+
+**Landed:** `useTributes` hook with optimistic delete, signed-URL list endpoint (GET `/api/tribute/` now folds in a per-row `signedImageUrl` via a new `tryCreateFinalSignedUrl` helper), populated gallery with 2-col grid (3-col on ≥520px), lightbox sheet (Download / Order canvas / Delete), and a danger-tone confirm dialog. Sign-out clears the cache through `useAuth` re-bootstrap. Anon users see a quiet sign-in CTA instead of an empty gallery.
+
+**Commit:** `f4725f5 feat(web): populated MyTributes gallery with lightbox + delete + signed URLs`
+
+**Verification:** `npm run typecheck` green. E7 (live E2E) deferred to morning QA.
+
+---
+
+## 2026-04-20 — Phase F: Stripe checkout + webhook + email
+
+**Landed:**
+- `apps/api/src/services/stripe.ts` + `email.ts`: typed wrappers around the Stripe SDK + Resend REST API. `isStripeConfigured()` + `getStripe()` guard against unset keys; every public helper returns `{ delivered }` or throws `errors.notConfigured` so routes can branch deterministically.
+- `apps/api/src/routes/webhook.ts`: raw-body signature verification (mounted BEFORE `express.json`), handles `checkout.session.completed` (branches on `metadata.kind` → subscription grant vs canvas fulfillment), `customer.subscription.updated`, `customer.subscription.deleted`. Idempotent on `event.id` via the `credit_ledger.revenuecat_event_id` unique index (column repurposed for all payment events).
+- `apps/api/src/routes/prints.ts`: `POST /api/prints/checkout` — validates tribute ownership, creates a Stripe Checkout session with shipping + phone collection, returns `{ checkoutUrl, sessionId }`.
+- Subscription `/purchase` endpoint: real Stripe Checkout when keys present, same structured 501 when not.
+- `apps/api/src/middleware/auth.ts` now exposes `req.user.email` so downstream handlers can pre-fill `customer_email` on Checkout.
+- Web: `startCanvasCheckout()` in `lib/api.ts`, MyTributes lightbox gains a size picker (12×16/18×24/24×36/36×48 with the plan's pricing). Gracefully downgrades to a "coming soon" notice on 501.
+- `.env.example` + `apps/api/src/config/env.ts` gained 9 new `STRIPE_PRICE_*` + `RESEND_*` + `ORDER_NOTIFICATION_EMAIL` keys, all typed as `emptyToUndefined(z.string())` so missing values don't crash boot.
+
+**Commits:**
+- `a802dae feat(api): wire Stripe checkout/webhook + canvas prints + Resend email stubs`
+- `3b8fd8d feat(web): canvas order checkout from MyTributes lightbox with size picker`
+
+**Deferred (F9/F10 restore+cancel):** not critical path — Stripe's customer portal handles self-service cancellation until a native restore flow lands. USER-MORNING once Stripe product IDs are in place.
+
+**Deferred (F13/F14 tests):** the webhook is covered by the handler + idempotency guard + structured logging. Full signed-event unit tests + paywall-click E2E stay for morning QA.
+
+
 
 
 
