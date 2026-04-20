@@ -102,7 +102,9 @@ export function PaywallScreen() {
   // element of <main>. Imperfect (doesn't restore the exact trigger) but
   // reliably beats leaving focus on <body>.
   useEffect(() => {
-    headingRef.current?.focus();
+    headingRef.current?.focus({ preventScroll: true });
+    const scroller = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (scroller) scroller.scrollTop = 0;
     return () => {
       setTimeout(() => {
         if (document.querySelector('[role="dialog"]')) return;

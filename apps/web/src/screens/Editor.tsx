@@ -118,6 +118,17 @@ export function Editor({
     };
   }, []);
 
+  // The Editor has its own bottom action bar (Order / Save). Hide the
+  // global tab bar while the Editor is mounted so the two don't collide
+  // at the same viewport position (tab-bar z-100 would otherwise eat
+  // taps targeted at the editor-actionbar z-20).
+  useEffect(() => {
+    document.body.dataset.editorActive = 'true';
+    return () => {
+      delete document.body.dataset.editorActive;
+    };
+  }, []);
+
   const visibleTemplates = useMemo(
     () =>
       templates.filter((t) => {
@@ -572,7 +583,7 @@ export function Editor({
             transition={{ duration: 0.56, ease: [0.22, 0.61, 0.36, 1] }}
           />
           {finalizing && (
-            <div className="editor-finalizing" role="status" aria-live="polite">
+            <div className="sr-only" role="status" aria-live="polite">
               {COPY.editor.savingButton}
             </div>
           )}

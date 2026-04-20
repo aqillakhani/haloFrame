@@ -350,7 +350,11 @@ export const COPY = {
         ? '1 tribute remaining this month'
         : `${n} tributes remaining this month`,
     creditsLifetime: (n: number) =>
-      n === 1 ? '1 tribute to get started' : `${n} tributes to get started`,
+      n === 0
+        ? 'You\u2019ve used your free tributes.'
+        : n === 1
+          ? '1 tribute to get started'
+          : `${n} tributes to get started`,
 
     // Plan-card credit line (concise, fits in the card)
     creditsPerCycle: (n: number, period: string) =>
