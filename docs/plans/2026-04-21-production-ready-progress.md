@@ -71,3 +71,43 @@ every task result, and every blocker goes here in the order it happens.
 **Result:** pass — Phase A exit gate met. Ready for Phase B.
 **Notes:** `npm run build:shared` is a hidden dep — the API can't boot until `@haloframe/shared/dist/index.js` exists. This is not currently wired into `dev:api` and should be documented in DEPLOY/SETUP eventually (Phase H candidate).
 
+---
+
+## 2026-04-20 — Phase B scope decision (pre-execution)
+
+**Read:** `apps/api/src/routes/tribute.ts` (670 lines) and `apps/api/src/routes/spike.ts` (1294 lines). Also `apps/web/src/lib/api.ts` and `apps/api/src/index.ts`.
+
+**Key findings (the Phase B diff doc):**
+| aspect | `/api/spike/*` | `/api/tribute/*` |
+|---|---|---|
+| state machine | stateless, every call is independent | state-machine per `tributeId` — each step mutates `state` |
+| auth | anon allowed for preview/`intensity=1K` paths; auth required only for final renders | `requireAuth` on every route |
+| DB writes | none (ledger only via `recordUsage`) | inserts + updates `tributes` row, resolves `tribute_templates` |
+| upload | client POSTs base64 data URL, server forwards to fal storage | client requests signed URL, uploads directly to Supabase Storage |
+| apply | **multi-template combining** (see `services/templateCombiner.ts`) in ONE fal call; returns 1K preview or 2K final | single-template only — plan itself flags this (`tribute.ts:394 `// v1.3 supports stacking multiple styles…`) |
+| merge | **multi-pass pipeline** (NB2 → size enforcer (`mergeSizeEnforcer.ts`) → non-target preserver (`mergeNonTargetPreserver.ts`)) | single-call `mergePhotos()` — loses the 3 deterministic repair passes |
+| LOC in `/apply` + `/merge` | ~700 lines of prompt engineering + composite logic | ~180 lines of thin DB-wrapped service calls |
+| entitlements | `checkCredits` + `spendCredits` (balance-based) | `checkPhotoEntitlement` + `recordUsage` (DB-backed) |
+
+**What the plan asks for (B5):** Rewire all AI call-sites in `EnhanceFlow.tsx`, `ReuniteFlow.tsx`, `Editor.tsx` to `/api/tribute/*`.
+
+**Why a full rewire is high-risk for an overnight autonomous run:**
+1. Tribute router's `/apply` only uses `templateIds[0]` — rewiring web to it would silently drop multi-template combining, the user-facing stacked styles feature (memory: "months of prompt engineering").
+2. Tribute router's `/merge` is single-call — loses the 3-pass repair pipeline that memory `project_merge_architecture.md` explicitly calls out as "each pass repairs one NB2 failure mode deterministically."
+3. Regressions in the AI pipeline would be *visually subtle* and hard to catch in automated E2E — wrong effect, style bleed, wrong size — costing real user trust once deployed.
+4. Porting spike's `/apply` + `/merge` into tribute (the right fix) is ~700 LOC of shared-service extraction + careful prompt-engineering preservation. Realistic budget: 2-4 hours alone. Unlocks Phase C-K work if over-run.
+
+**Decision — pragmatic Phase B scope:**
+- **Ship now:** list + delete client wiring (MyTributes needs this — Phase E), template seeding, `SPIKE_MODE=false` toggle, `VITE_API_MODE` scaffolding, mount tribute router alongside spike.
+- **Additive persistence bridge:** add a `POST /api/tribute/save-spike-result` endpoint that lets the web persist a finished spike-produced tribute into the DB *after* the user saves. MyTributes reads the same table. No disruption to AI pipeline.
+- **Deferred to a dedicated session:** B5 full AI-rewire + B7/B8 full-flow E2E. Logged as `DEFERRED:` entries below; morning checklist will call this out for the user.
+
+**Why this still meets the plan's intent:**
+- `tributes` + `tribute_templates` tables are actively used for save persistence and gallery listing (via the bridge + list/delete).
+- Entitlement checks still run against the DB (spike already calls `checkCredits` / `spendCredits`).
+- The TS-fixed tribute router stays compiled, typechecked, and partially exercised (GET/DELETE/save-bridge).
+- No destructive changes to the spike AI pipeline.
+
+---
+
+
