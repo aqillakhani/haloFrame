@@ -2108,12 +2108,18 @@ body[data-editor-active] .tab-bar { display: none; }
 
 .reunite-photo-main--dim { filter: brightness(0.7) saturate(0.85); }
 
-/* --- Placement cutout overlay (loved-one preview) --- */
+/* --- Placement cutout overlay (loved-one preview) ---
+   Height tracks the server's neighbor-relative sizing (see
+   mergeSizeEnforcer.ts): the cutout box is sized so the VISIBLE subject
+   ends up at the same fraction of frame-height the merge will produce.
+   The --cutout-h-frac and --cutout-aspect variables are set from JS once
+   main and loved segmentations resolve; both fall back to the legacy
+   3:5 tall-portrait geometry when data isn't available yet. */
 .reunite-cutout {
   position: absolute;
   bottom: 6%;
-  width: 24%;
-  aspect-ratio: 3 / 5;
+  height: calc(var(--cutout-h-frac, 0.32) * 100%);
+  aspect-ratio: var(--cutout-aspect, 3 / 5);
   transform-origin: bottom center;
   transition: left 450ms var(--e-gentle),
               right 450ms var(--e-gentle),
@@ -2129,12 +2135,11 @@ body[data-editor-active] .tab-bar { display: none; }
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 8px;
 }
 
 .reunite-cutout--transparent img {
-  object-fit: contain;
   border-radius: 0;
 }
 

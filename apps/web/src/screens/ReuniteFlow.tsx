@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { TributeTemplate } from '@haloframe/shared';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -64,6 +65,14 @@ export function ReuniteFlow() {
   const [lovedCutoutUrl, setLovedCutoutUrl] = useState<string | null>(null);
   const [lovedIsPet, setLovedIsPet] = useState(false);
 
+  // Subject-size metadata used to keep the placement preview in sync with
+  // the server's `mergeSizeEnforcer`, which scales the loved one RELATIVE
+  // to the average existing-person bbox height in the main photo. Without
+  // these, the preview was a fixed 24%-of-frame box — too small for close
+  // family portraits where neighbors fill most of the frame.
+  const [mainNeighborRelHeight, setMainNeighborRelHeight] = useState<number | null>(null);
+  const [lovedSubjectRelHeight, setLovedSubjectRelHeight] = useState<number | null>(null);
+
   // Default to 'left' per the product direction: the user almost always
   // wants a specific side, and starting at null forced an extra tap. Left
   // is a safe default because the pre-selection preview thumb used to
@@ -118,9 +127,29 @@ export function ReuniteFlow() {
   const handleMainUpload = async (file: File) => {
     setError(null);
     setMainMeta({ name: file.name, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
+    setMainNeighborRelHeight(null);
     try {
       const upload = await uploadFile(file);
       setMainUrl(upload.url);
+      // Segment the main photo in the background so the placement preview
+      // can size the loved-one cutout the same way the server does
+      // (avgNeighborHeight × sizeAdjustment). Runs in parallel with the
+      // user picking a placement — if it's still pending when they reach
+      // the preview, the CSS falls back to a neutral default.
+      try {
+        const seg = await segmentImage(upload.url, false, false);
+        if (seg.subjects.length > 0 && seg.imageHeight > 0) {
+          const totalH = seg.subjects.reduce(
+            (sum, s) => sum + (s.bbox[3] - s.bbox[1]),
+            0,
+          );
+          const avgH = totalH / seg.subjects.length;
+          if (avgH > 0) setMainNeighborRelHeight(avgH / seg.imageHeight);
+        }
+      } catch (segErr) {
+        // Non-fatal; preview uses a neutral default.
+        console.warn('[ReuniteFlow] main-segmentation failed', segErr);
+      }
     } catch (err) {
       console.error('[ReuniteFlow] main-upload failed', err);
       setError(COPY.errors.uploadPhoto);
@@ -131,11 +160,13 @@ export function ReuniteFlow() {
   const handleMainClear = () => {
     setMainUrl(null);
     setMainMeta(null);
+    setMainNeighborRelHeight(null);
   };
 
   const handleLovedUpload = async (file: File) => {
     setError(null);
     setLovedCutoutUrl(null);
+    setLovedSubjectRelHeight(null);
     setLovedMeta({ name: file.name, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
     try {
       const upload = await uploadFile(file);
@@ -149,6 +180,14 @@ export function ReuniteFlow() {
         const dominant = seg.subjects[0]?.label?.toLowerCase();
         setLovedIsPet(dominant ? PET_LABELS.has(dominant) : false);
         if (seg.cutoutUrl) setLovedCutoutUrl(seg.cutoutUrl);
+        // Subject's vertical span inside the source photo. Paired with
+        // mainNeighborRelHeight, this lets the preview display the cutout
+        // such that the VISIBLE person tracks the server's merge target.
+        const subjectBbox = seg.subjects[0]?.bbox;
+        if (subjectBbox && seg.imageHeight > 0) {
+          const h = subjectBbox[3] - subjectBbox[1];
+          if (h > 0) setLovedSubjectRelHeight(h / seg.imageHeight);
+        }
       } catch {
         setLovedIsPet(false);
       }
@@ -164,6 +203,7 @@ export function ReuniteFlow() {
     setLovedCutoutUrl(null);
     setLovedMeta(null);
     setLovedIsPet(false);
+    setLovedSubjectRelHeight(null);
   };
 
   const handleBringTogether = async () => {
@@ -297,6 +337,8 @@ export function ReuniteFlow() {
             lovedUrl={lovedUrl}
             placement={placement}
             sizeAdjustment={sizeAdjustment}
+            mainNeighborRelHeight={mainNeighborRelHeight}
+            lovedSubjectRelHeight={lovedSubjectRelHeight}
             onPlacementChange={setPlacement}
             onSizeChange={setSizeAdjustment}
             onConfirm={handleBringTogether}
@@ -554,6 +596,8 @@ interface PlacementPaneProps {
   lovedUrl: string | null;
   placement: Placement;
   sizeAdjustment: number;
+  mainNeighborRelHeight: number | null;
+  lovedSubjectRelHeight: number | null;
   onPlacementChange: (p: Placement) => void;
   onSizeChange: (n: number) => void;
   onConfirm: () => void;
@@ -565,11 +609,42 @@ function PlacementPane({
   lovedUrl,
   placement,
   sizeAdjustment,
+  mainNeighborRelHeight,
+  lovedSubjectRelHeight,
   onPlacementChange,
   onSizeChange,
   onConfirm,
 }: PlacementPaneProps) {
+  // Prefer the background-stripped PNG; fall back to the raw upload so
+  // users still see SOMETHING if rembg fails or is still in flight. The
+  // CSS now uses `object-fit: contain` in both cases, so the raw-upload
+  // fallback no longer crops the loved one's head (previously `cover`
+  // clipped heads/feet on typical aspect ratios — the "cut off" bug).
   const overlaySrc = lovedCutoutUrl ?? lovedUrl;
+
+  // Compute the cutout's target height as a fraction of frame-height so
+  // that the VISIBLE person matches the server's neighbor-relative target
+  // (avgNeighborHeight × sizeAdjustment). Mirrors mergeSizeEnforcer.ts so
+  // the rough preview and the actual merge agree.
+  //
+  // Capped at 0.85 so pathological SAM outliers (e.g. a tight-face loved
+  // photo + full-body family photo produces a ratio > 2) don't render a
+  // cutout that is multiple times the frame height. The server's
+  // mergeSizeEnforcer similarly clamps via MAX_SCALE_FACTOR, so capping
+  // here approximates what the actual merge will do in these extremes.
+  const cutoutHFrac =
+    mainNeighborRelHeight != null &&
+    lovedSubjectRelHeight != null &&
+    lovedSubjectRelHeight > 0
+      ? Math.min(mainNeighborRelHeight / lovedSubjectRelHeight, 0.85)
+      : null;
+
+  const innerStyle: Record<string, string | number> = {
+    ['--scale']: sizeAdjustment,
+  };
+  if (cutoutHFrac != null) {
+    innerStyle['--cutout-h-frac'] = cutoutHFrac;
+  }
   return (
     <motion.section
       className="reunite-pane reunite-pane-placement"
@@ -597,7 +672,7 @@ function PlacementPane({
         <div
           className="reunite-photo-inner"
           data-placement={placement}
-          style={{ ['--scale' as string]: sizeAdjustment }}
+          style={innerStyle as CSSProperties}
         >
           <img
             src={mainUrl}
@@ -605,15 +680,28 @@ function PlacementPane({
             className="reunite-photo-main"
           />
           {overlaySrc && (
-            <div
-              className={`reunite-cutout${
-                lovedCutoutUrl ? ' reunite-cutout--transparent' : ''
-              }`}
-            >
+            <div className="reunite-cutout reunite-cutout--transparent">
               <span className="reunite-rough-badge" aria-hidden>
                 {COPY.reunite.placement.roughBadge}
               </span>
-              <img src={overlaySrc} alt="" aria-hidden />
+              <img
+                src={overlaySrc}
+                alt=""
+                aria-hidden
+                onLoad={(e) => {
+                  // Size the cutout box to the PNG's natural aspect so the
+                  // image fills the box cleanly (no letterboxing/pillaring).
+                  // Falls back to the 3/5 CSS default if this never fires.
+                  const img = e.currentTarget;
+                  const host = img.parentElement;
+                  if (host && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                    host.style.setProperty(
+                      '--cutout-aspect',
+                      `${img.naturalWidth} / ${img.naturalHeight}`,
+                    );
+                  }
+                }}
+              />
             </div>
           )}
         </div>
