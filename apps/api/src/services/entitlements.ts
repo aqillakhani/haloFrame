@@ -15,8 +15,37 @@ import {
   type SubscriptionSnapshot,
   type SubscriptionTier,
 } from '@haloframe/shared';
+import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { errors } from '../lib/errors.js';
+
+// -----------------------------------------------------------------------------
+// Dev-only credit bypass.
+//
+// When DEV_UNLIMITED_CREDITS=true AND NODE_ENV !== 'production', credit
+// gates short-circuit: checkCredits returns allowed=true, spendCredits is a
+// no-op (returns DEV_BYPASS_BALANCE unchanged), the free-tier per-flow gate
+// returns false, and the UI snapshot reports DEV_BYPASS_BALANCE so buttons
+// stay enabled. Production is hard-guarded — flipping the env var on a prod
+// deploy does nothing.
+//
+// Note: charged operations (NB2 calls, fal storage uploads) STILL incur real
+// fal.ai cost. The bypass only skips the user-facing balance accounting.
+// -----------------------------------------------------------------------------
+const DEV_BYPASS_BALANCE = 999;
+function devUnlimited(): boolean {
+  return env.DEV_UNLIMITED_CREDITS === true && env.NODE_ENV !== 'production';
+}
+let devBypassWarnedOnce = false;
+function logDevBypassOnce(scope: string): void {
+  if (devBypassWarnedOnce) return;
+  devBypassWarnedOnce = true;
+  logger.warn(
+    { scope },
+    'DEV_UNLIMITED_CREDITS active — credit checks bypassed (not for production)',
+  );
+}
 
 // -----------------------------------------------------------------------------
 // Credit-model plumbing
@@ -60,6 +89,14 @@ function computeTotalCredits(row: DbProfileCredit): number {
  * SubscriptionSnapshot shape the UI expects from GET /api/subscription/status.
  */
 export async function loadCreditSnapshot(userId: string): Promise<SubscriptionSnapshot> {
+  if (devUnlimited()) {
+    logDevBypassOnce('loadCreditSnapshot');
+    return {
+      planId: 'heritage_annual',
+      creditsRemaining: DEV_BYPASS_BALANCE,
+      renewsOn: null,
+    };
+  }
   const { data, error } = await supabaseAdmin
     .from('profiles')
     .select(
@@ -150,6 +187,10 @@ export async function isFlowBlockedForFree(
   userId: string,
   flow: FreeTierFlow,
 ): Promise<boolean> {
+  if (devUnlimited()) {
+    logDevBypassOnce('isFlowBlockedForFree');
+    return false;
+  }
   const flags = await readPerFlowFlags(userId);
   if (!flags) return false; // fail-open during migration lag
   if (flags.planId !== 'free') return false;
@@ -207,6 +248,10 @@ export async function checkCredits(
   action: CreditOperation,
 ): Promise<CreditCheckResult> {
   const required = OPERATION_COSTS[action];
+  if (devUnlimited()) {
+    logDevBypassOnce('checkCredits');
+    return { allowed: true, creditsRemaining: DEV_BYPASS_BALANCE, requiredCredits: required };
+  }
   const snapshot = await loadCreditSnapshot(userId);
   return {
     allowed: snapshot.creditsRemaining >= required,
@@ -237,6 +282,10 @@ export async function spendCredits(
   opts: SpendCreditsOptions = {},
 ): Promise<number> {
   const amount = OPERATION_COSTS[action];
+  if (devUnlimited()) {
+    logDevBypassOnce('spendCredits');
+    return DEV_BYPASS_BALANCE;
+  }
   const { error, data } = await supabaseAdmin.rpc('spend_credits', {
     p_user_id: userId,
     p_amount: amount,

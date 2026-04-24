@@ -17,8 +17,10 @@
 // and repairing it would require per-subject masking. The common placements
 // (left / right / front) are what the user sees break most often.
 //
-// The face-swap post-pass (fal-ai/face-swap) runs AFTER this step regardless,
-// so identity is preserved whether or not size correction fires.
+// Identity is preserved via NB2's LOCKED-face prompt block; the previous
+// face-swap post-pass was removed 2026-04-22 after A/B testing showed it
+// added grain artifacts + 65% of merge latency without meaningful identity
+// improvement.
 // =============================================================================
 import sharp from 'sharp';
 import { fal } from '@fal-ai/client';
@@ -477,23 +479,26 @@ async function rescaleSubjectInOutput(args: {
     .raw()
     .toBuffer();
 
-  // Dilate the subject mask before feathering. Otherwise feather ATE ~3px of
-  // the visible subject edge, making the cutout look slightly clipped inside
-  // the bbox. We dilate by thresholding a blur at a low cutoff — sharp has no
-  // direct morphology op, so this is the standard trick.
-  const dilatedMask = await sharp(maskAligned, {
+  // Dilate then feather the subject mask. The dilation (blur(2)+threshold(80))
+  // expands the mask outward by ~1-2px so the subsequent feather doesn't eat
+  // visible subject-edge pixels. The feather (blur sigma=3) gives smooth
+  // compositing edges so the heal pass and rescaled subject blend without a
+  // hard seam.
+  //
+  // .toColorspace('b-w') is load-bearing: without it sharp's .blur() silently
+  // promotes the single-channel raw input to a 3-channel buffer. The next
+  // pipeline that declares `channels: 1` then reads the wrong slice of that
+  // 3× buffer, garbling alpha values to near-zero. Net effect: the heal mask
+  // becomes effectively black, the heal does nothing, and the original
+  // NB2-painted subject survives as a ghost above the rescaled paste-back.
+  // (Verified 2026-04-23 — see SAM-3 + Sharp gotchas in memory.)
+  const featheredMask = await sharp(maskAligned, {
     raw: { width: W, height: H, channels: 1 },
   })
     .blur(2)
     .threshold(80)
-    .raw()
-    .toBuffer();
-
-  // Feather the dilated mask for smooth compositing edges.
-  const featheredMask = await sharp(dilatedMask, {
-    raw: { width: W, height: H, channels: 1 },
-  })
     .blur(EDGE_FEATHER_SIGMA)
+    .toColorspace('b-w')
     .raw()
     .toBuffer();
 

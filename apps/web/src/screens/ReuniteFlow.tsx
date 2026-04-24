@@ -73,6 +73,21 @@ export function ReuniteFlow() {
   const [mainNeighborRelHeight, setMainNeighborRelHeight] = useState<number | null>(null);
   const [lovedSubjectRelHeight, setLovedSubjectRelHeight] = useState<number | null>(null);
 
+  // Main-photo geometry used by the placement preview. Without these, the
+  // .reunite-photo-inner is hardcoded 4:5 portrait + object-fit:cover, which
+  // crops landscape main photos so badly that the user sees only ~53% of
+  // the original (plus the loved-one overlay sits at frame-bottom 6%, well
+  // BELOW the family's actual ground line). Setting both lets the preview
+  // mirror the final composition: the FULL main is visible, and the loved
+  // one anchors at the family's hip/foot line instead of the frame edge.
+  //   - mainAspect: width / height of the uploaded main (e.g. 1.503 for a
+  //     landscape 1536×1022). Drives `--main-aspect` on the photo-inner.
+  //   - mainGroundLineFromBottom: distance from the frame bottom to the
+  //     family's lowest bbox bottom, as a fraction of frame height. Drives
+  //     `--cutout-bottom-frac` for the cutout overlay.
+  const [mainAspect, setMainAspect] = useState<number | null>(null);
+  const [mainGroundLineFromBottom, setMainGroundLineFromBottom] = useState<number | null>(null);
+
   // Default to 'left' per the product direction: the user almost always
   // wants a specific side, and starting at null forced an extra tap. Left
   // is a safe default because the pre-selection preview thumb used to
@@ -128,16 +143,22 @@ export function ReuniteFlow() {
     setError(null);
     setMainMeta({ name: file.name, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
     setMainNeighborRelHeight(null);
+    setMainAspect(null);
+    setMainGroundLineFromBottom(null);
     try {
       const upload = await uploadFile(file);
       setMainUrl(upload.url);
       // Segment the main photo in the background so the placement preview
       // can size the loved-one cutout the same way the server does
-      // (avgNeighborHeight × sizeAdjustment). Runs in parallel with the
+      // (avgNeighborHeight × sizeAdjustment) AND anchor it at the family's
+      // ground line instead of the frame edge. Runs in parallel with the
       // user picking a placement — if it's still pending when they reach
       // the preview, the CSS falls back to a neutral default.
       try {
         const seg = await segmentImage(upload.url, false, false);
+        if (seg.imageWidth > 0 && seg.imageHeight > 0) {
+          setMainAspect(seg.imageWidth / seg.imageHeight);
+        }
         if (seg.subjects.length > 0 && seg.imageHeight > 0) {
           const totalH = seg.subjects.reduce(
             (sum, s) => sum + (s.bbox[3] - s.bbox[1]),
@@ -145,6 +166,22 @@ export function ReuniteFlow() {
           );
           const avgH = totalH / seg.subjects.length;
           if (avgH > 0) setMainNeighborRelHeight(avgH / seg.imageHeight);
+
+          // Family ground line = lowest bbox bottom across all detected
+          // subjects, expressed as fraction-from-frame-bottom. For a
+          // family sitting in grass with hips at y=850 / imageH=1022,
+          // this is 1 - (850 / 1022) = 0.168 → cutout overlay anchors
+          // at 16.8% from frame bottom, lining up with their hips.
+          // Anchoring at frame bottom (the 6% legacy default) puts the
+          // loved one BELOW the ground line, which reads as "she's
+          // sunken into the ground" or "her body is cut off."
+          const lowestBottom = seg.subjects.reduce(
+            (lo, s) => Math.max(lo, s.bbox[3]),
+            0,
+          );
+          if (lowestBottom > 0 && lowestBottom <= seg.imageHeight) {
+            setMainGroundLineFromBottom(1 - lowestBottom / seg.imageHeight);
+          }
         }
       } catch (segErr) {
         // Non-fatal; preview uses a neutral default.
@@ -161,6 +198,8 @@ export function ReuniteFlow() {
     setMainUrl(null);
     setMainMeta(null);
     setMainNeighborRelHeight(null);
+    setMainAspect(null);
+    setMainGroundLineFromBottom(null);
   };
 
   const handleLovedUpload = async (file: File) => {
@@ -339,17 +378,22 @@ export function ReuniteFlow() {
             sizeAdjustment={sizeAdjustment}
             mainNeighborRelHeight={mainNeighborRelHeight}
             lovedSubjectRelHeight={lovedSubjectRelHeight}
+            mainAspect={mainAspect}
+            mainGroundLineFromBottom={mainGroundLineFromBottom}
             onPlacementChange={setPlacement}
             onSizeChange={setSizeAdjustment}
             onConfirm={handleBringTogether}
           />
         )}
 
-        {step === 'merging' && <MergingPane photoUrl={mainUrl} />}
+        {step === 'merging' && (
+          <MergingPane photoUrl={mainUrl} mainAspect={mainAspect} />
+        )}
 
         {step === 'review' && mergedUrl && (
           <ReviewPane
             mergedUrl={mergedUrl}
+            mainAspect={mainAspect}
             onAddStyles={handleAddStyles}
             onSave={handleSavePhoto}
             onTryAgain={handleTryAgain}
@@ -598,6 +642,8 @@ interface PlacementPaneProps {
   sizeAdjustment: number;
   mainNeighborRelHeight: number | null;
   lovedSubjectRelHeight: number | null;
+  mainAspect: number | null;
+  mainGroundLineFromBottom: number | null;
   onPlacementChange: (p: Placement) => void;
   onSizeChange: (n: number) => void;
   onConfirm: () => void;
@@ -611,32 +657,86 @@ function PlacementPane({
   sizeAdjustment,
   mainNeighborRelHeight,
   lovedSubjectRelHeight,
+  mainAspect,
+  mainGroundLineFromBottom,
   onPlacementChange,
   onSizeChange,
   onConfirm,
 }: PlacementPaneProps) {
+  // Aspect of the trimmed cutout PNG (width / height of the rembg-trimmed
+  // bbox). Used to estimate what fraction of a "full body" the cutout
+  // actually contains: head-shots come out square (~1.0), half-body is
+  // ~0.5, full-body is ~0.3. Without this we can't tell whether the cutout
+  // image fills its render box with just a head or with a whole person —
+  // and that's what determines the right box size for "loved one looks
+  // proportional to the family."
+  const [lovedCutoutAspect, setLovedCutoutAspect] = useState<number | null>(null);
   // Prefer the background-stripped PNG; fall back to the raw upload so
   // users still see SOMETHING if rembg fails or is still in flight. The
   // CSS now uses `object-fit: contain` in both cases, so the raw-upload
   // fallback no longer crops the loved one's head (previously `cover`
   // clipped heads/feet on typical aspect ratios — the "cut off" bug).
   const overlaySrc = lovedCutoutUrl ?? lovedUrl;
+  const usingTrimmedCutout = lovedCutoutUrl != null;
 
-  // Compute the cutout's target height as a fraction of frame-height so
-  // that the VISIBLE person matches the server's neighbor-relative target
-  // (avgNeighborHeight × sizeAdjustment). Mirrors mergeSizeEnforcer.ts so
-  // the rough preview and the actual merge agree.
+  // Compute the cutout box height as a fraction of frame-height. The
+  // cutout PNG fills the box edge-to-edge, so this directly determines
+  // the visible loved-one size in preview.
   //
-  // Capped at 0.85 so pathological SAM outliers (e.g. a tight-face loved
-  // photo + full-body family photo produces a ratio > 2) don't render a
-  // cutout that is multiple times the frame height. The server's
-  // mergeSizeEnforcer similarly clamps via MAX_SCALE_FACTOR, so capping
-  // here approximates what the actual merge will do in these extremes.
-  const cutoutHFrac =
-    mainNeighborRelHeight != null &&
-    lovedSubjectRelHeight != null &&
-    lovedSubjectRelHeight > 0
-      ? Math.min(mainNeighborRelHeight / lovedSubjectRelHeight, 0.85)
+  // Naive sizing — cutoutHFrac = mainNeighborRelHeight (so loved-one
+  // bbox visually matches family bbox) — produces a "head balloon" for
+  // head-shot sources: the trimmed cutout contains ONLY her head and
+  // shoulders, so when that fills a box sized for "head-to-hips," her
+  // head ends up roughly twice the size of any family member's head.
+  //
+  // Fix: scale the box by `bodyFraction(cutoutAspect)` — an estimate of
+  // what fraction of a full body the trimmed cutout actually depicts.
+  // The cutout PNG's natural aspect (W/H) is the cheapest proxy:
+  //
+  //   - aspect ≥ 0.85 (square-ish): head or head+shoulders crop. Visible
+  //     content represents ~head+shoulders of a person → ~40% of body.
+  //   - aspect 0.60–0.85: head + chest, ~55% of body.
+  //   - aspect 0.40–0.60: half-body / waist-up, ~75% of body.
+  //   - aspect < 0.40: full body, 100%.
+  //
+  // Net result for the calibration test pair (head-shot loved one,
+  // mainNeighborRelHeight=0.455): cutoutHFrac drops from 0.455 → 0.182,
+  // and her face renders at roughly the same size as the family's faces
+  // instead of dominating the frame.
+  //
+  // Raw-upload fallback (rembg failed): the cutout shows the whole
+  // source, so we have to inflate by 1/lovedSubjectRelHeight to extract
+  // the same visible-subject size. The 0.55 here is the average of the
+  // bodyFraction tiers above — best guess without the cutout aspect.
+  //
+  // Cap at 0.95 so a freakish measurement doesn't render a box taller
+  // than the frame itself.
+  const cutoutHFrac = (() => {
+    if (mainNeighborRelHeight == null) return null;
+    if (usingTrimmedCutout) {
+      const aspect = lovedCutoutAspect ?? 1.0;
+      const bodyFraction =
+        aspect >= 0.85 ? 0.40
+        : aspect >= 0.60 ? 0.55
+        : aspect >= 0.40 ? 0.75
+        : 1.0;
+      return Math.min(mainNeighborRelHeight * bodyFraction, 0.95);
+    }
+    if (lovedSubjectRelHeight == null || lovedSubjectRelHeight <= 0) {
+      return null;
+    }
+    return Math.min((mainNeighborRelHeight * 0.55) / lovedSubjectRelHeight, 0.95);
+  })();
+
+  // Family bbox TOP from frame TOP, used to anchor the cutout's top
+  // edge at the family's head line. Without this, a small (head-shot)
+  // cutout bottom-anchored at the ground line puts the loved one's
+  // head at the family's KNEE level — she reads as kneeling/sunken.
+  // Top-anchoring at the family head line keeps her face-to-face with
+  // the family no matter how small the cutout is.
+  const cutoutTopFromTop =
+    mainGroundLineFromBottom != null && mainNeighborRelHeight != null
+      ? Math.max(0, 1 - mainGroundLineFromBottom - mainNeighborRelHeight)
       : null;
 
   const innerStyle: Record<string, string | number> = {
@@ -644,6 +744,23 @@ function PlacementPane({
   };
   if (cutoutHFrac != null) {
     innerStyle['--cutout-h-frac'] = cutoutHFrac;
+  }
+  // Make the frame's aspect match the main photo. Without this it's
+  // hardcoded 4:5 portrait + object-fit:cover, which crops landscape
+  // mains so badly the user sees only the middle ~53% — and the
+  // loved-one overlay then sits at the wrong spot relative to the
+  // visible family.
+  if (mainAspect != null && mainAspect > 0) {
+    innerStyle['--main-aspect'] = `${mainAspect}`;
+  }
+  // Anchor the cutout's TOP at the family's head TOP. This pairs with
+  // the bodyFraction-based cutoutHFrac above so a head-shot loved one
+  // lands face-to-face with the family instead of either (a) ballooning
+  // to family-body size or (b) sinking her head down to family knee
+  // level. CSS uses --cutout-top-frac via top:; the prior --cutout-
+  // bottom-frac approach is no longer set.
+  if (cutoutTopFromTop != null) {
+    innerStyle['--cutout-top-frac'] = cutoutTopFromTop;
   }
   return (
     <motion.section
@@ -692,6 +809,9 @@ function PlacementPane({
                   // Size the cutout box to the PNG's natural aspect so the
                   // image fills the box cleanly (no letterboxing/pillaring).
                   // Falls back to the 3/5 CSS default if this never fires.
+                  // Also lift the aspect into React state so cutoutHFrac's
+                  // body-fraction heuristic can use it (head-shot crops are
+                  // square-ish; full-body crops are tall+narrow).
                   const img = e.currentTarget;
                   const host = img.parentElement;
                   if (host && img.naturalWidth > 0 && img.naturalHeight > 0) {
@@ -699,6 +819,7 @@ function PlacementPane({
                       '--cutout-aspect',
                       `${img.naturalWidth} / ${img.naturalHeight}`,
                     );
+                    setLovedCutoutAspect(img.naturalWidth / img.naturalHeight);
                   }
                 }}
               />
@@ -783,9 +904,14 @@ function PlacementPane({
 
 interface MergingPaneProps {
   photoUrl: string | null;
+  mainAspect: number | null;
 }
 
-function MergingPane({ photoUrl }: MergingPaneProps) {
+function MergingPane({ photoUrl, mainAspect }: MergingPaneProps) {
+  const innerStyle: CSSProperties | undefined =
+    mainAspect != null && mainAspect > 0
+      ? ({ ['--main-aspect']: `${mainAspect}` } as CSSProperties)
+      : undefined;
   const prefersReduced = useReducedMotion() ?? false;
   const [captionIndex, setCaptionIndex] = useState(0);
   const messages = COPY.reunite.merging.messages;
@@ -822,7 +948,7 @@ function MergingPane({ photoUrl }: MergingPaneProps) {
           <span className="reunite-corner reunite-corner--tr" aria-hidden />
           <span className="reunite-corner reunite-corner--bl" aria-hidden />
           <span className="reunite-corner reunite-corner--br" aria-hidden />
-          <div className="reunite-photo-inner reunite-photo-inner--merging">
+          <div className="reunite-photo-inner reunite-photo-inner--merging" style={innerStyle}>
             {photoUrl ? (
               <img
                 src={photoUrl}
@@ -875,12 +1001,20 @@ function MergingPane({ photoUrl }: MergingPaneProps) {
 
 interface ReviewPaneProps {
   mergedUrl: string;
+  mainAspect: number | null;
   onAddStyles: () => void;
   onSave: () => void;
   onTryAgain: () => void;
 }
 
-function ReviewPane({ mergedUrl, onAddStyles, onSave, onTryAgain }: ReviewPaneProps) {
+function ReviewPane({ mergedUrl, mainAspect, onAddStyles, onSave, onTryAgain }: ReviewPaneProps) {
+  // The merged result has the same aspect as the main (pristine
+  // passthrough preserves it), so the same --main-aspect that drove
+  // the placement preview drives the review preview too.
+  const innerStyle: CSSProperties | undefined =
+    mainAspect != null && mainAspect > 0
+      ? ({ ['--main-aspect']: `${mainAspect}` } as CSSProperties)
+      : undefined;
   return (
     <motion.section
       className="reunite-pane reunite-pane-review"
@@ -905,7 +1039,7 @@ function ReviewPane({ mergedUrl, onAddStyles, onSave, onTryAgain }: ReviewPanePr
         <span className="reunite-corner reunite-corner--tr" aria-hidden />
         <span className="reunite-corner reunite-corner--bl" aria-hidden />
         <span className="reunite-corner reunite-corner--br" aria-hidden />
-        <div className="reunite-photo-inner">
+        <div className="reunite-photo-inner" style={innerStyle}>
           <img
             src={mergedUrl}
             alt="Merged result"
