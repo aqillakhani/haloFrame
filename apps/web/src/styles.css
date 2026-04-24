@@ -582,7 +582,12 @@ body[data-editor-active] .tab-bar { display: none; }
    caption externally. */
 .image-viewport {
   position: relative;
-  aspect-ratio: 4 / 5;
+  /* Aspect tracks the loaded image's natural aspect (set as
+     --image-aspect on the element by ImageViewer's onLoad handler).
+     Falls back to 4/5 only before the image has loaded — same pattern
+     as .reunite-photo-inner. Keeps landscape merges from being cropped
+     into a portrait box. */
+  aspect-ratio: var(--image-aspect, 4 / 5);
   border-radius: var(--r-frame-in, 12px);
   overflow: hidden;
   background: #E8DEC7;
@@ -633,7 +638,12 @@ body[data-editor-active] .tab-bar { display: none; }
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `contain` (not `cover`) so the user always sees the WHOLE image
+     even if --image-aspect hasn't resolved yet or the image's aspect
+     drifts slightly between renders. Combined with --image-aspect on
+     the viewport, the frame and image match aspect → no letterbox in
+     practice. Same pattern as .reunite-photo-main. */
+  object-fit: contain;
   user-select: none;
 }
 
@@ -2086,7 +2096,10 @@ body[data-editor-active] .tab-bar { display: none; }
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  aspect-ratio: 4 / 5;
+  /* Aspect tracks the uploaded main's natural aspect so we don't crop
+     landscape photos to portrait. Falls back to 4/5 only if the JS
+     hasn't set --main-aspect yet (segmentation pending). */
+  aspect-ratio: var(--main-aspect, 4 / 5);
   background: #DDD2BA;
   display: block;
 }
@@ -2102,7 +2115,11 @@ body[data-editor-active] .tab-bar { display: none; }
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `contain` (not `cover`) so the user always sees the WHOLE main —
+     no side-cropping for landscape photos in the formerly-portrait
+     frame. Combined with --main-aspect on the inner, the frame and
+     image match aspect → no letterbox bars in practice. */
+  object-fit: contain;
   display: block;
 }
 
@@ -2117,10 +2134,19 @@ body[data-editor-active] .tab-bar { display: none; }
    3:5 tall-portrait geometry when data isn't available yet. */
 .reunite-cutout {
   position: absolute;
-  bottom: 6%;
+  /* Top anchor sits at the family's head TOP (computed from the lowest
+     bbox bottom + bbox height). For a head-shot loved one whose cutout
+     box is small, this keeps her face at the family's face level instead
+     of dropping her body to ground level (which puts her head at the
+     family's knees). Falls back to 40% (rough mid-frame) when
+     segmentation hasn't resolved. */
+  top: calc(var(--cutout-top-frac, 0.40) * 100%);
   height: calc(var(--cutout-h-frac, 0.32) * 100%);
   aspect-ratio: var(--cutout-aspect, 3 / 5);
-  transform-origin: bottom center;
+  /* Transform-origin: top-center pairs with top-anchoring — the slider
+     scales the cutout downward (body grows down from the head) instead
+     of upward (head leaves the family head line). */
+  transform-origin: top center;
   transition: left 450ms var(--e-gentle),
               right 450ms var(--e-gentle),
               transform 300ms var(--e-gentle),

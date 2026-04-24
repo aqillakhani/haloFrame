@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+  type SyntheticEvent,
+  type WheelEvent,
+} from 'react';
 
 export interface ImageOverlay {
   /** Unique key — typically the template id. */
@@ -38,6 +46,11 @@ export function ImageViewer({ src, alt, loading, overlays }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
+  // Aspect of the loaded image. Drives `--image-aspect` on the viewport so
+  // the frame reshapes to match the photo (landscape merge → landscape
+  // frame), preventing the cover-fit crop that made landscape photos look
+  // "zoomed in" inside the previously-portrait 4/5 box.
+  const [imageAspect, setImageAspect] = useState<number | null>(null);
   const draggingRef = useRef<{ x: number; y: number } | null>(null);
 
   // Reset transform when the image changes
@@ -46,6 +59,13 @@ export function ImageViewer({ src, alt, loading, overlays }: ImageViewerProps) {
     setTx(0);
     setTy(0);
   }, [src]);
+
+  const handleImageLoad = (e: SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setImageAspect(img.naturalWidth / img.naturalHeight);
+    }
+  };
 
   const reset = () => {
     setScale(1);
@@ -91,6 +111,11 @@ export function ImageViewer({ src, alt, loading, overlays }: ImageViewerProps) {
     transition: draggingRef.current ? 'none' : 'transform 0.18s ease',
   };
 
+  const viewportStyle: CSSProperties = {
+    cursor: draggingRef.current ? 'grabbing' : 'grab',
+    ...(imageAspect ? ({ ['--image-aspect']: `${imageAspect}` } as CSSProperties) : {}),
+  };
+
   return (
     <div
       className={`image-viewport${loading ? ' loading' : ''}`}
@@ -100,10 +125,16 @@ export function ImageViewer({ src, alt, loading, overlays }: ImageViewerProps) {
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onDoubleClick={handleDoubleClick}
-      style={{ cursor: draggingRef.current ? 'grabbing' : 'grab' }}
+      style={viewportStyle}
     >
       <div className="image-stack" style={transformStyle}>
-        <img src={src} alt={alt} className="image-base" draggable={false} />
+        <img
+          src={src}
+          alt={alt}
+          className="image-base"
+          draggable={false}
+          onLoad={handleImageLoad}
+        />
         {overlays?.map((ov) => (
           <img
             key={ov.id}
