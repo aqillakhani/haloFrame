@@ -38,6 +38,7 @@ import { trackPreview } from '../services/previewLimiter.js';
 import { combineTemplatePrompts, NO_EFFECT_SENTINEL } from '../services/templateCombiner.js';
 import { annotateSubject } from '../services/subjectAnnotator.js';
 import {
+  enforceTargetSize,
   findAddedSubject,
   measureSubjects,
 } from '../services/mergeSizeEnforcer.js';
@@ -268,8 +269,205 @@ async function buildSubjectCutout(sourceImageUrl: string): Promise<string> {
     input: { image_url: sourceImageUrl },
     logs: false,
   });
-  const url = extractFirstImageUrl(result.data);
-  if (!url) throw new Error('rembg returned no image');
+  const rembgUrl = extractFirstImageUrl(result.data);
+  if (!rembgUrl) throw new Error('rembg returned no image');
+
+  // Trim transparent padding so the cutout's natural dimensions match the
+  // subject, not the source frame. Without this, a wide-landscape portrait
+  // with the subject offset to one side (645x350 stock photo, subject in
+  // the right ~40%) produces a rembg PNG whose natural aspect ratio is
+  // 1.84. The ReuniteFlow placement preview uses that natural aspect as
+  // `--cutout-aspect` (see styles.css) while deriving height from the
+  // subject-relative size — which makes the overlay's computed width
+  // overflow its parent frame at any non-tiny `--cutout-h-frac`. Trimming
+  // collapses to a subject-shaped aspect (typically 0.5-0.9, portrait)
+  // and the overlay fits inside its container.
+  try {
+    const resp = await fetch(rembgUrl);
+    if (!resp.ok) throw new Error(`rembg fetch failed ${resp.status}`);
+    const buf = Buffer.from(await resp.arrayBuffer());
+    // Use an explicit fully-transparent background reference so sharp
+    // removes alpha-zero pixels regardless of what sRGB values sit under
+    // those transparent areas in the PNG (rembg sometimes leaves JPEG
+    // color noise in the unused alpha region). Low threshold — anything
+    // meaningfully opaque stays.
+    const trimmedBuf = await sharp(buf)
+      .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 10 })
+      .png()
+      .toBuffer();
+    const before = (await sharp(buf).metadata());
+    const after = (await sharp(trimmedBuf).metadata());
+    logger.info(
+      {
+        beforeDims: { w: before.width, h: before.height },
+        afterDims: { w: after.width, h: after.height },
+      },
+      'buildSubjectCutout: trimmed transparent padding from rembg output',
+    );
+    const file = new File(
+      [new Uint8Array(trimmedBuf)],
+      'subject-cutout-trimmed.png',
+      { type: 'image/png' },
+    );
+    return await fal.storage.upload(file);
+  } catch (trimErr) {
+    logger.warn({ trimErr }, 'buildSubjectCutout trim failed; returning untrimmed rembg');
+    return rembgUrl;
+  }
+}
+
+/**
+ * Pre-frame a head-shot portrait so NB2 has the visual prior "this person has
+ * a body below the visible content."
+ *
+ * Root-cause context (bug: loved one cropped waist-up after zoom-out canvas
+ * landed). NB2 (nano-banana-2/edit) is a layout-aware edit model. When handed
+ * a landscape head+chest portrait (common stock-photo framing), it replicates
+ * that framing in its output — painting the loved one waist-up in the final
+ * merge even when the family is full-body and the prompt explicitly instructs
+ * body extension. Prompt text alone cannot override the visual prior; 3
+ * consecutive user runs with the same inputs produced waist-up SAM masks,
+ * while only a lucky Playwright sandbox roll produced full-body.
+ *
+ * The fix: reshape the portrait into a taller canvas where the subject occupies
+ * the top ~30% and the rest is a clean background. This gives NB2 the "scene
+ * space below the visible content — subject has a body to paint there" prior
+ * that the head-shot framing lacks.
+ *
+ * Steps:
+ *   1. rembg to isolate subject on transparency.
+ *   2. Trim transparent padding → subject-shaped cutout.
+ *   3. Sample the original portrait's background color from its four corners
+ *      (robust to simple studio backgrounds; for busy scenes, the fill won't
+ *      be seamless but the layout hint is what matters to NB2).
+ *   4. Build a canvas sized subjW × 1.2 (wide) by subjH × 2.8 (tall), filled
+ *      with the sampled color, with the subject pasted in the top 5%.
+ *
+ * On failure, throws — caller must catch and fall back to the raw portrait so
+ * a transient rembg/storage hiccup doesn't block the merge.
+ *
+ * Face-swap MUST stay on the raw portrait (not this extension) — it needs
+ * clean, un-padded pixels for face identity transplant.
+ */
+async function extendPortraitForBodyContext(portraitUrl: string): Promise<string> {
+  const origResp = await fetch(portraitUrl);
+  if (!origResp.ok) throw new Error(`portrait fetch failed ${origResp.status}`);
+  const origBuf = Buffer.from(await origResp.arrayBuffer());
+  const origMeta = await sharp(origBuf).metadata();
+  const origW = origMeta.width;
+  const origH = origMeta.height;
+  if (!origW || !origH) throw new Error('portrait has no dimensions');
+
+  // rembg → transparent-background cutout.
+  const rembgResult = await fal.subscribe('fal-ai/imageutils/rembg', {
+    input: { image_url: portraitUrl },
+    logs: false,
+  });
+  const rembgUrl = extractFirstImageUrl(rembgResult.data);
+  if (!rembgUrl) throw new Error('rembg returned no image');
+
+  const cutoutResp = await fetch(rembgUrl);
+  if (!cutoutResp.ok) throw new Error(`rembg fetch failed ${cutoutResp.status}`);
+  const cutoutRawBuf = Buffer.from(await cutoutResp.arrayBuffer());
+
+  // Trim transparent padding → subject-sized rect. Threshold 10 keeps anything
+  // meaningfully opaque (matches buildSubjectCutout).
+  const cutoutBuf = await sharp(cutoutRawBuf)
+    .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 10 })
+    .png()
+    .toBuffer();
+  const cutoutMeta = await sharp(cutoutBuf).metadata();
+  const subjW = cutoutMeta.width;
+  const subjH = cutoutMeta.height;
+  if (!subjW || !subjH) throw new Error('trimmed cutout has no dimensions');
+
+  // Skip pre-framing when the portrait is already full-body-ish: if the
+  // source is portrait-oriented AND the subject fills ≥70% of its height,
+  // re-framing would shrink the subject into the top of a taller canvas,
+  // potentially causing NB2 to render her at a smaller scale than the family
+  // — a different regression than the head-shot waist-up crop this function
+  // exists to fix. The throw lands in the caller's catch and falls back to
+  // the raw portrait, which is the correct behavior for full-body inputs.
+  const isLandscape = origW > origH * 1.1;
+  const subjectFillsHeight = subjH / origH >= 0.7;
+  if (!isLandscape && subjectFillsHeight) {
+    throw new Error(
+      `portrait looks full-body (${origW}x${origH}, subject ${subjW}x${subjH}); ` +
+        `skipping pre-frame to avoid shrinking subject`,
+    );
+  }
+
+  // Sample background color from each corner (side-length = 8% of min dim,
+  // min 16px). Averaging all four corners tolerates one corner overlapping
+  // the subject (e.g. when the portrait is subject-offset-right: top-right
+  // and bottom-right may clip the subject, but top-left/bottom-left are clean).
+  const cornerSize = Math.max(16, Math.round(Math.min(origW, origH) * 0.08));
+  const cornerRects: Array<{ left: number; top: number }> = [
+    { left: 0, top: 0 },
+    { left: Math.max(0, origW - cornerSize), top: 0 },
+    { left: 0, top: Math.max(0, origH - cornerSize) },
+    { left: Math.max(0, origW - cornerSize), top: Math.max(0, origH - cornerSize) },
+  ];
+  let bgR = 0;
+  let bgG = 0;
+  let bgB = 0;
+  let bgCount = 0;
+  for (const rect of cornerRects) {
+    const sample = await sharp(origBuf)
+      .extract({ left: rect.left, top: rect.top, width: cornerSize, height: cornerSize })
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+    for (let i = 0; i < sample.length; i += 3) {
+      bgR += sample[i] ?? 0;
+      bgG += sample[i + 1] ?? 0;
+      bgB += sample[i + 2] ?? 0;
+      bgCount++;
+    }
+  }
+  const avgR = bgCount > 0 ? Math.round(bgR / bgCount) : 128;
+  const avgG = bgCount > 0 ? Math.round(bgG / bgCount) : 128;
+  const avgB = bgCount > 0 ? Math.round(bgB / bgCount) : 128;
+
+  // Target canvas. Width +20% so shoulders/arms don't touch edges (another
+  // edge-touch framing hint NB2 would replicate). Height ×2.8 so subject
+  // claims the top ~36% and ~2x subject-height of body-space sits below —
+  // enough room to signal "full body goes here" without being so vast that
+  // NB2 paints the figure unnaturally tall.
+  const canvasW = Math.round(subjW * 1.2);
+  const canvasH = Math.round(subjH * 2.8);
+  const subjX = Math.round((canvasW - subjW) / 2);
+  const subjY = Math.round(canvasH * 0.05);
+
+  const canvasBuf = await sharp({
+    create: {
+      width: canvasW,
+      height: canvasH,
+      channels: 3,
+      background: { r: avgR, g: avgG, b: avgB },
+    },
+  })
+    .composite([{ input: cutoutBuf, left: subjX, top: subjY, blend: 'over' }])
+    .png()
+    .toBuffer();
+
+  const file = new File(
+    [new Uint8Array(canvasBuf)],
+    'portrait-pre-framed.png',
+    { type: 'image/png' },
+  );
+  const url = await fal.storage.upload(file);
+
+  logger.info(
+    {
+      origDims: { w: origW, h: origH },
+      subjectDims: { w: subjW, h: subjH },
+      canvasDims: { w: canvasW, h: canvasH },
+      bgColor: { r: avgR, g: avgG, b: avgB },
+    },
+    'extendPortraitForBodyContext: built pre-framed portrait',
+  );
+
   return url;
 }
 
@@ -882,15 +1080,659 @@ const mergeSchema = z.object({
   saveId: z.string().min(1).max(64).optional(),
 });
 
-const PLACEMENT_INSTRUCTIONS: Record<Placement, string> = {
-  left: 'Place the person from the second image on the left side of the group in the first image',
-  right:
-    'Place the person from the second image on the right side of the group in the first image',
-  behind:
-    'Place the person from the second image standing behind the group in the first image, slightly visible between or above other people',
-  front:
-    'Place the person from the second image in the foreground, in front of the group in the first image, closer to the camera than the other people.',
+// Placement phrases — embedded inline in the merge prompt. No pose bias
+// (no "standing") so the model can match whatever pose the main scene is in.
+const PLACEMENT_PHRASE: Record<Placement, string> = {
+  left: 'at the left side of the group',
+  right: 'at the right side of the group',
+  behind: 'behind the group, slightly visible between or above the other people',
+  front: 'in the foreground, in front of the group, closer to the camera than the other people',
 };
+
+/**
+ * Geometry of the "zoomed-out" canvas fed to NB2. The output canvas has
+ * the SAME dimensions as the original main photo; the main photo itself
+ * is scaled down (by `mainScale`, < 1) and positioned offset toward the
+ * side opposite `placement`, leaving a band of blurred-bokeh space on the
+ * placement side for NB2 to paint the added subject into. Used downstream
+ * to composite the pristine (also scaled-down) original pixels back over
+ * the NB2 output — NB2 is generative and will subtly alter everything it
+ * renders, so without the hard restore the family gets "ai slop" treatment
+ * (repainted faces, rearranged bodies) even though we explicitly told the
+ * prompt to leave them alone.
+ *
+ * Field semantics (all in pre-NB2 canvas coordinates):
+ *   - canvasWidth/Height: the full canvas fed to NB2. Equal to the
+ *     original main photo's dimensions in the zoom-out flow.
+ *   - mainX/Y, mainWidth/Height: bounding rect of the scaled-down main
+ *     photo inside the canvas. The restore pass composites back over
+ *     this rect, minus the silhouette of the NB2-added subject.
+ *   - mainScale: scale factor applied to the original main to produce
+ *     the scaled-down version that sits inside the canvas. Used to
+ *     translate main-photo subject bboxes (in original coords) into
+ *     canvas coords for findAddedSubject's IoU matching.
+ *   - placementSide: the side of the canvas the placement instruction
+ *     targets — i.e., the side with the empty bokeh band. Used for
+ *     the restore feather direction and the NB2 prompt hint.
+ */
+interface ExtendedCanvas {
+  url: string;
+  canvasWidth: number;
+  canvasHeight: number;
+  mainX: number;
+  mainY: number;
+  mainWidth: number;
+  mainHeight: number;
+  mainScale: number;
+  placementSide: 'left' | 'right' | 'top' | 'bottom';
+  placementBandPx: number;
+}
+
+/**
+ * Build a "zoomed-out" canvas for NB2: the original main photo is scaled
+ * down uniformly and positioned offset toward the side opposite `placement`
+ * inside a canvas with the SAME dimensions as the original main. The
+ * remaining area (placement-side band + perpendicular side margins) is
+ * filled with a mirror-reflected, heavily-blurred continuation of the
+ * scene.
+ *
+ * Why this shape, not a side-extension:
+ *   A side-extension would preserve every family pixel but makes the
+ *   output canvas wider (or taller) than the original. Viewers read that
+ *   as "the family was pushed to one side to make room for the new
+ *   person" — even though every family pixel is in its original position,
+ *   the containing frame grew. Zooming out instead (shrink main, keep
+ *   frame size) reads as "the photographer stepped back so everyone fits"
+ *   — a compositional change that feels natural rather than edited.
+ *
+ * placement →  placement-side band (empty area for loved one):
+ *   left   →   left     (scaled-main sits offset-right, loved one on left)
+ *   right  →   right    (scaled-main offset-left, loved one on right)
+ *   behind →   top       (scaled-main offset-bottom; subject appears above)
+ *   front  →   bottom    (scaled-main offset-top; subject appears below)
+ *
+ * `zoomOutFrac` controls the slack: 0.25 means 25% of the canvas dimension
+ * on the placement side is open for the loved one (main scaled to 0.75).
+ * Too large → family looks absurdly small; too small → loved one crammed.
+ */
+async function zoomOutMainCanvas(
+  mainPhotoUrl: string,
+  placement: Placement,
+  zoomOutFrac: number,
+): Promise<ExtendedCanvas | null> {
+  try {
+    const resp = await fetch(mainPhotoUrl);
+    if (!resp.ok) throw new Error(`main fetch failed ${resp.status}`);
+    const mainBuf = Buffer.from(await resp.arrayBuffer());
+
+    const meta = await sharp(mainBuf).metadata();
+    const W = meta.width;
+    const H = meta.height;
+    if (!W || !H) throw new Error('main photo has no dimensions');
+
+    const placementSide: ExtendedCanvas['placementSide'] =
+      placement === 'left'
+        ? 'left'
+        : placement === 'right'
+          ? 'right'
+          : placement === 'behind'
+            ? 'top'
+            : 'bottom';
+
+    const mainScale = Math.max(0.5, Math.min(0.95, 1 - zoomOutFrac));
+    const scaledW = Math.max(1, Math.round(W * mainScale));
+    const scaledH = Math.max(1, Math.round(H * mainScale));
+
+    // Split the empty space between the placement-side band (where the
+    // loved one will be painted) and a far-side margin (breathing room so
+    // the family's far-side member doesn't end up flush against the output
+    // frame).
+    //
+    // 50/50 = symmetric: the scaled family sits at the canvas center on
+    // the placement axis, with equal bokeh margins on both sides. This
+    // replaced an earlier 80/20 split that gave the band 80% of empty
+    // space (so NB2 had a wide canvas-area to paint the loved one into,
+    // matching seated-pose) but at the cost of shifting the family ~9%
+    // off-center. Users read that shift as "the photo moved to make
+    // room for the loved one." Most acutely visible with the
+    // Among-the-Stars style: the upper bokeh band gets transformed to
+    // sky AND the loved one is removed from ground level, exposing the
+    // asymmetric composition (small loved-one ghost in stars + family
+    // visibly shifted + bare bokeh on the placement side).
+    //
+    // Trade-off accepted with 50/50: the band is roughly half as wide
+    // (~370 output px instead of ~600 at ZOOM_OUT_FRAC=0.30), which can
+    // push NB2 to paint a standing-tall loved one instead of seated.
+    // mergeSizeEnforcer then rescales them by HEIGHT to match the avg
+    // neighbor anyway, so the FINAL size is correct regardless of pose.
+    // For sky-placement styles (Among the Stars, Rainbow Bridge) the
+    // pose is irrelevant since the loved one is replaced with a ghostly
+    // sky impression. For ground-level styles (Heavenly Glow, Halo &
+    // Wings) a standing-pose painted next to a seated family is the
+    // residual quality cost — but it's strictly less jarring than the
+    // visible composition shift the 80/20 split produced.
+    //
+    // Far-side margin in the source photo for the calibration test
+    // image: dad's jeans ended at 80.5% of frame width (19.5% margin).
+    // With 50/50 at ZOOM_OUT_FRAC=0.30: dad lands at ~71% of canvas,
+    // 14% closer to the canvas center — family-as-a-whole reads as
+    // centered rather than skewed.
+    //
+    // The restore pass's feather logic already handles the now-existent
+    // far-side seam — featherRight = mainOutX + mainOutW < outW is TRUE
+    // with a non-zero far-side margin.
+    const FAR_SIDE_MARGIN_FRAC = 0.50;
+    const isHorizontal =
+      placementSide === 'left' || placementSide === 'right';
+    const emptyPx = isHorizontal ? W - scaledW : H - scaledH;
+    const placementBandPx = Math.max(
+      1,
+      Math.round(emptyPx * (1 - FAR_SIDE_MARGIN_FRAC)),
+    );
+    const farSideMarginPx = Math.max(0, emptyPx - placementBandPx);
+
+    // Position the scaled main: place it so the placement-side empty area
+    // matches placementBandPx (the loved-one band) and the opposite side
+    // gets farSideMarginPx of bokeh margin.
+    let mainX: number;
+    let mainY: number;
+    if (placementSide === 'left') {
+      mainX = placementBandPx;
+      mainY = Math.round((H - scaledH) / 2);
+    } else if (placementSide === 'right') {
+      mainX = farSideMarginPx;
+      mainY = Math.round((H - scaledH) / 2);
+    } else if (placementSide === 'top') {
+      mainX = Math.round((W - scaledW) / 2);
+      mainY = placementBandPx;
+    } else {
+      mainX = Math.round((W - scaledW) / 2);
+      mainY = farSideMarginPx;
+    }
+
+    // Start with a canvas-sized mirror extension of the scaled-down main.
+    // sharp's `extend` with `mirror` reflects the adjacent edge pixels,
+    // which gives the surround a natural color palette even before the
+    // blur. Blurring the surround after masking out the main rect makes
+    // it read as out-of-focus bokeh rather than "twin family."
+    const scaledMainBuf = await sharp(mainBuf)
+      .resize(scaledW, scaledH, { fit: 'fill', kernel: 'lanczos3' })
+      .toBuffer();
+
+    const mirroredCanvas = await sharp(scaledMainBuf)
+      .extend({
+        left: mainX,
+        right: W - mainX - scaledW,
+        top: mainY,
+        bottom: H - mainY - scaledH,
+        extendWith: 'mirror' as const,
+      })
+      .toBuffer();
+
+    const blurredCanvas = await sharp(mirroredCanvas).blur(28).toBuffer();
+
+    // Composite the sharp scaled main back over the blurred canvas so the
+    // main rect is crisp and the surround is bokeh. The main is re-laid
+    // down as-is (no feathering here — the restore pass handles seam
+    // blending where NB2's output meets pristine main at output time).
+    const finalBuf = await sharp(blurredCanvas)
+      .composite([
+        { input: scaledMainBuf, left: mainX, top: mainY, blend: 'over' },
+      ])
+      .png()
+      .toBuffer();
+
+    const file = new File(
+      [new Uint8Array(finalBuf)],
+      `main-zoomed-out-${placementSide}.png`,
+      { type: 'image/png' },
+    );
+    const url = await fal.storage.upload(file);
+
+    logger.info(
+      {
+        placement,
+        placementSide,
+        mainScale: Number(mainScale.toFixed(3)),
+        placementBandPx,
+        originalDims: { W, H },
+        canvasDims: { W, H },
+        mainRect: { x: mainX, y: mainY, w: scaledW, h: scaledH },
+      },
+      'zoomOutMainCanvas: built zoomed-out canvas',
+    );
+
+    return {
+      url,
+      canvasWidth: W,
+      canvasHeight: H,
+      mainX,
+      mainY,
+      mainWidth: scaledW,
+      mainHeight: scaledH,
+      mainScale,
+      placementSide,
+      placementBandPx,
+    };
+  } catch (err) {
+    logger.warn({ err, mainPhotoUrl, placement }, 'zoomOutMainCanvas failed');
+    return null;
+  }
+}
+
+/**
+ * Composite the pristine original main photo back over the NB2 output at
+ * its scaled-down position inside the canvas.
+ *
+ * The compositing alpha is:
+ *   alpha = (inside main rect) × (outside loved-one silhouette) × (interior-edge feather)
+ *
+ * - "inside main rect": 0 outside the rect, 1 inside → bokeh surround is untouched.
+ * - "outside loved-one silhouette": inverted SAM-3 mask for the NB2-added subject,
+ *   blurred to feather the silhouette edge. When NB2 places her body partially
+ *   or entirely in the main area (NB2 frequently ignores the "paint in the
+ *   bokeh band" prompt hint), this keeps her pixels in the output instead
+ *   of wiping her with pristine main. Without the silhouette, a rectangle
+ *   restore erases whatever portion of her body lies in main area → final
+ *   image shows no loved one at all. Optional: if omitted, we fall back to
+ *   a rectangle restore.
+ * - "interior-edge feather": 0→1 ramp over 3% of the main dimension on each
+ *   edge of the main rect that borders the bokeh surround (i.e. every edge
+ *   except ones that coincide with the canvas boundary). Any NB2 overspill
+ *   just past the seam blends in rather than being sliced.
+ *
+ * Net effect: family pixels are authoritative within their scaled rect,
+ * her body survives intact at whatever position NB2 placed her, and all
+ * bokeh↔main seams blend invisibly.
+ */
+async function restoreMainOverExtendedOutput(args: {
+  extendedOutputUrl: string;
+  mainPhotoUrl: string;
+  canvas: ExtendedCanvas;
+  /**
+   * SAM-3 mask URL for the NB2-added loved one. PNG with subject in the
+   * alpha channel (apply_mask: true). When provided, pixels inside her
+   * silhouette are preserved from the output instead of overwritten by
+   * pristine main — this is what prevents her from vanishing when NB2
+   * places her in the main-photo area.
+   */
+  subjectMaskUrl?: string | null;
+}): Promise<string | null> {
+  const { extendedOutputUrl, mainPhotoUrl, canvas, subjectMaskUrl } = args;
+  try {
+    const [outResp, mainResp] = await Promise.all([
+      fetch(extendedOutputUrl),
+      fetch(mainPhotoUrl),
+    ]);
+    if (!outResp.ok || !mainResp.ok) {
+      throw new Error(
+        `restore fetch failed: out=${outResp.status} main=${mainResp.status}`,
+      );
+    }
+    const outputBuf = Buffer.from(await outResp.arrayBuffer());
+    const mainBuf = Buffer.from(await mainResp.arrayBuffer());
+
+    const outputMeta = await sharp(outputBuf).metadata();
+    const outW = outputMeta.width;
+    const outH = outputMeta.height;
+    if (!outW || !outH) throw new Error('extended output has no dimensions');
+
+    // NB2 upscales the input (we feed 2Kish, it outputs 2K regardless).
+    // The main-photo region scales the same way the whole canvas did, so
+    // we can take a simple uniform scale factor from width (height tracks).
+    const scale = outW / canvas.canvasWidth;
+    const mainOutX = Math.round(canvas.mainX * scale);
+    const mainOutY = Math.round(canvas.mainY * scale);
+    const mainOutW = Math.round(canvas.mainWidth * scale);
+    const mainOutH = Math.round(canvas.mainHeight * scale);
+
+    const mainResized = await sharp(mainBuf)
+      .resize(mainOutW, mainOutH, { fit: 'fill', kernel: 'lanczos3' })
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+
+    // Feather every edge of mainOutRect that borders the bokeh surround —
+    // i.e. every edge that does NOT sit on the canvas boundary in the NB2
+    // output. Canvas-boundary edges need no feather (no seam there).
+    // Feather width is 3% of the main region dimension perpendicular to
+    // each edge, floored at 8px.
+    const featherWidth = Math.max(8, Math.round(mainOutW * 0.03));
+    const featherHeight = Math.max(8, Math.round(mainOutH * 0.03));
+    const featherLeft = mainOutX > 0;
+    const featherTop = mainOutY > 0;
+    const featherRight = mainOutX + mainOutW < outW;
+    const featherBottom = mainOutY + mainOutH < outH;
+
+    const alpha = Buffer.alloc(mainOutW * mainOutH, 255);
+    if (featherLeft) {
+      for (let x = 0; x < featherWidth && x < mainOutW; x++) {
+        const v = Math.round((x / featherWidth) * 255);
+        for (let y = 0; y < mainOutH; y++) {
+          const idx = y * mainOutW + x;
+          const curr = alpha[idx] ?? 255;
+          if (v < curr) alpha[idx] = v;
+        }
+      }
+    }
+    if (featherRight) {
+      for (let i = 0; i < featherWidth && i < mainOutW; i++) {
+        const x = mainOutW - 1 - i;
+        const v = Math.round((i / featherWidth) * 255);
+        for (let y = 0; y < mainOutH; y++) {
+          const idx = y * mainOutW + x;
+          const curr = alpha[idx] ?? 255;
+          if (v < curr) alpha[idx] = v;
+        }
+      }
+    }
+    if (featherTop) {
+      for (let y = 0; y < featherHeight && y < mainOutH; y++) {
+        const v = Math.round((y / featherHeight) * 255);
+        const row = y * mainOutW;
+        for (let x = 0; x < mainOutW; x++) {
+          const curr = alpha[row + x] ?? 255;
+          if (v < curr) alpha[row + x] = v;
+        }
+      }
+    }
+    if (featherBottom) {
+      for (let i = 0; i < featherHeight && i < mainOutH; i++) {
+        const y = mainOutH - 1 - i;
+        const v = Math.round((i / featherHeight) * 255);
+        const row = y * mainOutW;
+        for (let x = 0; x < mainOutW; x++) {
+          const curr = alpha[row + x] ?? 255;
+          if (v < curr) alpha[row + x] = v;
+        }
+      }
+    }
+
+    // Silhouette subtraction. If SAM gave us a mask of the NB2-added loved
+    // one, lower the restore alpha everywhere inside her body so those
+    // output pixels (her) survive instead of being painted over by pristine
+    // main. The mask was measured on NB2's output — same dimensions as what
+    // we're restoring over — so resize to output dims only defensively.
+    //
+    // Blur radius 6 feathers the silhouette edge so the transition from
+    // "her" to "pristine main" is soft. This means a ~6-pixel halo around
+    // her body is a blend of NB2 pixels and main pixels, which reads as
+    // natural occlusion (hair wisps, clothing fringe) rather than a crisp
+    // cutout. A crisp cutout here would look pasted-in.
+    let subjectMaskApplied = false;
+    if (subjectMaskUrl) {
+      try {
+        const maskResp = await fetch(subjectMaskUrl);
+        if (maskResp.ok) {
+          const maskBuf = Buffer.from(await maskResp.arrayBuffer());
+          const maskAlpha = await sharp(maskBuf)
+            .ensureAlpha()
+            .resize(outW, outH, { fit: 'fill' })
+            .extractChannel('alpha')
+            .blur(6)
+            .raw()
+            .toBuffer();
+          for (let y = 0; y < mainOutH; y++) {
+            const srcRow = (y + mainOutY) * outW + mainOutX;
+            const dstRow = y * mainOutW;
+            for (let x = 0; x < mainOutW; x++) {
+              const silhouette = maskAlpha[srcRow + x] ?? 0;
+              if (silhouette === 0) continue;
+              const curr = alpha[dstRow + x] ?? 0;
+              alpha[dstRow + x] = Math.round(curr * (1 - silhouette / 255));
+            }
+          }
+          subjectMaskApplied = true;
+        } else {
+          logger.warn(
+            { subjectMaskUrl, status: maskResp.status },
+            'restore: subject mask fetch non-ok; falling back to rectangle restore',
+          );
+        }
+      } catch (maskErr) {
+        logger.warn(
+          { maskErr, subjectMaskUrl },
+          'restore: subject mask application failed; rectangle restore only',
+        );
+      }
+    }
+
+    const mainWithAlpha = await sharp(mainResized, {
+      raw: { width: mainOutW, height: mainOutH, channels: 3 },
+    })
+      .joinChannel(alpha, { raw: { width: mainOutW, height: mainOutH, channels: 1 } })
+      .png()
+      .toBuffer();
+
+    const finalBuf = await sharp(outputBuf)
+      .composite([{ input: mainWithAlpha, left: mainOutX, top: mainOutY, blend: 'over' }])
+      .png()
+      .toBuffer();
+
+    const file = new File(
+      [new Uint8Array(finalBuf)],
+      'merge-main-restored.png',
+      { type: 'image/png' },
+    );
+    const url = await fal.storage.upload(file);
+    logger.info(
+      {
+        outW,
+        outH,
+        scale: Number(scale.toFixed(3)),
+        mainOutRect: { x: mainOutX, y: mainOutY, w: mainOutW, h: mainOutH },
+        feather: {
+          width: featherWidth,
+          height: featherHeight,
+          sides: {
+            left: featherLeft,
+            right: featherRight,
+            top: featherTop,
+            bottom: featherBottom,
+          },
+        },
+        subjectMaskApplied,
+      },
+      'restoreMainOverExtendedOutput: composited pristine main over NB2 output',
+    );
+    return url;
+  } catch (err) {
+    logger.warn({ err }, 'restoreMainOverExtendedOutput failed');
+    return null;
+  }
+}
+
+/**
+ * Pristine-main passthrough restore for the no-zoom-out merge architecture
+ * (2026-04-22c). NB2 receives the original main and is asked to add the
+ * loved one. Its output may have shifted/repainted family pixels; this pass
+ * composites the pristine main back over the NB2 output everywhere EXCEPT
+ * inside the loved one's silhouette, which is the only region where NB2's
+ * painting is allowed to survive.
+ *
+ * Compared to the older `restoreMainOverExtendedOutput` (zoom-out era):
+ *   - main rect == entire output (no scaled-down inset, no bokeh surround)
+ *   - no edge feathering needed (no main↔bokeh seam to soften)
+ *   - silhouette-feather logic is identical
+ *
+ * Net effect: the saved photo is your original main with ONLY the loved
+ * one's silhouette pixels coming from NB2 — no shrinkage, no bokeh frame,
+ * no edited background.
+ */
+async function restorePristineMain(args: {
+  nb2OutputUrl: string;
+  mainPhotoUrl: string;
+  subjectMaskUrl?: string | null;
+}): Promise<string | null> {
+  const { nb2OutputUrl, mainPhotoUrl, subjectMaskUrl } = args;
+  try {
+    const [outResp, mainResp] = await Promise.all([
+      fetch(nb2OutputUrl),
+      fetch(mainPhotoUrl),
+    ]);
+    if (!outResp.ok || !mainResp.ok) {
+      throw new Error(
+        `restore fetch failed: out=${outResp.status} main=${mainResp.status}`,
+      );
+    }
+    const outputBuf = Buffer.from(await outResp.arrayBuffer());
+    const mainBuf = Buffer.from(await mainResp.arrayBuffer());
+
+    const outputMeta = await sharp(outputBuf).metadata();
+    const outW = outputMeta.width;
+    const outH = outputMeta.height;
+    if (!outW || !outH) throw new Error('NB2 output has no dimensions');
+
+    // NB2 typically upscales (e.g. 1536→2048 wide) but preserves aspect
+    // with aspect_ratio:auto, so a uniform scale works. If NB2 ever drifted
+    // aspect, fit:'fill' would stretch — the API boundary doesn't currently
+    // guard against that, so any aspect drift would be visible in pixel
+    // diffs against the original.
+    const mainResized = await sharp(mainBuf)
+      .resize(outW, outH, { fit: 'fill', kernel: 'lanczos3' })
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+
+    // Alpha = 255 (use pristine main pixel) by default. Inside the loved-
+    // one silhouette the alpha drops toward 0 so NB2's painted loved one
+    // survives there. A 6-pixel blur on the silhouette feathers the
+    // transition so hair wisps and clothing fringe blend naturally instead
+    // of reading as a crisp pasted cutout.
+    const alpha = Buffer.alloc(outW * outH, 255);
+    let subjectMaskApplied = false;
+    if (subjectMaskUrl) {
+      try {
+        const maskResp = await fetch(subjectMaskUrl);
+        if (maskResp.ok) {
+          const maskBuf = Buffer.from(await maskResp.arrayBuffer());
+          const maskAlpha = await sharp(maskBuf)
+            .ensureAlpha()
+            .resize(outW, outH, { fit: 'fill' })
+            .extractChannel('alpha')
+            .blur(6)
+            .raw()
+            .toBuffer();
+          const total = outW * outH;
+          for (let i = 0; i < total; i++) {
+            const silhouette = maskAlpha[i] ?? 0;
+            if (silhouette === 0) continue;
+            const curr = alpha[i] ?? 0;
+            alpha[i] = Math.round(curr * (1 - silhouette / 255));
+          }
+          subjectMaskApplied = true;
+        } else {
+          logger.warn(
+            { subjectMaskUrl, status: maskResp.status },
+            'restorePristineMain: mask fetch non-ok; rectangle restore',
+          );
+        }
+      } catch (maskErr) {
+        logger.warn(
+          { maskErr, subjectMaskUrl },
+          'restorePristineMain: mask application failed',
+        );
+      }
+    }
+
+    const mainWithAlpha = await sharp(mainResized, {
+      raw: { width: outW, height: outH, channels: 3 },
+    })
+      .joinChannel(alpha, { raw: { width: outW, height: outH, channels: 1 } })
+      .png()
+      .toBuffer();
+
+    const finalBuf = await sharp(outputBuf)
+      .composite([{ input: mainWithAlpha, blend: 'over' }])
+      .png()
+      .toBuffer();
+
+    const file = new File(
+      [new Uint8Array(finalBuf)],
+      'merge-pristine-main.png',
+      { type: 'image/png' },
+    );
+    const url = await fal.storage.upload(file);
+
+    logger.info(
+      { outDims: { w: outW, h: outH }, subjectMaskApplied },
+      'restorePristineMain: composited pristine main over NB2 output',
+    );
+    return url;
+  } catch (err) {
+    logger.warn({ err }, 'restorePristineMain failed');
+    return null;
+  }
+}
+
+/**
+ * One NB2 merge attempt plus the downstream measurements needed to decide
+ * whether it clipped the subject at an edge. Pulled out of the /merge
+ * handler so we can call it twice: once on the first try, and once more
+ * with a stronger "stay away from the edge" directive when the first try
+ * lands the subject flush against the frame boundary.
+ */
+async function runNb2Merge(args: {
+  prompt: string;
+  mainPhotoUrl: string;
+  lovedOneUrl: string;
+  placement: Placement;
+  mainSegmentation: Awaited<ReturnType<typeof measureSubjects>>;
+}): Promise<{
+  mergedUrl: string;
+  outputSegmentation: Awaited<ReturnType<typeof measureSubjects>>;
+  addedSubject: ReturnType<typeof findAddedSubject>;
+  edgeDistPx: number;
+  nb2Ms: number;
+}> {
+  const nb2Start = Date.now();
+  const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
+    input: {
+      prompt: args.prompt,
+      image_urls: [args.mainPhotoUrl, args.lovedOneUrl],
+      resolution: '2K',
+      output_format: 'png',
+      aspect_ratio: 'auto',
+    },
+    logs: false,
+  });
+  const nb2Ms = Date.now() - nb2Start;
+
+  const mergedUrl = extractFirstImageUrl(result.data);
+  if (!mergedUrl) throw errors.fal('Nano Banana 2 returned no merge image');
+
+  const outputSegmentation = await measureSubjects(mergedUrl);
+  let addedSubject: ReturnType<typeof findAddedSubject> = null;
+  if (outputSegmentation && outputSegmentation.subjects.length > 0) {
+    const mainCtx =
+      args.mainSegmentation && args.mainSegmentation.subjects.length > 0
+        ? {
+            subjects: args.mainSegmentation.subjects,
+            width: args.mainSegmentation.width,
+            height: args.mainSegmentation.height,
+            outputWidth: outputSegmentation.width,
+            outputHeight: outputSegmentation.height,
+          }
+        : undefined;
+    addedSubject = findAddedSubject(outputSegmentation.subjects, args.placement, mainCtx);
+  }
+
+  // Minimum distance from added-subject bbox to any output frame edge. A
+  // value near 0 means the subject is flush with the edge — which, on NB2
+  // outputs, almost always means visible clipping of the subject's body.
+  let edgeDistPx = Infinity;
+  if (addedSubject && outputSegmentation) {
+    const [x1, y1, x2, y2] = addedSubject.bbox;
+    edgeDistPx = Math.min(
+      x1,
+      outputSegmentation.width - x2,
+      y1,
+      outputSegmentation.height - y2,
+    );
+  }
+
+  return { mergedUrl, outputSegmentation, addedSubject, edgeDistPx, nb2Ms };
+}
 
 function buildSizeHint(scale: number, subjectDescription: string): string {
   const pct = Math.round(scale * 100);
@@ -938,57 +1780,115 @@ spikeRouter.post(
         ? 'the pet'
         : 'the person';
 
-    // Prompt contract (2026-04-17 after user clarified: lock face, expression,
-    // clothes, hair, eye color — but ALLOW lighting, shadow, and body extension).
-    // Earlier iterations that over-locked body pose produced stiff outputs on
-    // head-shot portraits; earlier iterations that under-locked clothes had
-    // NB2 substituting scene clothing. This version separates LOCKED vs FREE
-    // explicitly so the model has no ambiguity about which knob it can turn.
-    const promptParts = [
-      `Take the first image as the main scene. Take ${subjectDescription} from the second image and merge them into the main scene, producing a single natural photograph. ${PLACEMENT_INSTRUCTIONS[placement]}.`,
+    // Segment the main FIRST so we can plumb the existing-people count into
+    // the prompt. NB2 hallucinates extra family members (a "twin" of an
+    // existing person, a phantom sibling) when the prompt doesn't pin the
+    // count — we observed a 3-person family becoming 5 in the output. Telling
+    // the model "the input has exactly N people; output exactly N+1" is the
+    // cheapest mitigation. If segmentation fails (null), we fall through to
+    // count-agnostic anti-hallucination wording.
+    //
+    // This call is also used downstream for findAddedSubject and
+    // enforceTargetSize, so moving it earlier doesn't add latency — it just
+    // shifts work that would have been serial-after-prompt to serial-before-
+    // prompt. Future optimization: parallelize with extendPortraitForBodyContext.
+    const mainSegmentation = await measureSubjects(mainPhotoUrl);
+    const existingPeopleCount = mainSegmentation?.subjects?.length ?? null;
 
-      `LOCKED (MUST NOT CHANGE) — these features of ${subjectDescription} must match the second image EXACTLY, as if the same person were photographed twice on the same day:`,
-      `- Face: identical shape, eyes, nose, mouth, cheeks, jawline, and distinguishing marks.`,
-      `- Expression: the EXACT expression captured in the portrait. Same smile (or no smile), same eye openness, same brow position, same mouth shape. Do NOT adjust their expression to match the scene's mood.`,
-      `- Eyes: pupils and iris in the exact position and color as the portrait. If they look at the camera in the portrait, keep them looking at the camera.`,
-      `- Hair: EXACT same style, shape, length, parting, and color.`,
-      `- Clothing: the garments visible in the portrait must appear in the output with the SAME pattern, SAME colors, SAME cut, SAME fabric. Do NOT substitute clothing worn by others in the scene. Do NOT change the clothing style to match the scene.`,
-      `- Skin tone and identifying features: preserved.`,
+    // Simplified prompt (2026-04-24). The prior 23-clause prompt built up
+    // across sessions was compensating for NB2 behaviors that mostly aren't
+    // real (framing was fixing a frontend Editor crop; head-alignment forced
+    // awkward poses when the family was sitting; "stands" biased NB2 toward
+    // standing even when the scene is seated). User's direct NB2 test with
+    // a ~30-word natural-language prompt produced good results in <30s —
+    // matching that here. Natural language, no pose bias, no micromanagement
+    // of framing or identity (NB2's defaults preserve identity when you
+    // simply ask it to).
+    const subjectTerm = isPet ? 'the pet' : 'the person';
+    const countSentence =
+      existingPeopleCount != null
+        ? `Output exactly ${existingPeopleCount + 1} people. Do not add anyone else.`
+        : `Do not add any extra people beyond ${subjectTerm} and the people already in the first image.`;
+    const existingSentence =
+      existingPeopleCount != null
+        ? `Do not edit the existing ${existingPeopleCount} ${existingPeopleCount === 1 ? 'person' : 'people'} or the background — they stay exactly as in the first image.`
+        : `Do not edit the existing people or the background — they stay exactly as in the first image.`;
+    // Size hint — pose-neutral language (no "head-to-feet", no "standing").
+    // The user's slider adjusts sizeAdjustment in the range [0.5, 2.0]. We
+    // previously consumed this via enforceTargetSize (disabled, produced ghost
+    // artifacts) and a prompt clause (removed with the full prompt rewrite).
+    // NB2 honors relative-size language reasonably well when the rest of the
+    // prompt doesn't contradict it.
+    const sizePct = Math.round(sizeAdjustment * 100);
+    const sizeSentence =
+      sizeAdjustment >= 0.95 && sizeAdjustment <= 1.05
+        ? `${subjectTerm}'s size should match the rest of the group — the same scale as the existing people, as one natural member of the group.`
+        : sizeAdjustment < 1.0
+          ? `${subjectTerm} should appear about ${sizePct}% of the size of the existing people in the photo — noticeably smaller than the group, as if naturally shorter or further from the camera.`
+          : `${subjectTerm} should appear about ${sizePct}% of the size of the existing people in the photo — noticeably larger than the group, as if naturally taller or closer to the camera.`;
 
-      `FREE (MAY CHANGE to integrate into the scene):`,
-      `- Lighting on ${subjectDescription}: relight the face and body to match the scene's light — adjust exposure, color temperature, and directional shading. Warm scene → warm cast. Light direction from scene → matching shadow direction on them. You are repainting illumination, NOT redrawing the LOCKED features above.`,
-      `- Shadow: if the main scene shows the other people casting shadows on the ground, add a matching shadow from ${subjectDescription} in the same direction and softness.`,
-      `- Body extension: if the portrait shows ${subjectDescription} from the waist up or shoulders up, and the main scene shows the other people full-body (head to feet), extend ${subjectDescription}'s body downward naturally. Continue the portrait's clothing style into the extended body — same colors, same pattern, same cut. If the scene shows neighbors waist-up, keep ${subjectDescription} waist-up; match the neighbors' body crop.`,
-      `- Pose of any unseen body parts: natural at-their-sides arms/hands if the portrait didn't show them.`,
-      `- Hand and skin color: any hands, wrists, or exposed skin on ${subjectDescription}'s extended body must be rendered in ${subjectDescription}'s natural skin tone (sampled from the face in the portrait). Do NOT let color from the clothing wash onto the skin — a brightly-colored blouse must not cast a red/pink/orange tint onto the hand or wrist. Skin stays skin-colored; only illumination (brightness, warmth) may shift to match the scene light.`,
+    const basePrompt = [
+      `Add ${subjectTerm} from the second image to the first image ${PLACEMENT_PHRASE[placement]}, producing a single natural photograph that looks like they were actually there when the photo was taken.`,
+      existingSentence,
+      `You may extend ${subjectTerm}'s body naturally if the portrait shows only their face, head, or shoulders. Match their pose to the rest of the group (sitting if they sit, standing if they stand). Adjust lighting, shadows, and sunlight on ${subjectTerm} to blend with the scene.`,
+      sizeSentence,
+      // Explicit identity anchor. The single-sentence version ("keep their
+      // face, identity, and clothing") drifted ~1-in-3 — NB2 would sometimes
+      // repaint the face with generic features (losing glasses, changing
+      // smile, smoothing hair). Enumerating each feature the model tends to
+      // "improve" forces it to treat the portrait as canonical instead.
+      `${subjectTerm}'s face must match the second image EXACTLY — same facial features, same eyes, same nose, same mouth, same smile (open-mouth if open, closed-mouth if closed), same skin tone and texture, same glasses (if any), same earrings or other jewelry, same hair style, same hair color, same facial expression. Do not redraw, smooth, stylize, or "improve" their face. Their clothing (pattern, colors, cut, fabric) must also match the portrait. Treat the second image as the canonical source of their identity.`,
+      countSentence,
+    ].join('\n\n');
 
-      `PLACEMENT AND ALIGNMENT:`,
-      `- ${subjectDescription} stands next to the existing group at the chosen side, with natural spacing — close enough to feel part of the group, with a small gap so neither figure occludes the other, at the same depth from the camera (unless placement is 'front' or 'behind').`,
-      `- HEAD ALIGNMENT (critical): ${subjectDescription}'s head and face must sit at the SAME vertical level in the frame as the neighboring adults' heads. If the portrait was tightly framed around the head with the face near the top, do NOT preserve that framing — lower ${subjectDescription} in the frame so the TOP OF THEIR HEAD is at roughly the same y-coordinate as the nearest adult neighbor's head. The scene's framing is authoritative, not the portrait's.`,
-      `- GROUND / WAIST ALIGNMENT: If the neighbors are visible head-to-feet, ${subjectDescription}'s feet land on the same ground line. If the neighbors are cropped at waist or shoulders, ${subjectDescription} is cropped at the SAME line — not higher, not lower. Match the neighbors' vertical cutoff exactly.`,
-      `- Arms and hands stay within their own lateral column — do not reach across or overlap the group.`,
-      `- ${subjectDescription}'s body must read as standing with the group, not floating at a different depth or height.`,
+    // Pristine-main passthrough architecture (2026-04-22c). NB2 receives
+    // the ORIGINAL main photo unchanged — no zoom-out, no canvas extension,
+    // no bokeh surround. Output dims = NB2's natural output for the input
+    // aspect (typically 2K). The restore pass below pins every output pixel
+    // to the pristine main except inside the loved-one silhouette.
+    //
+    // Why this replaces the zoom-out architecture:
+    //   - Zoom-out shrunk the family to 70% scale and surrounded it with a
+    //     mirror-blur bokeh frame. Users read this as "the photo got bigger
+    //     with a blurred border" and "the main is being edited" — both
+    //     accurate descriptions of what was happening. Centering the family
+    //     inside the bokeh frame (the prior 50/50 fix) didn't address the
+    //     core complaint.
+    //   - Side-extension (the architecture before zoom-out) made the output
+    //     wider than the input — users read THAT as "family pushed to one
+    //     side." Both side-extension and zoom-out modify the canvas to give
+    //     NB2 a guaranteed empty area for the loved one.
+    //   - Pristine-main passthrough trusts NB2 to find a natural place for
+    //     the loved one within the existing main photo (the prompt's
+    //     FRAMING block instructs it to). No canvas modification → no
+    //     bokeh, no family shrinkage, no "is this the same photo?" confusion.
+    //
+    // Trade-off: NB2 must respect the FRAMING instruction or the loved one
+    // can land flush with a canvas edge. We log edgeDistPx and surface it
+    // in the debug response so this is visible; if it turns out to be a
+    // common failure, retry-on-clip can be added cheaply (the runNb2Merge
+    // helper already computes edgeDistPx).
+    // (mainSegmentation was computed earlier so its count could feed the prompt.)
 
-      buildSizeHint(sizeAdjustment, subjectDescription),
+    // Send the original loved-one portrait unchanged. The previous
+    // extendPortraitForBodyContext preprocessing (rembg → trim → extend onto
+    // 1.2w × 2.8h canvas) was added to fight NB2's head-shot framing bias,
+    // but the simplified prompt already tells NB2 "you may extend the body
+    // naturally if the portrait shows only face/shoulders" — no preprocessing
+    // needed. User feedback: stop manipulating the portrait before NB2 sees
+    // it. The function still exists for reference; we just don't call it.
+    const lovedOneForMerge = lovedOnePhotoUrl;
 
-      `PRESERVE THE REST OF THE SCENE — every other person, pet, and background element in the main photo stays EXACTLY as in the first image. Do NOT modify the faces, clothes, hair, or bodies of the existing people.`,
+    const prompt = basePrompt;
 
-      `NO DUPLICATION — exactly one instance of ${subjectDescription} in the output.`,
-
-      `Output: a single natural photograph where ${subjectDescription} stands next to the group at the chosen side, integrated with the scene's lighting and shadows and (if needed) extended in body, but with the EXACT face, expression, eyes, hair, and clothes from the second image.`,
-    ];
-
-    const prompt = promptParts.join('\n\n');
-
-    // Start main-photo segmentation in parallel with NB2 so non-target
-    // preservation has the masks ready when the merge finishes.
-    const mainSegmentationPromise = measureSubjects(mainPhotoUrl);
-
+    // Single NB2 call. The FRAMING block in basePrompt already tells NB2
+    // to keep the loved one inset from the edges with 8-12% margin; the
+    // restore pass below pins every other pixel to the pristine main.
     const nb2Start = Date.now();
     const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
       input: {
         prompt,
-        image_urls: [mainPhotoUrl, lovedOnePhotoUrl],
+        image_urls: [mainPhotoUrl, lovedOneForMerge],
         resolution: '2K',
         output_format: 'png',
         aspect_ratio: 'auto',
@@ -997,104 +1897,160 @@ spikeRouter.post(
     });
     const nb2Ms = Date.now() - nb2Start;
 
-    const mergedUrl = extractFirstImageUrl(result.data);
-    if (!mergedUrl) throw errors.fal('Nano Banana 2 returned no merge image');
+    const nb2RawUrl = extractFirstImageUrl(result.data);
+    if (!nb2RawUrl) throw errors.fal('Nano Banana 2 returned no merge image');
 
-    // Non-target preservation: NB2 reliably alters faces of people it was
-    // told to leave alone (missing eyebrows, changed beards). Composite
-    // main-photo pixels back through each main subject's mask, IoU-gated
-    // so we only touch subjects still at roughly the same bbox in the
-    // output (if NB2 shifted someone dramatically, we skip to avoid
-    // double-exposure).
-    const preserveStart = Date.now();
-    let preservedUrl = mergedUrl;
-    let preservedCount = 0;
-    const [mainSegmentation, outputSegmentation] = await Promise.all([
-      mainSegmentationPromise,
-      measureSubjects(mergedUrl),
-    ]);
-    // Hoisted so face-swap can use it for bbox-scoped targeting below.
+    // Segment the raw NB2 output to find the loved one. We need her
+    // silhouette mask for the silhouette-aware restore below.
+    const outputSegmentation = await measureSubjects(nb2RawUrl);
     let addedSubject: ReturnType<typeof findAddedSubject> = null;
-    if (
-      mainSegmentation &&
-      outputSegmentation &&
-      mainSegmentation.subjects.length > 0 &&
-      outputSegmentation.subjects.length > 0
-    ) {
-      addedSubject = findAddedSubject(
-        outputSegmentation.subjects,
-        placement,
-        {
-          subjects: mainSegmentation.subjects,
-          width: mainSegmentation.width,
-          height: mainSegmentation.height,
-          outputWidth: outputSegmentation.width,
-          outputHeight: outputSegmentation.height,
-        },
+    if (outputSegmentation && outputSegmentation.subjects.length > 0) {
+      const mainCtx =
+        mainSegmentation && mainSegmentation.subjects.length > 0
+          ? {
+              subjects: mainSegmentation.subjects,
+              width: mainSegmentation.width,
+              height: mainSegmentation.height,
+              outputWidth: outputSegmentation.width,
+              outputHeight: outputSegmentation.height,
+            }
+          : undefined;
+      addedSubject = findAddedSubject(outputSegmentation.subjects, placement, mainCtx);
+    }
+
+    // Edge-clip detection. Distance from added-subject bbox to nearest
+    // output frame edge, in output px. <3% of the smaller output dim is
+    // suspicious — NB2 likely placed the loved one flush against an edge,
+    // which user-reads as "body sliced at the canvas edge."
+    let edgeDistPx = Infinity;
+    let edgeClipped = false;
+    if (addedSubject && outputSegmentation) {
+      const [x1, y1, x2, y2] = addedSubject.bbox;
+      edgeDistPx = Math.min(
+        x1,
+        outputSegmentation.width - x2,
+        y1,
+        outputSegmentation.height - y2,
       );
-      if (addedSubject) {
-        const preservable = selectPreservableMainSubjects({
+      const minDim = Math.min(outputSegmentation.width, outputSegmentation.height);
+      edgeClipped = edgeDistPx < minDim * 0.03;
+    }
+    if (edgeClipped) {
+      logger.warn(
+        { edgeDistPx, addedBbox: addedSubject?.bbox, outputDims: outputSegmentation && { w: outputSegmentation.width, h: outputSegmentation.height } },
+        'merge: loved-one bbox is flush with output edge (NB2 ignored FRAMING instruction)',
+      );
+    }
+
+    let finalUrl = nb2RawUrl;
+
+    // Pristine-main passthrough restore. Every output pixel comes from the
+    // original main photo, EXCEPT inside the loved-one silhouette (where
+    // NB2's painted pixels survive). Silhouette is feathered for soft
+    // hair-wisp / clothing-fringe transitions.
+    //
+    // Bypassed when MERGE_SKIP_RESTORE=true: NB2's raw output becomes the
+    // final image. The restore guarantees byte-perfect family pixels but
+    // creates a visible boundary where NB2 painted hair wisps, shadows, or
+    // hallucinated extras get hard-clipped at the silhouette edge ("box
+    // around the loved one"). Skipping the restore eliminates that boundary
+    // entirely; family fidelity then relies on the prompt's "PRESERVE THE
+    // EXISTING PEOPLE AND BACKGROUND" clause above.
+    const restoreStart = Date.now();
+    let mainRestored = false;
+    if (env.MERGE_SKIP_RESTORE) {
+      logger.info(
+        { mergeSkipRestore: true },
+        'restorePristineMain skipped (MERGE_SKIP_RESTORE=true); using NB2 raw output',
+      );
+    } else {
+      const restored = await restorePristineMain({
+        nb2OutputUrl: finalUrl,
+        mainPhotoUrl,
+        subjectMaskUrl: addedSubject?.maskUrl ?? null,
+      });
+      if (restored) {
+        finalUrl = restored;
+        mainRestored = true;
+      }
+    }
+    const restoreMs = Date.now() - restoreStart;
+
+    // Size enforcement. NB2 ignores the prompt's SIZE hint pretty
+    // consistently — left alone, it paints the loved one standing
+    // tall to fill the placement-side area, ending up ~1.7× the
+    // height of the (sitting) family. enforceTargetSize measures the
+    // bbox, computes target = avgNeighborHeight × sizeAdjustment in
+    // output pixels, and rescales the subject in-place when ratio is
+    // outside ±10%. Skipped for placement='behind' (rescaling there
+    // breaks z-order occlusion) and when no addedSubject was found
+    // (no one to rescale).
+    //
+    // Bypassed when MERGE_SKIP_RESTORE=true: the rescale path runs an
+    // independent heal-pass that overlays main pixels onto NB2's output
+    // through the subject mask. When NB2's chosen aspect or position
+    // differs from main, the heal pass paints stretched/repositioned main
+    // pixels into the subject region — visible as a "ghost brunette" near
+    // the loved one (where the mom's stretched position falls inside the
+    // mask) AND a rectangular healed-area boundary ("box around the loved
+    // one"). Skipping enforce removes both artifacts at the cost of
+    // trusting NB2's sizing — which our updated prompt's HEAD ALIGNMENT +
+    // GROUND/WAIST ALIGNMENT clauses already enforce reliably.
+    const enforceStart = Date.now();
+    let sizeCorrection: string = 'skipped';
+    let actualHeightPx: number | undefined;
+    let targetHeightPx: number | undefined;
+    if (env.MERGE_SKIP_RESTORE) {
+      sizeCorrection = 'skipped-flag';
+      logger.info(
+        { mergeSkipRestore: true },
+        'enforceTargetSize skipped (MERGE_SKIP_RESTORE=true); trusting NB2 sizing',
+      );
+    } else if (addedSubject && outputSegmentation) {
+      try {
+        const enforceResult = await enforceTargetSize({
+          mergedUrl: finalUrl,
+          mainPhotoUrl,
           mainSegmentation,
           outputSegmentation,
           addedSubject,
+          sizeAdjustment,
+          placement,
         });
-        if (preservable.length > 0) {
-          const preserved = await preservePeopleFromMain({
-            mainPhotoUrl,
-            editedImageUrl: mergedUrl,
-            maskUrls: preservable.map((s) => s.maskUrl),
-            addedSubjectMaskUrl: addedSubject.maskUrl,
-            addedBbox: addedSubject.bbox,
-          });
-          if (preserved) {
-            preservedUrl = preserved;
-            preservedCount = preservable.length;
-          }
-        }
+        finalUrl = enforceResult.url;
+        sizeCorrection = enforceResult.correction;
+        actualHeightPx = enforceResult.actualHeightPx;
+        targetHeightPx = enforceResult.targetHeightPx;
+      } catch (enforceErr) {
+        logger.warn({ enforceErr }, 'enforceTargetSize threw; keeping pre-enforcer URL');
+        sizeCorrection = 'rescale-failed';
       }
     }
-    const preserveMs = Date.now() - preserveStart;
-
-    // Face-swap: NB2 always re-renders the subject's face from its own
-    // priors. Transplant the real portrait pixels back on top — BUT scope
-    // the swap to the loved one's bbox. The default global face-swap picks
-    // the most prominent face in the base image, which in a group photo
-    // is typically a main-photo person, not the smaller newly-added loved
-    // one — the "same bearded guy gets her face every time" bug. Skip
-    // swapping entirely if we couldn't locate the loved one (better to
-    // show NB2's drifted face than swap the wrong person).
-    const swapStart = Date.now();
-    let finalUrl = preservedUrl;
-    let swapMode: string = 'skipped-no-added-subject';
-    if (addedSubject && outputSegmentation) {
-      finalUrl = await applyTargetedFaceSwap({
-        sourcePortraitUrl: lovedOnePhotoUrl,
-        targetUrl: preservedUrl,
-        addedBbox: addedSubject.bbox,
-        targetWidth: outputSegmentation.width,
-        targetHeight: outputSegmentation.height,
-      });
-      swapMode = 'targeted';
-    }
-    const swapMs = Date.now() - swapStart;
+    const enforceMs = Date.now() - enforceStart;
 
     logger.info(
       {
         nb2Ms,
-        preserveMs,
-        swapMs,
-        totalMs: nb2Ms + preserveMs + swapMs,
+        restoreMs,
+        enforceMs,
+        totalMs: nb2Ms + restoreMs + enforceMs,
         placement,
         sizeAdjustment,
-        preservedCount,
-        swapMode,
+        mainRestored,
+        sizeCorrection,
+        actualHeightPx,
+        targetHeightPx,
+        addedBbox: addedSubject?.bbox,
+        addedMaskUrl: addedSubject?.maskUrl ?? null,
+        edgeDistPx: Number.isFinite(edgeDistPx) ? edgeDistPx : null,
+        edgeClipped,
       },
       'merge timing',
     );
 
-    // Charge the credit after the full pipeline (NB2 + preservation + swap)
-    // succeeded. A failure anywhere upstream throws before this line, so
-    // fal/storage errors never burn the user's balance.
+    // Charge the credit after the full pipeline (NB2 + restore) succeeded.
+    // A failure anywhere upstream throws before this line, so fal/storage
+    // errors never burn the user's balance.
     const creditsRemaining = await spendCredits(userId, 'merge', {
       dedupeKey: saveId,
     });
@@ -1109,13 +2065,21 @@ spikeRouter.post(
       // Stage URLs for debugging transparency / artifact regressions —
       // safe to expose: they're already public fal.media URLs.
       debug: {
-        nb2RawUrl: mergedUrl,
-        preservedUrl,
+        extendedPortraitUrl:
+          lovedOneForMerge !== lovedOnePhotoUrl ? lovedOneForMerge : null,
+        nb2RawUrl,
         finalUrl,
         addedBbox: addedSubject?.bbox ?? null,
+        addedMaskUrl: addedSubject?.maskUrl ?? null,
         outputDims: outputSegmentation
           ? { width: outputSegmentation.width, height: outputSegmentation.height }
           : null,
+        mainRestored,
+        edgeDistPx: Number.isFinite(edgeDistPx) ? edgeDistPx : null,
+        edgeClipped,
+        sizeCorrection,
+        actualHeightPx,
+        targetHeightPx,
       },
     });
   } catch (err) {
@@ -1124,191 +2088,6 @@ spikeRouter.post(
   }
   },
 );
-
-/**
- * Face-swap post-pass. Takes the merged scene from Nano Banana 2 and
- * transplants the original portrait's face onto it, so the output has
- * pixel-fidelity identity even though the body/pose/lighting came from
- * NB2's generative pass.
- *
- * Uses fal-ai/face-swap (a standard InsightFace-based swapper). On
- * failure (no face detected, quota, etc.) returns the unswapped merge
- * so the user still gets a result.
- */
-async function applyFaceSwap(
-  sourcePortraitUrl: string,
-  targetMergedUrl: string,
-): Promise<string> {
-  try {
-    const result = await fal.subscribe('fal-ai/face-swap', {
-      input: {
-        base_image_url: targetMergedUrl,
-        swap_image_url: sourcePortraitUrl,
-      },
-      logs: false,
-    });
-    const url = extractFirstImageUrl(result.data);
-    if (!url) {
-      logger.warn('face-swap returned no image; returning raw merge');
-      return targetMergedUrl;
-    }
-    logger.info('face-swap post-pass succeeded');
-    return url;
-  } catch (err) {
-    logger.warn({ err }, 'face-swap failed; returning raw merge');
-    return targetMergedUrl;
-  }
-}
-
-/**
- * Bbox-scoped face-swap. fal-ai/face-swap always targets the most prominent
- * face in `base_image_url` — in a group photo, that's typically a clearer
- * main-photo person, NOT the smaller newly-added loved one. Symptoms of the
- * misfire: the same main-photo person gets her face painted over every run
- * (missing eyebrows, changed eyes, beard stripped out if she has none).
- *
- * Fix: crop `targetUrl` to the loved one's bbox, run face-swap on that crop
- * (she's the only face in it — physics), paste the swapped crop back onto
- * the full target. Face-swap can no longer pick the wrong face because the
- * wrong faces aren't in the cropped image.
- */
-async function applyTargetedFaceSwap(args: {
-  sourcePortraitUrl: string;
-  targetUrl: string;
-  addedBbox: [number, number, number, number];
-  targetWidth: number;
-  targetHeight: number;
-}): Promise<string> {
-  const { sourcePortraitUrl, targetUrl, addedBbox, targetWidth, targetHeight } =
-    args;
-  try {
-    const targetResp = await fetch(targetUrl);
-    if (!targetResp.ok) throw new Error(`target fetch failed ${targetResp.status}`);
-    const targetBuf = Buffer.from(await targetResp.arrayBuffer());
-
-    // Pad the bbox so face-swap has skin/hair context around the face —
-    // it needs neck/ears/forehead to produce a clean blend. 10% of the
-    // bbox's larger dimension is a balance between enough context and
-    // not expanding the crop into neighbors.
-    const [x1, y1, x2, y2] = addedBbox;
-    const bw = x2 - x1;
-    const bh = y2 - y1;
-    const pad = Math.round(Math.max(bw, bh) * 0.1);
-
-    const cropLeft = Math.max(0, x1 - pad);
-    const cropTop = Math.max(0, y1 - pad);
-    const cropRight = Math.min(targetWidth, x2 + pad);
-    const cropBottom = Math.min(targetHeight, y2 + pad);
-    const cropWidth = Math.max(1, cropRight - cropLeft);
-    const cropHeight = Math.max(1, cropBottom - cropTop);
-
-    const croppedBuf = await sharp(targetBuf)
-      .extract({ left: cropLeft, top: cropTop, width: cropWidth, height: cropHeight })
-      .png()
-      .toBuffer();
-
-    const croppedFile = new File(
-      [new Uint8Array(croppedBuf)],
-      'loved-one-crop.png',
-      { type: 'image/png' },
-    );
-    const croppedUrl = await fal.storage.upload(croppedFile);
-
-    const swapResult = await fal.subscribe('fal-ai/face-swap', {
-      input: {
-        base_image_url: croppedUrl,
-        swap_image_url: sourcePortraitUrl,
-      },
-      logs: false,
-    });
-    const swappedUrl = extractFirstImageUrl(swapResult.data);
-    if (!swappedUrl) {
-      logger.warn('targeted face-swap returned no image; returning raw target');
-      return targetUrl;
-    }
-
-    // Download swapped crop and paste it back onto the full target.
-    const swappedResp = await fetch(swappedUrl);
-    if (!swappedResp.ok) throw new Error(`swapped fetch failed ${swappedResp.status}`);
-    const swappedBuf = Buffer.from(await swappedResp.arrayBuffer());
-
-    // Feather the paste boundary instead of hard-pasting. Face-swap output
-    // is portrait-grade (sharp, contrasty); the surrounding NB2 pixels are
-    // softer generative-grade. A hard `blend: 'over'` at the crop edge made
-    // the loved one's face read "real" while her body read "off" — the
-    // discontinuity was at the crop rectangle, not at her silhouette. The
-    // feather tonally eases the swap into the surrounding render so the
-    // transition is invisible.
-    const featherMargin = Math.max(
-      8,
-      Math.round(Math.min(cropWidth, cropHeight) * 0.12),
-    );
-    const innerLeft = featherMargin;
-    const innerTop = featherMargin;
-    const innerRight = cropWidth - featherMargin;
-    const innerBottom = cropHeight - featherMargin;
-
-    const alphaRaw = Buffer.alloc(cropWidth * cropHeight, 0);
-    if (innerRight > innerLeft && innerBottom > innerTop) {
-      for (let y = innerTop; y < innerBottom; y++) {
-        const rowStart = y * cropWidth;
-        for (let x = innerLeft; x < innerRight; x++) {
-          alphaRaw[rowStart + x] = 255;
-        }
-      }
-    }
-
-    // Sharp's `.blur()` on a 1-channel input returns a 3-channel buffer —
-    // same pitfall as in `mergeNonTargetPreserver.ts`. Force back to
-    // 1-channel with `.toColourspace('b-w')` before raw-reading so the
-    // subsequent joinChannel gets genuine single-channel alpha bytes.
-    const featheredAlpha = await sharp(alphaRaw, {
-      raw: { width: cropWidth, height: cropHeight, channels: 1 },
-    })
-      .blur(Math.max(featherMargin / 2, 4))
-      .toColourspace('b-w')
-      .raw()
-      .toBuffer();
-
-    const swappedRgb = await sharp(swappedBuf)
-      .resize(cropWidth, cropHeight, { fit: 'fill' })
-      .removeAlpha()
-      .raw()
-      .toBuffer();
-
-    const swappedWithFeather = await sharp(swappedRgb, {
-      raw: { width: cropWidth, height: cropHeight, channels: 3 },
-    })
-      .joinChannel(featheredAlpha, {
-        raw: { width: cropWidth, height: cropHeight, channels: 1 },
-      })
-      .png()
-      .toBuffer();
-
-    const finalBuf = await sharp(targetBuf)
-      .composite([
-        { input: swappedWithFeather, left: cropLeft, top: cropTop, blend: 'over' },
-      ])
-      .png()
-      .toBuffer();
-
-    const file = new File([new Uint8Array(finalBuf)], 'merge-targeted-swap.png', {
-      type: 'image/png',
-    });
-    const url = await fal.storage.upload(file);
-    logger.info(
-      { cropLeft, cropTop, cropWidth, cropHeight },
-      'targeted face-swap succeeded',
-    );
-    return url;
-  } catch (err) {
-    logger.warn(
-      { err },
-      'targeted face-swap failed; returning unswapped target',
-    );
-    return targetUrl;
-  }
-}
 
 // -----------------------------------------------------------------------------
 // GET /api/spike/templates — return launch templates from shared constants

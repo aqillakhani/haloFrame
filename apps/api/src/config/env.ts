@@ -70,6 +70,27 @@ const baseSchema = z.object({
 
   // CORS allowlist (comma-separated)
   CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174'),
+
+  // Dev-only: bypass credit checks (checkCredits, spendCredits, free-tier
+  // per-flow gate). IGNORED unless NODE_ENV !== 'production' — see
+  // entitlements.ts for the production guard.
+  DEV_UNLIMITED_CREDITS: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
+
+  // Bypass the pristine-main silhouette restore in /merge. With restore on
+  // (legacy default), every output pixel outside the loved-one silhouette is
+  // composited from the original main — protective but creates a visible
+  // boundary where NB2 painted hair wisps, shadows, or extras get clipped
+  // ("box around the loved one"). With restore off, NB2's raw output is the
+  // final image; we rely on the prompt's "preserve every existing person"
+  // clause for family fidelity. Set to true to test/use the simplified
+  // architecture; defaults to false so existing behavior is preserved.
+  MERGE_SKIP_RESTORE: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 const parsed = baseSchema.safeParse(process.env);
