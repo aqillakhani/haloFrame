@@ -18,21 +18,16 @@ const setFiles = async (chooser: { setFiles: (f: { name: string; mimeType: strin
   });
 
 test.describe('AI consent gating', () => {
-  test.beforeEach(async ({ context }) => {
+  test.beforeEach(async ({ context, page }) => {
     await context.clearCookies();
-    // localStorage isn't available before the first navigation, so
-    // an init script is the safe place to clear it.
-    await context.addInitScript(() => {
-      try {
-        window.localStorage.clear();
-      } catch {
-        // SecurityError on some about:blank states — ignore.
-      }
-    });
+    // Don't use addInitScript here — it re-fires on page.reload() and
+    // wipes the localStorage entry we want to verify *survives* the
+    // reload in the third test. Goto first, then clear once.
+    await page.goto('/');
+    await page.evaluate(() => window.localStorage.clear());
   });
 
   test('first upload triggers the consent modal', async ({ page }) => {
-    await page.goto('/');
     // The Enhance card's accessible name is the <h2> inside (via
     // aria-labelledby) — "Enhance a photo".
     await page.getByRole('button', { name: /enhance/i }).first().click();
@@ -48,7 +43,6 @@ test.describe('AI consent gating', () => {
   });
 
   test('declining keeps consent unset; modal returns on next attempt', async ({ page }) => {
-    await page.goto('/');
     await page.getByRole('button', { name: /enhance/i }).first().click();
 
     // First attempt — modal opens, user declines.
@@ -68,7 +62,6 @@ test.describe('AI consent gating', () => {
   });
 
   test('accepting persists across reload', async ({ page }) => {
-    await page.goto('/');
     await page.getByRole('button', { name: /enhance/i }).first().click();
 
     const chooser = page.waitForEvent('filechooser');
