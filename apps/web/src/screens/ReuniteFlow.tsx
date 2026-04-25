@@ -13,6 +13,9 @@ import { triggerDownload } from '../lib/download';
 import { COPY } from '../lib/copy';
 import { useNavigation } from '../lib/navigation';
 import { SavedModal } from '../components/SavedModal';
+import { AIConsentModal } from '../components/AIConsentModal';
+import { useConsent } from '../hooks/useConsent';
+import { hasConsented as hasConsentedSync } from '../lib/consent';
 import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
@@ -100,6 +103,17 @@ export function ReuniteFlow() {
 
   const [templates, setTemplates] = useState<TributeTemplate[]>([]);
 
+  // AI consent gate — Apple guideline 5.1.2(i). Modal is shown before the
+  // first upload of either photo; once granted, all subsequent uploads pass
+  // straight through. We bypass useConsent's React state for the gate check
+  // (hasConsentedSync reads localStorage directly) so the recursive re-call
+  // after `await grant()` doesn't see a stale closure.
+  const { grant: grantConsent } = useConsent();
+  const [pendingUpload, setPendingUpload] = useState<
+    { kind: 'main' | 'loved'; file: File } | null
+  >(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+
   useEffect(() => {
     // Cancel the template fetch if the user backs out of the flow before it
     // resolves — they're heading home and the preloaded thumbnails are
@@ -140,6 +154,11 @@ export function ReuniteFlow() {
   };
 
   const handleMainUpload = async (file: File) => {
+    if (!hasConsentedSync()) {
+      setPendingUpload({ kind: 'main', file });
+      setConsentOpen(true);
+      return;
+    }
     setError(null);
     setMainMeta({ name: file.name, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
     setMainNeighborRelHeight(null);
@@ -203,6 +222,11 @@ export function ReuniteFlow() {
   };
 
   const handleLovedUpload = async (file: File) => {
+    if (!hasConsentedSync()) {
+      setPendingUpload({ kind: 'loved', file });
+      setConsentOpen(true);
+      return;
+    }
     setError(null);
     setLovedCutoutUrl(null);
     setLovedSubjectRelHeight(null);
@@ -406,6 +430,29 @@ export function ReuniteFlow() {
         onOrderCanvas={handleOrderCanvas}
         onStartAnother={handleStartAnother}
         onClose={() => setSavedModalOpen(false)}
+      />
+
+      <AIConsentModal
+        open={consentOpen}
+        onAccept={async () => {
+          await grantConsent();
+          setConsentOpen(false);
+          if (pendingUpload) {
+            const { kind, file } = pendingUpload;
+            setPendingUpload(null);
+            // hasConsentedSync now returns true (localStorage just updated),
+            // so the recursive call falls through to the real upload logic.
+            if (kind === 'main') {
+              void handleMainUpload(file);
+            } else {
+              void handleLovedUpload(file);
+            }
+          }
+        }}
+        onDecline={() => {
+          setConsentOpen(false);
+          setPendingUpload(null);
+        }}
       />
     </div>
   );
