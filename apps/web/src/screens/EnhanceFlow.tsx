@@ -12,6 +12,9 @@ import {
 import { COPY } from '../lib/copy';
 import { useNavigation } from '../lib/navigation';
 import { SubjectSelector } from '../components/SubjectSelector';
+import { AIConsentModal } from '../components/AIConsentModal';
+import { useConsent } from '../hooks/useConsent';
+import { hasConsented as hasConsentedSync } from '../lib/consent';
 import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
@@ -34,6 +37,13 @@ export function EnhanceFlow() {
   const [selectedSubjectIndex, setSelectedSubjectIndex] = useState<number | null>(null);
 
   const [templates, setTemplates] = useState<TributeTemplate[]>([]);
+
+  // AI consent gate — Apple guideline 5.1.2(i). Same pattern as ReuniteFlow:
+  // hasConsentedSync (direct localStorage read) avoids stale closure on the
+  // recursive call that fires after grant() inside the same render cycle.
+  const { grant: grantConsent } = useConsent();
+  const [pendingUpload, setPendingUpload] = useState<File | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   useEffect(() => {
     // Abort the template fetch + thumbnail preloads if the user leaves the
@@ -74,6 +84,11 @@ export function EnhanceFlow() {
   };
 
   const handleUpload = async (file: File) => {
+    if (!hasConsentedSync()) {
+      setPendingUpload(file);
+      setConsentOpen(true);
+      return;
+    }
     setError(null);
     setStep('segmenting');
     try {
@@ -164,6 +179,24 @@ export function EnhanceFlow() {
           />
         )}
       </main>
+
+      <AIConsentModal
+        open={consentOpen}
+        onAccept={async () => {
+          await grantConsent();
+          setConsentOpen(false);
+          if (pendingUpload) {
+            const file = pendingUpload;
+            setPendingUpload(null);
+            // hasConsentedSync now returns true; re-entry falls through.
+            void handleUpload(file);
+          }
+        }}
+        onDecline={() => {
+          setConsentOpen(false);
+          setPendingUpload(null);
+        }}
+      />
     </div>
   );
 }
