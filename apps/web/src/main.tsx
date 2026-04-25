@@ -1,9 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Capacitor } from '@capacitor/core';
 import { LAUNCH_TEMPLATES } from '@haloframe/shared';
 import { NavigationProvider } from './lib/navigation';
 import { injectRootVars } from './lib/cssVars';
 import { preloadSampleImages } from './lib/api';
+import { initRC } from './lib/purchases';
 import { App } from './App.tsx';
 import './styles.css';
 
@@ -13,6 +15,25 @@ injectRootVars();
 // Editor gallery renders, the browser cache is warm and tiles paint
 // instantly instead of racing the upload/segmentation request pool.
 preloadSampleImages(LAUNCH_TEMPLATES);
+
+// On native, initialise RevenueCat as early as possible so the first
+// PaywallScreen render already has offerings cached. The web bundle's
+// no-op (purchases.ts gates on Capacitor.isNativePlatform()) means this
+// is free on the web surface.
+if (Capacitor.isNativePlatform()) {
+  const platform = Capacitor.getPlatform();
+  const apiKey =
+    platform === 'ios'
+      ? import.meta.env.VITE_RC_IOS_KEY
+      : platform === 'android'
+        ? import.meta.env.VITE_RC_ANDROID_KEY
+        : undefined;
+  if (apiKey) {
+    void initRC({ apiKey });
+  } else {
+    console.warn('[main] No RC API key for platform', platform);
+  }
+}
 
 const root = document.getElementById('root');
 if (!root) throw new Error('No #root element');
