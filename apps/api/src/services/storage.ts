@@ -4,6 +4,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { errors } from '../lib/errors.js';
 import { logger } from '../config/logger.js';
+import { applyWatermark } from './watermark.js';
 
 const SOURCE_BUCKET = 'tributes-source';
 const FINAL_BUCKET = 'tributes-final';
@@ -85,8 +86,23 @@ export async function rehostFromUrl(opts: {
       status: fetched.status,
     });
   }
-  const buffer = Buffer.from(await fetched.arrayBuffer());
-  const contentType = fetched.headers.get('content-type') ?? 'image/png';
+  const sourceBuffer = Buffer.from(await fetched.arrayBuffer());
+
+  // Watermark every composite headed for the `final` bucket so the AI label
+  // travels with the file even if downloaded outside the app (Apple/Google
+  // AI labeling guidance). Source photos are not watermarked. Failure is
+  // logged and the un-watermarked buffer is used so a sharp-related error
+  // never blocks a save.
+  let buffer: Buffer = sourceBuffer;
+  let contentType = fetched.headers.get('content-type') ?? 'image/png';
+  if (bucketId === FINAL_BUCKET) {
+    try {
+      buffer = await applyWatermark(sourceBuffer);
+      contentType = 'image/png';
+    } catch (err) {
+      logger.warn({ err, path }, '[storage] watermark failed, uploading raw buffer');
+    }
+  }
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucketId)

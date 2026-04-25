@@ -2,7 +2,11 @@ import { describe, it, expect, afterEach } from 'vitest';
 import sharp from 'sharp';
 import { applyWatermark } from './watermark.js';
 
-async function solidPng(width: number, height: number, rgba: number[]): Promise<Buffer> {
+async function solidPng(
+  width: number,
+  height: number,
+  rgba: [number, number, number, number],
+): Promise<Buffer> {
   return sharp({
     create: {
       width,
