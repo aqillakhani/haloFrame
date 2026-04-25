@@ -1,0 +1,89 @@
+workflows:
+  ios-testflight:
+    name: iOS · TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: haloframe_asc
+
+    environment:
+      groups:
+        # Bundles APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_ISSUER_ID,
+        # APP_STORE_CONNECT_PRIVATE_KEY, APPLE_TEAM_ID. See .codemagic/secrets.md.
+        - haloframe_secrets
+      vars:
+        BUNDLE_ID: com.haloframe.app
+        # Capacitor 8 uses Swift Package Manager, not CocoaPods, so we point at
+        # the .xcodeproj directly (there's no top-level .xcworkspace).
+        XCODE_PROJECT: apps/web/ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 20
+      xcode: latest
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+
+    scripts:
+      - name: Install root deps
+        script: |
+          # The repo uses pnpm at the workspace root. Codemagic mac runners
+          # ship npm but not pnpm by default; install it explicitly.
+          npm i -g pnpm@9
+          pnpm install --frozen-lockfile
+
+      - name: Build web bundle
+        script: |
+          pnpm --filter @haloframe/web run build
+
+      - name: Capacitor sync (iOS)
+        script: |
+          cd apps/web
+          npx cap sync ios
+
+      - name: Set Xcode build + marketing version
+        script: |
+          cd apps/web/ios/App
+          # Build number = Codemagic's monotonic per-project counter.
+          agvtool new-version -all "$BUILD_NUMBER"
+          # Marketing version = the tag, stripped of the leading `v` and any
+          # `-rc.N` suffix (so v1.0.0-rc1 → 1.0.0). This is what shows in the
+          # App Store; rc-cycle metadata stays in the build number.
+          MARKETING="$(echo "$CM_TAG" | sed 's/^v//' | sed 's/-rc.*//')"
+          agvtool new-marketing-version "$MARKETING"
+
+      - name: Initialize keychain (App Store Connect)
+        script: keychain initialize
+
+      - name: Fetch + create signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: Add certs to keychain
+        script: keychain add-certificates
+
+      - name: Apply provisioning profiles
+        script: xcode-project use-profiles
+
+      - name: Build .ipa
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - external testers
