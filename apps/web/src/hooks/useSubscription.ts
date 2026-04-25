@@ -7,11 +7,13 @@
 // stays in sync without a hard refresh.
 // =============================================================================
 import { useCallback, useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   ACTION_CREDIT_COSTS,
   type SubscriptionSnapshot,
 } from '@haloframe/shared';
 import { fetchSubscriptionStatus } from '../lib/api';
+import { getCustomerInfo } from '../lib/purchases';
 import { useAuth } from './useAuth';
 
 export type CreditedAction = keyof typeof ACTION_CREDIT_COSTS;
@@ -47,6 +49,26 @@ export function useSubscription(): UseSubscriptionResult {
     try {
       const next = await fetchSubscriptionStatus();
       setSnapshot(next);
+
+      // On native, sanity-check against RC. The backend remains source of
+      // truth for credit balance — RC's webhook hits /api/subscription/webhook
+      // and the next refetch picks it up. We just log a discrepancy so the
+      // edge case (purchase flowed through Apple but webhook is delayed) is
+      // visible in dev logs without overriding the snapshot.
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const info = await getCustomerInfo();
+          const rcActive = !!info?.entitlements?.active?.['tributes'];
+          if (rcActive && next.planId === 'free') {
+            console.warn(
+              '[useSubscription] RC reports active entitlement but backend says free; webhook may be delayed',
+            );
+          }
+        } catch (rcErr) {
+          // RC not yet initialized or offline — non-fatal, backend is canonical.
+          console.warn('[useSubscription] RC customerInfo fetch failed', rcErr);
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load subscription';
       setError(message);
