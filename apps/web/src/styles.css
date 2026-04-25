@@ -5703,6 +5703,12 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   z-index: 4;
 }
 
+.my-tributes-lightbox-img-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
 @media (min-width: 520px) {
   .auth-screen {
     padding: 72px 48px 48px;

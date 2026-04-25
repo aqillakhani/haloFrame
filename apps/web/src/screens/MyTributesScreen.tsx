@@ -11,6 +11,7 @@ import {
   type CanvasSize,
 } from '../lib/api';
 import { COPY } from '../lib/copy';
+import { AIBadge } from '../components/AIBadge';
 
 const CANVAS_SIZE_OPTIONS: Array<{ size: CanvasSize; price: string; label: string }> = [
   { size: '12x16', price: '$49', label: '12 × 16 in' },
@@ -279,11 +280,16 @@ export function MyTributesScreen() {
                 {'\u00d7'}
               </button>
               {openTribute.signedImageUrl ? (
-                <img
-                  src={openTribute.signedImageUrl}
-                  alt={openTribute.state.textOverlay?.name ?? ''}
-                  className="my-tributes-lightbox-img"
-                />
+                <div className="my-tributes-lightbox-img-wrap">
+                  <img
+                    src={openTribute.signedImageUrl}
+                    alt={openTribute.state.textOverlay?.name ?? ''}
+                    className="my-tributes-lightbox-img"
+                  />
+                  <div className="lightbox-ai-badge">
+                    <AIBadge size="sm" />
+                  </div>
+                </div>
               ) : (
                 <div className="my-tributes-lightbox-placeholder" />
               )}
