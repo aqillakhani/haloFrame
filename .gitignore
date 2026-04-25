@@ -69,6 +69,7 @@ apps/web/public/samples/_bench_*.png
 .claude/
 .playwright-mcp/
 verify-*.png
+verify-*.json
 
 # Git worktrees (used by redesign/v2 and future isolated feature work)
 .worktrees/

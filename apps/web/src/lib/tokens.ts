@@ -6,14 +6,20 @@
 // Legacy groups (bg/brand/accent) are preserved with updated hex so unported
 // screens keep rendering; the new groups (surface, ink, rule, gold, plum,
 // sage, terracotta) are what newly-ported screens consume.
+//
+// NOTE (2026-04-24): app background lightened from #FAF3E2 → #FDFBF6 and
+// cards from #FFFBF2 → #FFFEFA ("slightly warm" near-white) + sunk from
+// #F4ECD9 → #F6F1E4, per the claude.ai/design Settings refresh. Cards
+// intentionally NOT pure white — the design showed #FFFFFF but the user
+// wanted to preserve the warm paper feel.
 
 export const color = {
   // === Legacy groups — still referenced by unported screens ===
   bg: {
-    canvas: '#FAF3E2',
-    surface: '#FFFBF2',
+    canvas: '#FDFBF6',
+    surface: '#FFFEFA',
     surfaceRaised: '#FFFFFF',
-    subtle: '#F4ECD9',
+    subtle: '#F6F1E4',
   },
   brand: {
     primary: '#A0503C',
@@ -43,10 +49,10 @@ export const color = {
   // === New groups (2026-04-19 redesign) ===
   /** Layered surfaces — from coolest (app) to brightest (card). */
   surface: {
-    app: '#FAF3E2',
-    card: '#FFFBF2',
-    sunk: '#F4ECD9',
-    base: '#FDF9F0',
+    app: '#FDFBF6',
+    card: '#FFFEFA',
+    sunk: '#F6F1E4',
+    base: '#FEFCF7',
   },
   /** Ink ladder — `_1` darkest, `_4` lightest. Numeric keys avoid `default`. */
   ink: {

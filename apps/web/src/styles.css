@@ -5464,7 +5464,7 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
 .auth-gate-sheet {
   width: 100%;
   max-width: 520px;
-  background: var(--c-bg-canvas, #faf3e2);
+  background: var(--c-bg-canvas, #FDFBF6);
   border-radius: 18px 18px 14px 14px;
   padding: 26px 22px 22px;
   display: flex;
@@ -5726,7 +5726,7 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
 
 .my-tributes-lightbox-sheet {
   position: relative;
-  background: var(--c-bg-canvas, #faf3e2);
+  background: var(--c-bg-canvas, #FDFBF6);
   border-radius: 18px;
   padding: 18px;
   display: flex;
@@ -5788,7 +5788,7 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
 }
 
 .my-tributes-confirm-sheet {
-  background: var(--c-bg-canvas, #faf3e2);
+  background: var(--c-bg-canvas, #FDFBF6);
   border-radius: 18px;
   padding: 24px 22px 20px;
   max-width: 420px;
