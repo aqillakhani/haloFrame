@@ -20,7 +20,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1200,
+      launchShowDuration: 800,
+      launchAutoHide: true,
       backgroundColor: '#FAF3E2',
       androidSplashResourceName: 'splash',
       splashFullScreen: true,
@@ -28,6 +29,11 @@ const config: CapacitorConfig = {
     },
     CapacitorHttp: {
       enabled: true,
+    },
+    Camera: {
+      allowEditing: false,
+      presentationStyle: 'popover',
+      resultType: 'uri',
     },
   },
 };
