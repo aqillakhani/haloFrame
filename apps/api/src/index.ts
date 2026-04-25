@@ -160,12 +160,17 @@ if (!env.isSpikeMode && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
   const { printRouter } = await import('./routes/print.js');
   const { printsRouter } = await import('./routes/prints.js');
   const { meRouter } = await import('./routes/me.js');
+  const { reportRouter } = await import('./routes/report.js');
+  const { requireAuth } = await import('./middleware/auth.js');
 
   app.use('/api/tribute', tributeRouter);
   app.use('/api/templates', templatesRouter);
   app.use('/api/print', printRouter);
   app.use('/api/prints', printsRouter);
   app.use('/api/me', meRouter);
+  // Mount with requireAuth at the app level — the route handler stays
+  // testable without needing to stub the supabase auth.getUser call.
+  app.use('/api/report', requireAuth, reportRouter);
   logger.info('Full-product routes mounted');
 } else if (env.isSpikeMode) {
   logger.warn('SPIKE_MODE=true — /api/tribute, /api/templates, /api/print not mounted');
