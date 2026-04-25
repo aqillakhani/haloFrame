@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 import {
   SUBSCRIPTION_PLANS_UI,
   type SubscriptionPlanId,
@@ -10,6 +11,19 @@ import { COPY } from '../lib/copy';
 import { heroText, cardReveal } from '../lib/motion';
 import { useSubscription } from '../hooks/useSubscription';
 import { startPurchase, ApiRequestError } from '../lib/api';
+import { getOfferings, purchasePackage } from '../lib/purchases';
+
+// Maps the shared planId to the RC product identifier configured in the
+// RC dashboard / App Store Connect / Play Console. These IDs MUST match
+// across all four surfaces — see docs/plans/2026-04-25-app-store-launch-design.md
+// §12 (canonical product-ID reference).
+const RC_PRODUCT_ID: Record<Exclude<SubscriptionPlanId, 'free'>, string> = {
+  keepsake_monthly: 'haloframe_keepsake_monthly',
+  heritage_monthly: 'haloframe_heritage_monthly',
+  heritage_annual: 'haloframe_heritage_annual',
+  topup_4pack: 'haloframe_topup_4pack',
+  topup_single: 'haloframe_topup_single',
+};
 
 // Free is intentionally omitted from the paywall: the user is already on
 // Free and has run out, so the "You've used your 2 tributes" subhead does
@@ -54,9 +68,9 @@ export function PaywallScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { snapshot, refetch: refetchSubscription } = useSubscription();
 
-  // Web checkout is currently stubbed server-side (returns 501 with a
-  // structured payload). Handle both the stubbed path and the eventual
-  // redirect-to-Stripe path here so the screen is future-proof.
+  // On native (iOS/Android), purchases route through RevenueCat → Apple IAP /
+  // Google Play Billing. On web, we hit /api/subscription/purchase which
+  // returns a Stripe checkout URL (or a 501 stub during the launch window).
   async function handlePurchase() {
     if (!selected) return;
     if (selected === 'free') {
@@ -64,6 +78,30 @@ export function PaywallScreen() {
       return;
     }
     setPurchaseError(null);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const offerings = await getOfferings();
+        const targetProductId = RC_PRODUCT_ID[selected];
+        const pkg = offerings?.current?.availablePackages.find(
+          (p) => p.product.identifier === targetProductId,
+        );
+        if (!pkg) {
+          setPurchaseError(
+            'Product not found in offerings — try again in a moment.',
+          );
+          return;
+        }
+        await purchasePackage(pkg);
+        await refetchSubscription();
+        pop();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Purchase failed';
+        setPurchaseError(message);
+      }
+      return;
+    }
+
     try {
       const result = await startPurchase({
         planId: selected,
