@@ -5729,6 +5729,18 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   text-decoration-color: var(--c-text-ink);
 }
 
+.settings-iap-msg {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.settings-iap-manage {
+  display: inline-block;
+  margin-top: 4px;
+  text-align: center;
+}
+
 /* ReportContentSheet — bottom sheet for Google AI Content Policy reporting. */
 .report-sheet-scrim {
   position: fixed;

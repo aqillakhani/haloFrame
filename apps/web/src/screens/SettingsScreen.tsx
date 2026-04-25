@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 import {
   SUBSCRIPTION_PLANS_UI,
   type SubscriptionPlanId,
@@ -10,6 +11,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { useAuth } from '../hooks/useAuth';
 import { heroText, cardReveal } from '../lib/motion';
 import { deleteMyAccount, exportMyData } from '../lib/api';
+import { restorePurchases } from '../lib/purchases';
 
 function providerLabel(providers: string[] | undefined): string {
   if (!providers || providers.length === 0) return 'Email';
@@ -74,6 +76,26 @@ export function SettingsScreen() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState<string | null>(null);
+
+  async function handleRestore() {
+    setRestoring(true);
+    setRestoreMsg(null);
+    try {
+      const result = await restorePurchases();
+      const isActive = !!result?.customerInfo?.entitlements?.active?.['tributes'];
+      setRestoreMsg(
+        isActive
+          ? 'Subscription restored.'
+          : 'No active subscription found on this Apple ID / Google account.',
+      );
+    } catch (err) {
+      setRestoreMsg(err instanceof Error ? err.message : 'Restore failed.');
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   async function handleSignOut() {
     await signOut();
@@ -115,12 +137,6 @@ export function SettingsScreen() {
       setDeleteBusy(false);
       setDeleteOpen(false);
     }
-  }
-
-  // Restore-purchase wiring lands with the backend entitlement refactor
-  // (see memory/project_pricing_strategy.md). For now this is a no-op.
-  function handleRestore() {
-    // intentionally empty until RevenueCat client wiring is in place
   }
 
   const eyebrowText = isPaid && renewsOn
@@ -200,18 +216,6 @@ export function SettingsScreen() {
           custom={1}
         >
           {extendCtaFor(planId)}
-        </motion.button>
-        <motion.button
-          type="button"
-          className="btn btn-ghost"
-          onClick={handleRestore}
-          aria-live="polite"
-          variants={cardReveal}
-          initial="initial"
-          animate="animate"
-          custom={2}
-        >
-          {COPY.subscription.restoreCta}
         </motion.button>
       </div>
 
@@ -293,6 +297,49 @@ export function SettingsScreen() {
             Delete my account
           </button>
           {deleteError && <p className="auth-error" role="alert">{deleteError}</p>}
+        </motion.section>
+      )}
+
+      {Capacitor.isNativePlatform() && (
+        <motion.section
+          className="settings-account settings-iap"
+          variants={cardReveal}
+          initial="initial"
+          animate="animate"
+          custom={5}
+        >
+          <span className="settings-eyebrow">
+            <span>Subscription</span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={restoring}
+            onClick={() => void handleRestore()}
+          >
+            {restoring ? 'Restoring…' : 'Restore Purchases'}
+          </button>
+          {restoreMsg && (
+            <p
+              className="settings-iap-msg"
+              role="status"
+              aria-live="polite"
+            >
+              {restoreMsg}
+            </p>
+          )}
+          <a
+            className="auth-link settings-iap-manage"
+            href={
+              Capacitor.getPlatform() === 'ios'
+                ? 'https://apps.apple.com/account/subscriptions'
+                : 'https://play.google.com/store/account/subscriptions'
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Manage subscription
+          </a>
         </motion.section>
       )}
 
