@@ -12,6 +12,7 @@ import {
 } from '../lib/api';
 import { COPY } from '../lib/copy';
 import { AIBadge } from '../components/AIBadge';
+import { ReportContentSheet } from '../components/ReportContentSheet';
 
 const CANVAS_SIZE_OPTIONS: Array<{ size: CanvasSize; price: string; label: string }> = [
   { size: '12x16', price: '$49', label: '12 × 16 in' },
@@ -55,6 +56,7 @@ export function MyTributesScreen() {
   const [printPicker, setPrintPicker] = useState<Tribute | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
   const [printSubmitting, setPrintSubmitting] = useState<CanvasSize | null>(null);
+  const [reportTribute, setReportTribute] = useState<Tribute | null>(null);
 
   async function handleOrderCanvas(tribute: Tribute, size: CanvasSize) {
     setPrintSubmitting(size);
@@ -324,10 +326,23 @@ export function MyTributesScreen() {
                   {COPY.myTributes.lightbox.deleteCta}
                 </button>
               </div>
+              <button
+                type="button"
+                className="my-tributes-lightbox-report"
+                onClick={() => setReportTribute(openTribute)}
+              >
+                Report this tribute
+              </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ReportContentSheet
+        open={Boolean(reportTribute)}
+        tributeId={reportTribute?.id ?? ''}
+        onClose={() => setReportTribute(null)}
+      />
 
       <AnimatePresence>
         {printPicker && (

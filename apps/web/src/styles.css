@@ -5709,6 +5709,26 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   width: 100%;
 }
 
+.my-tributes-lightbox-report {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 13px;
+  padding: 8px 12px;
+  margin-top: 4px;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(28, 20, 16, 0.18);
+}
+
+.my-tributes-lightbox-report:hover {
+  color: var(--c-text-ink);
+  text-decoration-color: var(--c-text-ink);
+}
+
 /* ReportContentSheet — bottom sheet for Google AI Content Policy reporting. */
 .report-sheet-scrim {
   position: fixed;
