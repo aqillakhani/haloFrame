@@ -78,6 +78,13 @@ meRouter.delete('/', requireAuth, async (req, res, next) => {
 
     // 3. DB cleanup. Foreign keys should cascade from auth.users deletion,
     // but some tables (credit_ledger) may not — delete explicitly to be safe.
+    //
+    // AUDIT 2026-04-25 (app-store-launch): cascade verified for tributes,
+    // storage assets, credit_ledger, usage_log, profiles, auth.users. The
+    // new `reports` table auto-cascades — its FKs are
+    // `tribute_id → tributes(id) ON DELETE CASCADE` and
+    // `user_id → auth.users(id) ON DELETE CASCADE` — so deleting either
+    // parent here also clears the user's reports.
     await supabaseAdmin.from('tributes').delete().eq('user_id', userId);
     await supabaseAdmin.from('credit_ledger').delete().eq('user_id', userId);
     await supabaseAdmin.from('usage_log').delete().eq('user_id', userId);
