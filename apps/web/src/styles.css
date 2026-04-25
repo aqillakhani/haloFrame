@@ -5683,6 +5683,26 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   letter-spacing: 0.02em;
 }
 
+/* AIBadge overlay containers — absolute-positioned over composite imagery
+ * with pointer-events: none so they don't intercept touch/click on the
+ * underlying image (zoom, drag, etc.). */
+.editor-ai-badge {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.tribute-card-ai-badge,
+.lightbox-ai-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  pointer-events: none;
+  z-index: 4;
+}
+
 @media (min-width: 520px) {
   .auth-screen {
     padding: 72px 48px 48px;

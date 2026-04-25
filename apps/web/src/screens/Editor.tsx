@@ -16,6 +16,7 @@ import { COPY } from '../lib/copy';
 import { ImageViewer } from '../components/ImageViewer';
 import { TemplateGallery } from '../components/TemplateGallery';
 import { AuthGateModal } from '../components/AuthGateModal';
+import { AIBadge } from '../components/AIBadge';
 
 type Placement = 'left' | 'right' | 'behind' | 'front';
 
@@ -535,6 +536,11 @@ export function Editor({
             <span className="editor-corner editor-corner--br" aria-hidden />
             <ImageViewer src={displayUrl} alt="Your tribute" loading={viewerLoading} />
             <div className="editor-halo" aria-hidden />
+            {hasStyled && !showOriginal && (
+              <div className="editor-ai-badge" aria-hidden={false}>
+                <AIBadge size="sm" />
+              </div>
+            )}
           </div>
 
           <div className="editor-stage-caption" aria-live="polite">
