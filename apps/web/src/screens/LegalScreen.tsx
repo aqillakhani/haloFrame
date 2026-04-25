@@ -26,7 +26,7 @@ export const PRIVACY = {
   sections: [
     {
       heading: 'Who we are',
-      body: 'haloFrame is operated by {{COMPANY_LEGAL_NAME}}. We make AI-assisted memorial tributes from photos you choose. This policy explains what we collect, why, and what you can ask us to do with it. Questions? Write to {{CONTACT_EMAIL}}.',
+      body: 'haloFrame is operated by {{COMPANY_LEGAL_NAME}}. We make AI-assisted memorial tributes from photos you choose. This policy explains what we collect, why, and what you can ask us to do with it. Questions? Write to support@haloframe.app.',
     },
     {
       heading: 'What we collect',
@@ -46,7 +46,7 @@ export const PRIVACY = {
     },
     {
       heading: 'Your rights (GDPR + CCPA)',
-      body: 'You can download a copy of your data anytime (Settings → Export my data), edit your display name, delete individual tributes, or delete your entire account (Settings → Delete account). Under GDPR Articles 15 and 17, EU residents have the right of access and erasure. Under CCPA §1798.100/.105, California residents have the same rights. Write to {{CONTACT_EMAIL}} for help.',
+      body: 'You can download a copy of your data anytime (Settings → Export my data), edit your display name, delete individual tributes, or delete your entire account (Settings → Delete account). Under GDPR Articles 15 and 17, EU residents have the right of access and erasure. Under CCPA §1798.100/.105, California residents have the same rights. Write to support@haloframe.app for help.',
     },
     {
       heading: 'Third parties we rely on',
@@ -58,7 +58,7 @@ export const PRIVACY = {
     },
     {
       heading: 'Contact',
-      body: 'Privacy questions, data requests, or concerns: {{CONTACT_EMAIL}}. We respond to every message within 5 business days.',
+      body: 'Privacy questions, data requests, or concerns: support@haloframe.app. We respond to every message within 5 business days.',
     },
   ],
 };
@@ -84,7 +84,7 @@ export const TERMS = {
     },
     {
       heading: 'Subscriptions, payments & refunds',
-      body: 'Subscriptions bill monthly or annually and AUTO-RENEW at the end of each period at the then-current price unless cancelled at least 24 hours before renewal. Manage or cancel anytime: iOS — Settings → [your name] → Subscriptions; Android — Play Store → Subscriptions; Web — contact {{CONTACT_EMAIL}}. Your existing tribute allowance stays active through the end of the current period. Canvas orders are custom-made; we can’t accept returns, but we will reprint free of charge if the item arrives damaged or materially different from the preview. Contact {{CONTACT_EMAIL}} within 14 days for reprints.',
+      body: 'Subscriptions bill monthly or annually and AUTO-RENEW at the end of each period at the then-current price unless cancelled at least 24 hours before renewal. Manage or cancel anytime: iOS — Settings → [your name] → Subscriptions; Android — Play Store → Subscriptions; Web — contact support@haloframe.app. Your existing tribute allowance stays active through the end of the current period. Canvas orders are custom-made; we can’t accept returns, but we will reprint free of charge if the item arrives damaged or materially different from the preview. Contact support@haloframe.app within 14 days for reprints.',
     },
     {
       heading: 'Your content',
@@ -108,7 +108,7 @@ export const TERMS = {
     },
     {
       heading: 'Contact',
-      body: 'Questions about these terms: {{CONTACT_EMAIL}}.',
+      body: 'Questions about these terms: support@haloframe.app.',
     },
   ],
 };
