@@ -24,4 +24,25 @@ describe('COPY helpers', () => {
       expect(full).toBe('For the ones we carry with us.');
     });
   });
+
+  // App-store-safe vocabulary regression. The Apple/Google review research
+  // (APPSTORE_PLAYSTORE_RESEARCH §4.2) flagged these terms as triggering
+  // memorial-AI rejection risk. Any future copy pass that reintroduces
+  // them should fail the build here.
+  describe('store-safe vocabulary', () => {
+    const FORBIDDEN = [
+      'deepfake',
+      'resurrect',
+      'alive again',
+      'bring back',
+      'bring them back',
+    ];
+    const json = JSON.stringify(COPY).toLowerCase();
+
+    for (const word of FORBIDDEN) {
+      it(`does not contain "${word}"`, () => {
+        expect(json).not.toContain(word.toLowerCase());
+      });
+    }
+  });
 });
