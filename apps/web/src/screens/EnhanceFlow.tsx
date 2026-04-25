@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { TributeTemplate } from '@haloframe/shared';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -15,6 +15,7 @@ import { SubjectSelector } from '../components/SubjectSelector';
 import { AIConsentModal } from '../components/AIConsentModal';
 import { useConsent } from '../hooks/useConsent';
 import { hasConsented as hasConsentedSync } from '../lib/consent';
+import { pickPhoto } from '../lib/photoPicker';
 import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
@@ -238,13 +239,17 @@ interface UploadPaneProps {
 }
 
 function UploadPane({ onUpload, error }: UploadPaneProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) onUpload(file);
-    // Reset so re-selecting the same file still fires onChange.
-    e.target.value = '';
+  // Platform-aware picker: native uses Capacitor's out-of-process picker
+  // (Apple 5.1.1(iii)); web falls back to <input type=file>. The wrapper
+  // returns a Blob we wrap in a File so onUpload's contract is unchanged.
+  const openPicker = async () => {
+    const photo = await pickPhoto();
+    if (!photo?.blob) return;
+    const ext = photo.format?.includes('png') ? 'png' : 'jpg';
+    const file = new File([photo.blob], `upload.${ext}`, {
+      type: photo.format ?? 'image/jpeg',
+    });
+    onUpload(file);
   };
 
   return (
@@ -293,17 +298,12 @@ function UploadPane({ onUpload, error }: UploadPaneProps) {
           <button
             type="button"
             className="enhance-upload-button"
-            onClick={() => inputRef.current?.click()}
+            onClick={() => {
+              void openPicker();
+            }}
+            aria-label={COPY.enhance.upload.uploadLabel}
           >
             {COPY.enhance.upload.uploadLabel}
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              className="enhance-upload-input"
-              onChange={handleChange}
-              aria-label={COPY.enhance.upload.uploadLabel}
-            />
           </button>
         </div>
         <div className="enhance-upload-foot">{COPY.enhance.upload.footText}</div>

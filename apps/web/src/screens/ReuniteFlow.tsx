@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { TributeTemplate } from '@haloframe/shared';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -16,6 +16,7 @@ import { SavedModal } from '../components/SavedModal';
 import { AIConsentModal } from '../components/AIConsentModal';
 import { useConsent } from '../hooks/useConsent';
 import { hasConsented as hasConsentedSync } from '../lib/consent';
+import { pickPhoto } from '../lib/photoPicker';
 import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
@@ -550,7 +551,6 @@ function UploadPane({
           meta={mainMeta}
           onFile={onMainUpload}
           onClear={onMainClear}
-          inputId="reunite-file-main"
         />
         <UploadCard
           kicker={COPY.reunite.cardKickerLoved}
@@ -563,7 +563,6 @@ function UploadPane({
           meta={lovedMeta}
           onFile={onLovedUpload}
           onClear={onLovedClear}
-          inputId="reunite-file-loved"
         />
       </motion.div>
 
@@ -596,7 +595,6 @@ interface UploadCardProps {
   meta: FileMeta | null;
   onFile: (file: File) => void;
   onClear: () => void;
-  inputId: string;
 }
 
 function UploadCard({
@@ -610,14 +608,18 @@ function UploadCard({
   meta,
   onFile,
   onClear,
-  inputId,
 }: UploadCardProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) onFile(f);
-    // Reset so re-selecting the same file still fires onChange.
-    e.target.value = '';
+  // Platform-aware picker: native uses Capacitor's out-of-process picker
+  // (Apple 5.1.1(iii)); web falls back to <input type=file>. The wrapper
+  // returns a Blob we wrap in a File so onFile's contract is unchanged.
+  const openPicker = async () => {
+    const photo = await pickPhoto();
+    if (!photo?.blob) return;
+    const ext = photo.format?.includes('png') ? 'png' : 'jpg';
+    const file = new File([photo.blob], `upload.${ext}`, {
+      type: photo.format ?? 'image/jpeg',
+    });
+    onFile(file);
   };
   const filled = Boolean(previewUrl && meta);
   return (
@@ -660,19 +662,13 @@ function UploadCard({
           <button
             type="button"
             className="reunite-primary-btn"
-            onClick={() => inputRef.current?.click()}
+            onClick={() => {
+              void openPicker();
+            }}
+            aria-label={uploadLabel}
           >
             {uploadLabel}
           </button>
-          <input
-            ref={inputRef}
-            type="file"
-            id={inputId}
-            accept="image/jpeg,image/png"
-            className="reunite-file-input"
-            onChange={handleChange}
-            aria-label={uploadLabel}
-          />
         </div>
       )}
     </div>
