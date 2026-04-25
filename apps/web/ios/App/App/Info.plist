@@ -47,5 +47,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>haloFrame needs access to your Photos so you can choose pictures of your loved ones to bring together in a memorial portrait.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>haloFrame would like to save your finished tributes to Photos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>haloFrame uses the camera to scan family photos when you'd rather snap them in than upload from Photos.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
