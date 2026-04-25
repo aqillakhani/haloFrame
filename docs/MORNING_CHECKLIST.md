@@ -124,7 +124,164 @@ launch. My suggested priorities:
   pattern works fine in prod; you'd only do this if you want tribute state
   machine features (resume unfinished tribute, etc.).
 
-## 12. If something is on fire
+## 12. App-store launch — what's left for Aqil
+
+The `appstore-launch` branch has shipped **~30 commits** on top of
+`prod-ready/main` covering the App Store + Play Store production
+readiness work (RC client SDK, AI consent modal, watermarking,
+reporting flow, native picker, public legal pages, Capacitor
+scaffolds, Codemagic CI, the reviewer-account seeder, and the full
+store-listings + reviewer-notes + beta-recruitment doc set).
+
+Most of it is autonomous. The list below is the manual surface only
+you can move.
+
+### 12.1 Database — apply the missing migrations
+
+Production Supabase project `uqbckeyoclbhqntawsrz` is missing two
+migrations. Apply both via dashboard SQL editor or `supabase db push`:
+
+```bash
+supabase/migrations/20260421000001_per_flow_free_tier.sql
+supabase/migrations/20260425000001_app_store_compliance.sql  # already applied as of 2026-04-25
+```
+
+The `20260425000001` migration was applied during this work (the
+`ai_consent_at` column is present on `profiles`). The
+`20260421000001` migration adds `enhance_used` + `merge_used` columns
+that the free-tier per-flow gate depends on. Without it, free users
+get BOTH a free Reunite AND a free Enhance (the API soft-fails
+permissive — see `apps/api/src/services/entitlements.ts:179-182`).
+Not a P0; apply before paid launch where the gate becomes the
+sales-funnel choke point.
+
+### 12.2 Vercel — RevenueCat env vars
+
+The web bundle reads two new public env vars at build time:
+
+```
+VITE_RC_IOS_KEY=appl_xxxxxxxxxxxx
+VITE_RC_ANDROID_KEY=goog_xxxxxxxxxxxx
+```
+
+Get them from RevenueCat dashboard → Project → API keys (per
+platform). Set in Vercel → Settings → Environment Variables for
+**all three environments** (Preview, Production, Development).
+Redeploy.
+
+These are **public** SDK keys — safe to embed in the bundle. They
+authenticate the RC SDK on device; the secret key
+`REVENUECAT_SECRET_KEY` lives only on Railway.
+
+### 12.3 Railway — no new env vars
+
+The API didn't need any new env vars for the app-store work. The
+existing list (`docs/DEPLOY.md` §2) is complete. `WATERMARK_DISABLED`
+exists for tests but defaults sensibly in production.
+
+Double-check `RESEND_API_KEY` is set since the `/api/report` flow
+emails you when a tribute is reported.
+
+### 12.4 Reviewer account — already seeded
+
+`scripts/seed-reviewer-account.mjs` was run against prod on
+2026-04-25. Confirmed state in `uqbckeyoclbhqntawsrz`:
+
+- `reviewer@haloframe.app` (auth user `2b3eecbf-538f-4766-ba92-a4f3cec43f1b`)
+- 22 credits available (2 lifetime + 20 top-up, expires 2027-04-25)
+- 4 sample portraits in `tributes-source/<userId>/seed/`
+- Password: in `1Password → haloFrame → reviewer@haloframe.app` (or
+  retrieve from the `REVIEWER_PASSWORD` env var that was passed to
+  the script — same value, `HaloReview-Stub-2026!`)
+
+If you ever need to refresh credits or rotate the password: re-run
+the seeder. It's idempotent — credits get RESET (not incremented),
+photos get upserted, the user is preserved.
+
+### 12.5 Capacitor scaffolds — committed
+
+Both `apps/web/ios/` and `apps/web/android/` were generated via
+`npx cap add ios` / `npx cap add android` and committed in Phase 8.
+Codemagic builds from these directories on every tag push. No
+manual action needed unless you want to update `Info.plist` /
+`AndroidManifest.xml` beyond the v1 minimum (the Phase 8 commits
+already cover NSPhotoLibraryUsageDescription, READ_MEDIA_IMAGES,
+encryption-exemption flag, etc.).
+
+### 12.6 Codemagic — first-run setup
+
+`.codemagic/secrets.md` documents the four secrets you need to set
+in the Codemagic dashboard (App Store Connect API key, Issuer ID,
+Key ID, Team ID). One-time work, ~20 min.
+
+`docs/DEPLOY.md` §4.1 walks through the dashboard setup screen-by-
+screen.
+
+### 12.7 RevenueCat dashboard — Day 4 work
+
+Per the launch calendar (design doc §6, Day 4 = Wed 2026-04-29), set
+up the RC project, apps, products, entitlement, offering, and webhook.
+Step-by-step in design doc §8.3. Two-hour task. Required before the
+first IAP test on a TestFlight build.
+
+### 12.8 App Store Connect + Play Console — Day 5-6
+
+Day 5: ASC bundle ID, app record, sub group, 5 IAP products, API
+key → RC. Day 6: Play Console app, listing skeleton, IAP products,
+service account → RC.
+
+Paste-ready listing copy lives in `docs/STORE_LISTINGS.md`. Paste-
+ready review notes live in `docs/REVIEWER_NOTES.md`.
+
+### 12.9 Beta tester recruitment — Day 0
+
+Send 18 DMs **today** if you haven't already — the 14-day Google
+Closed Testing clock can't start without 12+ active testers, and
+recruitment is the largest schedule risk for the launch.
+
+`docs/BETA_RECRUITMENT.md` has DM templates, channel order, day-by-
+day execution, escalation playbook.
+
+### 12.10 Day 14 — Sat 2026-05-09 — dual submit
+
+The single most important date on the launch calendar. Both stores
+get submission events on the same day, both 14-day clocks start
+ticking together:
+
+```bash
+git tag v1.0.0-rc1
+git push origin v1.0.0-rc1
+```
+
+Codemagic auto-builds iOS + uploads to TestFlight. In parallel,
+manually:
+- App Store Connect → TestFlight → External Testing → Submit for
+  Review (kicks off 7-30 day window)
+- Play Console → Closed Testing → Promote from Internal → add the
+  Google Group (kicks off 14-day window)
+
+After Day 14 you mostly wait. See `docs/plans/2026-04-25-app-store-launch-design.md` §6 weeks 3-6 for
+the rest of the calendar.
+
+### 12.11 Quick verification checklist
+
+Before tagging `v1.0.0-rc1` on Day 14, eyeball this list:
+
+- [ ] `https://haloframe.app/privacy` returns 200 (not a Vercel
+      placeholder)
+- [ ] `https://haloframe.app/terms` returns 200
+- [ ] `https://haloframe.app/support` returns 200
+- [ ] Sign in to TestFlight Internal build → consent modal renders
+      → "I understand" lets you upload
+- [ ] Composite shows "✨ AI-generated" badge in lightbox
+- [ ] Settings → Restore Purchases is visible (native only)
+- [ ] Settings → Manage Subscription deep-links out
+- [ ] `reviewer@haloframe.app` can sign in with the 1Password
+      credential
+- [ ] `STORE_LISTINGS.md` §6 (Day-13 final pre-flight) checklist
+      reads end-to-end with no missing values
+
+## 13. If something is on fire
 
 - Check Sentry (if you set up `SENTRY_DSN`).
 - Railway → Deployments → Logs shows structured pino output with
