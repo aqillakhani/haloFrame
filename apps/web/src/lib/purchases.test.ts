@@ -81,7 +81,7 @@ describe('purchases (native mode)', () => {
 
   it('getOfferings returns mocked offerings', async () => {
     purchasesMock.getOfferings.mockResolvedValue({
-      offerings: { current: { identifier: 'default' } },
+      current: { identifier: 'default' },
     });
     const { getOfferings } = await import('./purchases');
     const result = await getOfferings();

@@ -34,8 +34,9 @@ export async function initRC(opts: InitRCOptions): Promise<void> {
 export async function getOfferings() {
   if (!isNative()) return null;
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
-  const result = await Purchases.getOfferings();
-  return result.offerings;
+  // RC v9 returns PurchasesOfferings directly (the plan's example expected
+  // a wrapper that doesn't exist).
+  return Purchases.getOfferings();
 }
 
 // PurchasesPackage is RC's package shape; we accept it as `unknown`-ish here
@@ -60,8 +61,8 @@ export async function restorePurchases() {
 export async function getCustomerInfo() {
   if (!isNative()) return null;
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
-  const result = await Purchases.getCustomerInfo();
-  return result.customerInfo;
+  // Same as getOfferings — RC v9 returns CustomerInfo directly, not wrapped.
+  return Purchases.getCustomerInfo();
 }
 
 export async function logIn(userId: string): Promise<void> {
