@@ -5652,6 +5652,37 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   color: var(--c-text-ink);
 }
 
+/* AIBadge — always-visible "✨ AI-generated" pill overlaid on composite
+ * imagery. backdrop-filter keeps it readable over varied backgrounds. */
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--c-text-ink, #1c1410);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(28, 20, 16, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ai-badge-sm {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.ai-badge-md {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+.ai-badge-text {
+  letter-spacing: 0.02em;
+}
+
 @media (min-width: 520px) {
   .auth-screen {
     padding: 72px 48px 48px;
