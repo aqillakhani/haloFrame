@@ -61,8 +61,9 @@ export async function restorePurchases() {
 export async function getCustomerInfo() {
   if (!isNative()) return null;
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
-  // Same as getOfferings — RC v9 returns CustomerInfo directly, not wrapped.
-  return Purchases.getCustomerInfo();
+  // RC v9 wraps customerInfo (unlike getOfferings which is unwrapped).
+  const result = await Purchases.getCustomerInfo();
+  return result.customerInfo;
 }
 
 export async function logIn(userId: string): Promise<void> {
