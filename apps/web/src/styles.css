@@ -5547,6 +5547,111 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   border-radius: 8px;
 }
 
+/* AIConsentModal — Apple 5.1.2(i) gate. Reuses the auth-gate scrim pattern
+ * but namespaced so the two modals can theme independently. */
+.ai-consent-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 20, 16, 0.42);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 130;
+}
+
+.ai-consent-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--c-bg-canvas, #FDFBF6);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  box-shadow: 0 30px 80px rgba(28, 20, 16, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ai-consent-heading {
+  font-family: var(--f-serif, 'Source Serif 4', Georgia, serif);
+  font-size: 22px;
+  line-height: 1.22;
+  font-weight: 400;
+  color: var(--c-text-ink);
+  margin: 0;
+  outline: none;
+}
+
+.ai-consent-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+.ai-consent-body p {
+  margin: 0;
+}
+
+.ai-consent-body strong {
+  color: var(--c-text-ink);
+  font-weight: 600;
+}
+
+.ai-consent-link {
+  color: var(--c-text-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ai-consent-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ai-consent-primary {
+  appearance: none;
+  border: none;
+  width: 100%;
+  background: var(--c-text-ink, #1c1410);
+  color: #fff;
+  border-radius: 999px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  min-height: 48px;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.ai-consent-primary:hover {
+  background: #2a1f19;
+}
+
+.ai-consent-primary:active {
+  transform: scale(0.99);
+}
+
+.ai-consent-secondary {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--c-text-muted);
+  font-size: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.ai-consent-secondary:hover {
+  color: var(--c-text-ink);
+}
+
 @media (min-width: 520px) {
   .auth-screen {
     padding: 72px 48px 48px;
