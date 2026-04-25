@@ -18,7 +18,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5187,
+    // Fail loudly if 5187 is taken — silent fallback to 5188 has bitten us
+    // before (Playwright connects to whatever responds on 5173/5187 first).
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:4000',

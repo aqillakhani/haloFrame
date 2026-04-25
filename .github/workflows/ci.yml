@@ -28,7 +28,7 @@ jobs:
       SPIKE_MODE: 'true'
       API_PORT: '4000'
       LOG_LEVEL: 'error'
-      CORS_ORIGINS: 'http://localhost:5173'
+      CORS_ORIGINS: 'http://localhost:5187'
 
     steps:
       - uses: actions/checkout@v4

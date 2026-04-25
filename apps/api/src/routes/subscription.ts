@@ -122,7 +122,7 @@ subscriptionRouter.post(
       }
 
       const body = req.body as z.infer<typeof purchaseSchema>;
-      const origin = req.get('origin') ?? req.get('referer') ?? 'http://localhost:5173';
+      const origin = req.get('origin') ?? req.get('referer') ?? 'http://localhost:5187';
       const success =
         body.successUrl ??
         `${origin}/?purchase=success`;

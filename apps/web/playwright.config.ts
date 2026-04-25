@@ -9,7 +9,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5187',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm --prefix ../.. run dev',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:5187',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     stdout: 'ignore',

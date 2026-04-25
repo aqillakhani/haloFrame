@@ -69,7 +69,7 @@ const baseSchema = z.object({
   SENTRY_DSN: emptyToUndefined(z.string()),
 
   // CORS allowlist (comma-separated)
-  CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174'),
+  CORS_ORIGINS: z.string().default('http://localhost:5187'),
 
   // Dev-only: bypass credit checks (checkCredits, spendCredits, free-tier
   // per-flow gate). IGNORED unless NODE_ENV !== 'production' — see
