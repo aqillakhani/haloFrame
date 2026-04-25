@@ -392,6 +392,28 @@ export async function startPurchase(args: {
 // is fine. References are stashed globally so the browser doesn't GC pending
 // loads before they complete. fetchpriority="high" aligns with the consuming
 // <img> tags so the preload cache entry matches and gets reused.
+// -----------------------------------------------------------------------------
+// Report content — POST /api/report. User-facing reporting flow that satisfies
+// Google Play's AI Content Policy mandate (user-side reporting). The server
+// records to the `reports` table and updates `tributes.flagged_at`.
+// -----------------------------------------------------------------------------
+export type ReportReason =
+  | 'inappropriate'
+  | 'misuse'
+  | 'wrong_person'
+  | 'quality'
+  | 'other';
+
+export interface ReportContentInput {
+  tributeId: string;
+  reason: ReportReason;
+  note?: string;
+}
+
+export async function reportContent(input: ReportContentInput): Promise<void> {
+  await postJson<unknown>('/api/report', input);
+}
+
 const PRELOADED_IMAGES = new Set<HTMLImageElement>();
 
 export function preloadSampleImages(templates: TributeTemplate[]): void {
