@@ -136,24 +136,30 @@ store-listings + reviewer-notes + beta-recruitment doc set).
 Most of it is autonomous. The list below is the manual surface only
 you can move.
 
-### 12.1 Database — apply the missing migrations
+### 12.1 Database — migrations applied ✓
 
-Production Supabase project `uqbckeyoclbhqntawsrz` is missing two
-migrations. Apply both via dashboard SQL editor or `supabase db push`:
+Both migrations are now live on production Supabase project
+`uqbckeyoclbhqntawsrz`:
 
 ```bash
-supabase/migrations/20260421000001_per_flow_free_tier.sql
-supabase/migrations/20260425000001_app_store_compliance.sql  # already applied as of 2026-04-25
+supabase/migrations/20260421000001_per_flow_free_tier.sql  # applied 2026-04-28
+supabase/migrations/20260425000001_app_store_compliance.sql  # applied 2026-04-25
 ```
 
-The `20260425000001` migration was applied during this work (the
-`ai_consent_at` column is present on `profiles`). The
-`20260421000001` migration adds `enhance_used` + `merge_used` columns
-that the free-tier per-flow gate depends on. Without it, free users
-get BOTH a free Reunite AND a free Enhance (the API soft-fails
-permissive — see `apps/api/src/services/entitlements.ts:179-182`).
-Not a P0; apply before paid launch where the gate becomes the
-sales-funnel choke point.
+The `20260425000001` migration adds `profiles.ai_consent_at`,
+`tributes.flagged_at`/`flagged_reason`, and the `reports` table —
+required for the Apple 5.1.2(i) consent surface and the Google AI
+Content Policy reporting flow.
+
+The `20260421000001` migration adds `profiles.enhance_used` +
+`profiles.merge_used` (per-flow free-tier gate) and bumps the
+`credits_remaining` default from 2 → 3. Existing free-tier rows
+were intentionally NOT bumped — the per-flow flags are the primary
+gate now anyway.
+
+Nothing left to do here. If you ever apply a new migration, log it
+the same way (file path + applied-on date) so this section stays a
+single source of truth.
 
 ### 12.2 Vercel — RevenueCat env vars
 

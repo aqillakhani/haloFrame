@@ -8,9 +8,10 @@ Stripe products, DNS). This doc covers the actual deploy mechanics.
 Before deploy, confirm:
 
 - [ ] All migrations under `supabase/migrations/` have been applied to the
-      production Supabase project. The `20260421000001_per_flow_free_tier.sql`
-      migration is required for Phase D enforcement — the app soft-fails
-      without it but free-tier gating will be permissive.
+      production Supabase project. As of 2026-04-28, every committed
+      migration through `20260425000001_app_store_compliance.sql` is
+      live; verify by listing migrations in the Supabase dashboard
+      (Database → Migrations) before any new release.
 - [ ] `npm --workspace=@haloframe/api run seed:templates` has run at least
       once against the production Supabase project.
 - [ ] `.env` files are NOT checked into git (audited: `.gitignore` covers `.env`).
