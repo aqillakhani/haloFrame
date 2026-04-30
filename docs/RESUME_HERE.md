@@ -49,7 +49,7 @@ provided where helpful).
   `uqbckeyoclbhqntawsrz`:
   - `20260421000001_per_flow_free_tier.sql` (per-flow gate columns)
   - `20260425000001_app_store_compliance.sql` (consent + report tables)
-- ✅ Reviewer account seeded: `reviewer@haloframe.app` (auth user
+- ✅ Reviewer account seeded: `reviewer@gethaloframe.com` (auth user
   `2b3eecbf-538f-4766-ba92-a4f3cec43f1b`), 22 credits, 4 sample
   portraits in `tributes-source/<userId>/seed/`. Password in commit
   `abc461b` (rotate via Supabase dashboard before submission).
@@ -65,13 +65,24 @@ provided where helpful).
 - ✅ Design + research docs in `docs/plans/` and
   `APPSTORE_PLAYSTORE_RESEARCH.md`
 
+### Brand + domain (2026-04-29)
+- ✅ Domain `gethaloframe.com` registered on Cloudflare
+- ✅ Codebase rebranded `haloframe.app` → `gethaloframe.com`
+  (bundle ID `com.haloframe.app` preserved — that's locked once stores
+  publish)
+- ✅ App Name finalized as `haloFrame: Memorial Portraits` (29ch — uses
+  brand + descriptor pattern for store search visibility)
+- ✅ Subtitle finalized as `Honor loved ones in one photo` (29ch — the
+  prior `Memorial portraits, made with care` was 34ch and would have
+  failed Apple's 30ch limit)
+
 ---
 
 ## Decisions still open (resolve early)
 
 | Decision | Status | Recommended | Why |
 | --- | --- | --- | --- |
-| Domain | Open | `gethaloframe.com` | `.com` for trust with 35-65+ memorial audience; `get-` prefix is real-app-precedented; `haloframe.app` + `haloframe.com` taken |
+| Domain | DONE 2026-04-29 | `gethaloframe.com` registered on Cloudflare | `.com` for trust with 35-65+ memorial audience; `get-` prefix is real-app-precedented; `haloframe.app` + `haloframe.com` were taken |
 | `{{COMPANY_LEGAL_NAME}}` placeholder | Open | Your registered legal name (sole-prop, LLC, etc.) | Required for Privacy + Terms — the legal-entity name on file with Apple Dev + Google Play |
 | `{{JURISDICTION}}` placeholder | Open | Your state/province | Required for Terms arbitration clause |
 | App icon | Open | Fiverr ~$50 (3-5 day lead) | Phase 8 generated a placeholder; Play + Apple need a real one |
@@ -112,31 +123,17 @@ parallel (icon design + dashboard work + DM recruitment, etc.) — see
 
 ### Foundation (Day 0-1)
 
-#### 1. Register domain — ~5 min, ~$10/yr
-**Status:** UNBLOCKED. Recommended: `gethaloframe.com`.
-**Blocks:** 2, 3, 4, 6, 7, 8, 23, 24 (everything that needs a public URL)
-
-Cloudflare → Register Domains → search `gethaloframe.com` → buy.
-Provide WHOIS + payment.
-
-**Success:** Domain shows in Cloudflare → Registrar → "Active."
+#### 1. Register domain — DONE 2026-04-29 (`gethaloframe.com`)
+**Status:** ✅ Registered on Cloudflare. NS records resolve to
+`logan.ns.cloudflare.com` + `olga.ns.cloudflare.com`.
 
 ---
 
-#### 2. Codebase rebrand to new domain — Claude does, ~5 min
-**Blocked by:** 1
-**Blocks:** 6, 7
-
-Once domain is registered, tell next-session Claude:
-
-> "Domain is `<your-domain>`. Run the codebase rebrand pass:
-> sed-replace `haloframe.app` → `<your-domain>` across `apps/web`,
-> `apps/api`, `docs/`, `scripts/`, the rendered `apps/web/public/*.html`,
-> and the published `STORE_LISTINGS.md` / `REVIEWER_NOTES.md` /
-> `MORNING_CHECKLIST.md`. Regenerate legal HTML via
-> `node scripts/build-legal.mjs`. Commit + push."
-
-**Success:** `git grep haloframe.app` returns 0 hits.
+#### 2. Codebase rebrand to new domain — DONE 2026-04-29
+**Status:** ✅ All `haloframe.app` references replaced with
+`gethaloframe.com` across `apps/web`, `apps/api`, `docs/`, `scripts/`,
+rendered `apps/web/public/*.html`, and store-listing docs. Bundle ID
+`com.haloframe.app` was deliberately preserved (locked identifier).
 
 ---
 
@@ -371,8 +368,8 @@ App Store Connect (`appstoreconnect.apple.com`) → My Apps → "+" → New App.
 - User Access: Full Access
 
 Then in App Information:
-- Subtitle (30ch): `Memorial portraits, made with care`
-- Privacy Policy URL: `https://<your-domain>/privacy`
+- Subtitle (30ch): `Honor loved ones in one photo`
+- Privacy Policy URL: `https://gethaloframe.com/privacy`
 - Category: Photo & Video (primary), Lifestyle (secondary)
 - Content Rights: "Does not contain, show, or access third-party content"
 
@@ -473,7 +470,7 @@ App Store Connect → your app → version 1.0 → App Review Information.
 - Email: your email
 - Sign-in info: paste from `docs/REVIEWER_NOTES.md` §1, "App Store
   Connect — paste this verbatim" block. Username:
-  `reviewer@haloframe.app`. Password: from 1Password (rotate first if
+  `reviewer@gethaloframe.com`. Password: from 1Password (rotate first if
   you want — current literal is in commit `abc461b`).
 - Notes: paste the full Notes block from §1 (4000ch max — current
   draft is well under).
@@ -492,7 +489,7 @@ project assumption.
 
 Play Console (`play.google.com/console`) → All apps → "+ Create app".
 
-- App name: `haloFrame`
+- App name: `haloFrame: Memorial Portraits`
 - Default language: English (United States)
 - App or game: App
 - Free or paid: Free
@@ -532,7 +529,7 @@ Submit.
 
 Play Console → Grow → Store presence → Main store listing.
 
-- App name: `haloFrame`
+- App name: `haloFrame: Memorial Portraits`
 - Short description (80ch): paste from `docs/STORE_LISTINGS.md` §2.2
 - Full description (4000ch): paste from §2.3
 - Icon: upload `apps/web/resources/icon.png` (Task 8)
@@ -831,7 +828,7 @@ seed for word-of-mouth). Update `docs/MORNING_CHECKLIST.md` §12 with
 
 | Script | What it does | When to run |
 | --- | --- | --- |
-| `scripts/seed-reviewer-account.mjs` | Creates `reviewer@haloframe.app` w/ 22 credits + 4 sample portraits in prod Supabase | Already run; re-run if rotating reviewer password |
+| `scripts/seed-reviewer-account.mjs` | Creates `reviewer@gethaloframe.com` w/ 22 credits + 4 sample portraits in prod Supabase | Already run; re-run if rotating reviewer password |
 | `scripts/build-legal.mjs` | Generates `apps/web/public/{privacy,terms,support}.html` from `LegalScreen.tsx` | After Task 3 (legal placeholders fill) |
 | `scripts/topup-user.mjs` | Manually grant credits to a user | Granting Heritage tier to confirmed beta testers post-window |
 | `scripts/smoke-redesign.mjs` | API-side smoke test (9 checks) | Before any submission, with `DEV_UNLIMITED_CREDITS=false` |

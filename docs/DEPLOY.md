@@ -65,12 +65,12 @@ further tuning required.
    STRIPE_PRICE_CANVAS_24X36=...
    STRIPE_PRICE_CANVAS_36X48=...
    RESEND_API_KEY=...
-   RESEND_FROM=orders@haloframe.app
+   RESEND_FROM=orders@gethaloframe.com
    ORDER_NOTIFICATION_EMAIL=aqil.lakhani8@gmail.com
    SENTRY_DSN=...                 (optional)
    ```
 4. After the first successful deploy, grab the Railway-provided domain (or
-   attach your `api.haloframe.app` custom domain). Register it as the Stripe
+   attach your `api.gethaloframe.com` custom domain). Register it as the Stripe
    webhook endpoint in the Stripe dashboard:
    ```
    https://<railway-domain>/api/webhook/stripe
@@ -84,9 +84,9 @@ further tuning required.
 
 Point DNS once both platforms have accepted their custom domains:
 
-- `haloframe.app` + `www.haloframe.app` → Vercel (A/CNAME per Vercel's
+- `gethaloframe.com` + `www.gethaloframe.com` → Vercel (A/CNAME per Vercel's
   dashboard instructions).
-- `api.haloframe.app` → Railway CNAME.
+- `api.gethaloframe.com` → Railway CNAME.
 - Keep TTLs short (300s) on the initial cutover so you can roll back fast
   if anything misbehaves.
 
@@ -268,7 +268,7 @@ limiter for the production submit on Day 28.
 ### 4.7 Universal Links / App Links (deferred for v1)
 
 The original DEPLOY.md noted both platforms need
-`https://haloframe.app` reachable for Universal Links / App Links.
+`https://gethaloframe.com` reachable for Universal Links / App Links.
 That requirement is still true if/when we ship deep linking, but at
 v1 we don't have any deep links and `apple-app-site-association` /
 `assetlinks.json` are not yet served. Add when we add deep linking;

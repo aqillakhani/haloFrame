@@ -1,7 +1,7 @@
 // =============================================================================
 // HaloFrame API — watermark service
 //
-// Bakes "✨ AI-generated · haloframe.app" into the bottom-right of every
+// Bakes "✨ AI-generated · gethaloframe.com" into the bottom-right of every
 // composite output. The label travels with the file even if downloaded and
 // shared outside the app — the deepfake-mitigation half of the App Store /
 // Play Store AI labeling guidance.
@@ -14,7 +14,7 @@
 // =============================================================================
 import sharp from 'sharp';
 
-const WATERMARK_TEXT = '✨ AI-generated · haloframe.app';
+const WATERMARK_TEXT = '✨ AI-generated · gethaloframe.com';
 
 function buildWatermarkSvg(): Buffer {
   // Fixed virtual viewBox (600×80); sharp resizes to the target on composite.

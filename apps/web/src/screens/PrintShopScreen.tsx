@@ -276,7 +276,7 @@ export function PrintShopScreen() {
           </div>
           <a
             className="print-shop-contact-pill"
-            href="mailto:hello@haloframe.app?subject=Canvas%20sizing%20question"
+            href="mailto:hello@gethaloframe.com?subject=Canvas%20sizing%20question"
           >
             <span className="print-shop-contact-pill-dot" aria-hidden />
             {COPY.printShop.contactPill}

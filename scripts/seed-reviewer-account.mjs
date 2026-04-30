@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Idempotent reviewer-account seeder for App Review.
 //
-// Creates `reviewer@haloframe.app` with 20 top-up credits + 4 sample
+// Creates `reviewer@gethaloframe.com` with 20 top-up credits + 4 sample
 // portrait photos in storage. Used to populate App Store Connect
 // "App Review Information → Sign-In" + Play Console "Reviewer credentials".
 //
@@ -30,7 +30,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..');
 const FIXTURES_DIR = resolve(HERE, 'fixtures/reviewer-photos');
 
-const REVIEWER_EMAIL = 'reviewer@haloframe.app';
+const REVIEWER_EMAIL = 'reviewer@gethaloframe.com';
 const REVIEWER_CREDITS = 20;
 // 1-year top-up window covers a full TestFlight + ASC review cycle.
 const TOPUP_TTL_DAYS = 365;

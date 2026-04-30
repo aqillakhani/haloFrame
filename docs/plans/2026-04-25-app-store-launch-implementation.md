@@ -78,7 +78,7 @@ Open `docs/plans/2026-04-25-app-store-launch-design.md`. Sections 5 (architectur
 The design doc §3 lists Aqil-supplied values. The plan needs **these by end of Day 1**:
 
 - `{{COMPANY_LEGAL_NAME}}` — for Privacy + Terms + reviewer-account creation
-- `{{CONTACT_EMAIL}}` = `support@haloframe.app` (set up Day 1, Track A §8.1)
+- `{{CONTACT_EMAIL}}` = `support@gethaloframe.com` (set up Day 1, Track A §8.1)
 - `{{JURISDICTION}}` — Aqil's state, for the arbitration clause
 
 If unblocked, ping Aqil. Phase 7 (legal hosting) cannot complete without these.
@@ -1605,7 +1605,7 @@ profiles, auth.users. New reports table auto-cascades via FK."
 - Create: `apps/api/src/services/watermark.ts`
 - Create: `apps/api/src/services/watermark.test.ts`
 
-The watermark adds "✨ AI-generated · haloframe.app" to the bottom-right of every composite. Uses `sharp.composite` (already in the api deps; it's used elsewhere for image ops).
+The watermark adds "✨ AI-generated · gethaloframe.com" to the bottom-right of every composite. Uses `sharp.composite` (already in the api deps; it's used elsewhere for image ops).
 
 **Step 1: Test**
 
@@ -1691,7 +1691,7 @@ npm --workspace=@haloframe/api run test -- watermark
 ```ts
 import sharp from 'sharp';
 
-const WATERMARK_TEXT = '✨ AI-generated · haloframe.app';
+const WATERMARK_TEXT = '✨ AI-generated · gethaloframe.com';
 
 function buildWatermarkSvg(width: number): Buffer {
   const fontSize = Math.max(12, Math.round(width * 0.022));
@@ -1748,7 +1748,7 @@ npm --workspace=@haloframe/api run test -- watermark
 git add apps/api/src/services/watermark.ts apps/api/src/services/watermark.test.ts
 git commit -m "feat(api): watermark service
 
-sharp.composite + SVG-rendered '✨ AI-generated · haloframe.app' on
+sharp.composite + SVG-rendered '✨ AI-generated · gethaloframe.com' on
 bottom-right ~38% width. Honors WATERMARK_DISABLED=true env for
 testing. Tests assert dim preservation + bottom-right delta + top-left
 no-op."
@@ -2368,7 +2368,7 @@ behavior unchanged."
 
 ## Phase 7 — Public legal hosting (Day 2)
 
-**Goal:** Render the Privacy/Terms content from `LegalScreen.tsx` to static HTML at `apps/web/public/privacy.html`, `terms.html`, `support.html` so they are served at `https://haloframe.app/privacy`, `/terms`, `/support`.
+**Goal:** Render the Privacy/Terms content from `LegalScreen.tsx` to static HTML at `apps/web/public/privacy.html`, `terms.html`, `support.html` so they are served at `https://gethaloframe.com/privacy`, `/terms`, `/support`.
 
 ### Task 7.1: `scripts/build-legal.mjs` — TDD-lite
 
@@ -2495,7 +2495,7 @@ writeFileSync(
   `${OUT_DIR}/support.html`,
   htmlShell(
     'Support',
-    `<p>Need help? Email <a href="mailto:support@haloframe.app">support@haloframe.app</a> — we reply within 24 hours.</p>
+    `<p>Need help? Email <a href="mailto:support@gethaloframe.com">support@gethaloframe.com</a> — we reply within 24 hours.</p>
      <h2>Frequently asked</h2>
      <p><strong>How do I delete my account?</strong> Open Settings → Delete Account in the app. We remove all your photos and data within 30 days.</p>
      <p><strong>How do I cancel my subscription?</strong> iOS / Android: open the App Store / Play Store → Subscriptions → haloFrame → Cancel. Web: contact support.</p>
@@ -2523,7 +2523,7 @@ git commit -m "feat(scripts): build-legal.mjs renders privacy/terms/support to p
 
 Extracts PRIVACY_SECTIONS + TERMS_SECTIONS from LegalScreen.tsx and
 writes apps/web/public/{privacy,terms,support}.html. Vercel will serve
-these at haloframe.app/{privacy,terms,support}."
+these at gethaloframe.com/{privacy,terms,support}."
 ```
 
 ---
@@ -2568,7 +2568,7 @@ LegalScreen.tsx on every deploy."
 
 **Step 1: Confirm Aqil supplied:**
 - `{{COMPANY_LEGAL_NAME}}`
-- `{{CONTACT_EMAIL}}` = `support@haloframe.app`
+- `{{CONTACT_EMAIL}}` = `support@gethaloframe.com`
 - `{{JURISDICTION}}`
 
 **Step 2: Find + replace** the placeholders in `LegalScreen.tsx`. Run:
@@ -3013,7 +3013,7 @@ git commit -m "docs(ci): document Codemagic secrets + first-run checklist"
 
 ## Phase 10 — Demo account seeder (Day 5)
 
-**Goal:** Idempotent script that creates `reviewer@haloframe.app` with 4 sample portrait photos, for App Review Information demo credentials.
+**Goal:** Idempotent script that creates `reviewer@gethaloframe.com` with 4 sample portrait photos, for App Review Information demo credentials.
 
 ### Task 10.1: `scripts/seed-reviewer-account.mjs`
 
@@ -3047,7 +3047,7 @@ for (const v of REQUIRED) {
   if (!process.env[v]) throw new Error(`Missing ${v}`);
 }
 
-const REVIEWER_EMAIL = 'reviewer@haloframe.app';
+const REVIEWER_EMAIL = 'reviewer@gethaloframe.com';
 
 const supa = createClient(
   process.env.SUPABASE_URL,
@@ -3133,7 +3133,7 @@ Expected: prints "Reviewer account ready" with the email + credit count.
 git add scripts/seed-reviewer-account.mjs scripts/fixtures/reviewer-photos
 git commit -m "feat(scripts): seed-reviewer-account.mjs for App Review
 
-Idempotent. Creates reviewer@haloframe.app with 20 credits + 4 sample
+Idempotent. Creates reviewer@gethaloframe.com with 20 credits + 4 sample
 portrait photos. Used to populate ASC App Access fields + Play Console
 reviewer credentials."
 ```
@@ -3449,12 +3449,12 @@ The implementation plan ends here. Track A from the design doc covers everything
 
 | Day | Aqil action | Effort | Cost |
 |---|---|---|---|
-| 0 | Register `haloframe.app` (Cloudflare) | 30 min | $15 |
+| 0 | Register `gethaloframe.com` (Cloudflare) | 30 min | $15 |
 | 0 | Cloudflare Email Routing → Gmail | 10 min | $0 |
 | 0 | Send 18 beta DMs (template in `docs/BETA_RECRUITMENT.md`) | 60 min | $0 |
 | 1 | Apply DB migration `20260425000001_app_store_compliance.sql` to prod | 10 min | $0 |
 | 1 | Supply `{{COMPANY_LEGAL_NAME}}` + `{{JURISDICTION}}` | 5 min | $0 |
-| 1-2 | DNS records, SSL verification, support@haloframe.app reachable | 30 min | $0 |
+| 1-2 | DNS records, SSL verification, support@gethaloframe.com reachable | 30 min | $0 |
 | 4 | RevenueCat dashboard setup (project, apps, products, entitlement, offering, webhook) | 2h | $0 |
 | 5 | App Store Connect setup (bundle ID, app, sub group, IAP products, ASC API key → RC) | 2-3h | $0 |
 | 5 | Run `node scripts/seed-reviewer-account.mjs` against prod once | 5 min | $0 |

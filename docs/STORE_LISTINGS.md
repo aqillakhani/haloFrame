@@ -6,10 +6,10 @@ are noted in section headers so you can spot-check before pasting.
 
 **Bundle identifier (both stores):** `com.haloframe.app`
 **Developer name:** `{{COMPANY_LEGAL_NAME}}` *(use the same legal name on both stores)*
-**Support email:** `support@haloframe.app`
-**Support URL:** `https://haloframe.app/support`
-**Privacy Policy URL:** `https://haloframe.app/privacy`
-**Terms URL:** `https://haloframe.app/terms`
+**Support email:** `support@gethaloframe.com`
+**Support URL:** `https://gethaloframe.com/support`
+**Privacy Policy URL:** `https://gethaloframe.com/privacy`
+**Terms URL:** `https://gethaloframe.com/terms`
 
 Marketing voice rule: frame the product as **honoring**, **remembering**,
 **tribute** — never **deepfake**, **resurrect**, **bring back**, **alive
@@ -25,8 +25,8 @@ copy that ships.
 
 | Field | Value |
 | --- | --- |
-| **Name** (30ch) | `haloFrame` |
-| **Subtitle** (30ch) | `Memorial portraits, made with care` |
+| **Name** (30ch) | `haloFrame: Memorial Portraits` |
+| **Subtitle** (30ch) | `Honor loved ones in one photo` |
 | **Bundle ID** | `com.haloframe.app` |
 | **SKU** | `haloframe-ios-001` |
 | **Primary language** | English (U.S.) |
@@ -102,9 +102,9 @@ or "bring back" anyone — the portrait is a still composite, made
 from photos you already have. Any photo we generate is yours to keep
 and yours to delete.
 
-Privacy: https://haloframe.app/privacy
-Terms:   https://haloframe.app/terms
-Support: support@haloframe.app
+Privacy: https://gethaloframe.com/privacy
+Terms:   https://gethaloframe.com/terms
+Support: support@gethaloframe.com
 ```
 
 ### 1.4 Keywords — 100 ch max, comma-separated
@@ -222,8 +222,8 @@ Subscriptions automatically renew at the same price each period unless
 auto-renew is turned off at least 24 hours before the end of the
 current period. Manage or cancel in Settings → Subscriptions on
 device, or via Settings → Subscriptions on the App Store. Privacy
-Policy: https://haloframe.app/privacy. Terms of Use:
-https://haloframe.app/terms.
+Policy: https://gethaloframe.com/privacy. Terms of Use:
+https://gethaloframe.com/terms.
 ```
 
 ### 1.12 App Review Information
@@ -256,7 +256,7 @@ https://haloframe.app/terms.
 
 | Field | Value |
 | --- | --- |
-| **App name** (30 ch) | `haloFrame` |
+| **App name** (30 ch) | `haloFrame: Memorial Portraits` |
 | **Default language** | English (United States) – `en-US` |
 | **App or game** | App |
 | **Free or paid** | Free *(monetized via in-app purchases)* |
@@ -333,9 +333,9 @@ portraits. Every output is labeled. We do not animate, voice, or
 photos you already have. Any photo we generate is yours to keep and
 yours to delete.
 
-Privacy: https://haloframe.app/privacy
-Terms:   https://haloframe.app/terms
-Support: support@haloframe.app
+Privacy: https://gethaloframe.com/privacy
+Terms:   https://gethaloframe.com/terms
+Support: support@gethaloframe.com
 ```
 
 ### 2.4 Graphic Assets
@@ -442,7 +442,7 @@ you delete your account or request export.
 We do not use your data for advertising, do not sell it to third
 parties, and do not include any analytics SDK that aggregates beyond
 crash diagnostics. Account deletion: Settings → Delete Account in the
-app, or POST https://haloframe.app/api/me/delete from a signed-in
+app, or POST https://gethaloframe.com/api/me/delete from a signed-in
 session.
 ```
 
@@ -524,7 +524,7 @@ new developer accounts (research §2.5).
   Thanks for testing haloFrame! Try a Reunite or an Enhance, then
   open Settings to confirm your subscription state. Report anything
   weird via the in-app "Report" button or email
-  support@haloframe.app.
+  support@gethaloframe.com.
   ```
 
 ---
@@ -623,9 +623,9 @@ field below has a real value (not placeholder):
 - [ ] Description (4000 ch — pasted from §1.3)
 - [ ] Promotional text (170 ch — pasted from §1.2)
 - [ ] Keywords (100 ch — pasted from §1.4)
-- [ ] Support URL → `https://haloframe.app/support` (live, not 404)
-- [ ] Marketing URL → `https://haloframe.app` (live)
-- [ ] Privacy Policy URL → `https://haloframe.app/privacy` (live)
+- [ ] Support URL → `https://gethaloframe.com/support` (live, not 404)
+- [ ] Marketing URL → `https://gethaloframe.com` (live)
+- [ ] Privacy Policy URL → `https://gethaloframe.com/privacy` (live)
 - [ ] Age rating questionnaire (§1.5)
 - [ ] App Privacy questionnaires (§1.6 — §1.8)
 - [ ] All 5 IAP products with display names + descriptions (§1.10)
@@ -644,7 +644,7 @@ field below has a real value (not placeholder):
 - [ ] App icon 512×512 (uploaded)
 - [ ] Feature graphic 1024×500 (uploaded)
 - [ ] Phone screenshots 4-8 × 1080×1920 (uploaded)
-- [ ] Privacy Policy URL → `https://haloframe.app/privacy` (live)
+- [ ] Privacy Policy URL → `https://gethaloframe.com/privacy` (live)
 - [ ] Email + website + (optional) phone for the developer contact
 - [ ] App content questionnaires:
   - [ ] Privacy Policy URL set

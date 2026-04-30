@@ -10,7 +10,7 @@ Today's date matters — every day of inaction is a day of slip.
 **Already done (don't redo):**
 - All Phase 0-12 implementation work + tests + docs
 - Both DB migrations applied to production Supabase
-- Reviewer account seeded (`reviewer@haloframe.app`, 22 credits, 4 sample portraits)
+- Reviewer account seeded (`reviewer@gethaloframe.com`, 22 credits, 4 sample portraits)
 - Branch pushed to GitHub (`origin/appstore-launch`, 88 commits)
 
 **Still needed (this doc).** Six phases below. Each step has:
@@ -332,7 +332,7 @@ Single hardest dashboard. Plan a focused 3-hour block.
 
 Play Console (`play.google.com/console`) → All apps → "+ Create app".
 
-- App name: `haloFrame`
+- App name: `haloFrame: Memorial Portraits`
 - Default language: English (United States)
 - App or game: App
 - Free or paid: Free
@@ -350,7 +350,7 @@ Play Console → Your app → Policy → App content → App access → "+ Manag
   Sign-in is required. The reviewer account is preloaded with 22
   credits and 4 sample portraits. Demo credentials below.
   ```
-- Username: `reviewer@haloframe.app`
+- Username: `reviewer@gethaloframe.com`
 - Password: `<paste from 1Password>` (the `HaloReview-Stub-2026!` value
   in commit `abc461b`, or rotate via Supabase dashboard first)
 - Save.
@@ -412,7 +412,7 @@ All three: No.
 
 Play Console → Grow → Store presence → Main store listing.
 
-- App name: `haloFrame`
+- App name: `haloFrame: Memorial Portraits`
 - Short description: paste from `docs/STORE_LISTINGS.md` §2.2 (78 chars)
 - Full description: paste from `docs/STORE_LISTINGS.md` §2.3 (~2300 chars)
 - Icon: upload `apps/web/resources/icon.png` (after Phase A3 lands)

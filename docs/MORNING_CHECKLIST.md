@@ -45,7 +45,7 @@ for verification emails.
 
 1. [resend.com](https://resend.com) → sign up, verify your sending domain.
 2. Copy the API key as `RESEND_API_KEY`.
-3. Pick an envelope sender, e.g. `orders@haloframe.app` → set as
+3. Pick an envelope sender, e.g. `orders@gethaloframe.com` → set as
    `RESEND_FROM`.
 
 ## 5. Vercel (web) — 15 min
@@ -193,10 +193,10 @@ emails you when a tribute is reported.
 `scripts/seed-reviewer-account.mjs` was run against prod on
 2026-04-25. Confirmed state in `uqbckeyoclbhqntawsrz`:
 
-- `reviewer@haloframe.app` (auth user `2b3eecbf-538f-4766-ba92-a4f3cec43f1b`)
+- `reviewer@gethaloframe.com` (auth user `2b3eecbf-538f-4766-ba92-a4f3cec43f1b`)
 - 22 credits available (2 lifetime + 20 top-up, expires 2027-04-25)
 - 4 sample portraits in `tributes-source/<userId>/seed/`
-- Password: in `1Password → haloFrame → reviewer@haloframe.app` (or
+- Password: in `1Password → haloFrame → reviewer@gethaloframe.com` (or
   retrieve from the `REVIEWER_PASSWORD` env var that was passed to
   the script — same value, `HaloReview-Stub-2026!`)
 
@@ -273,16 +273,16 @@ the rest of the calendar.
 
 Before tagging `v1.0.0-rc1` on Day 14, eyeball this list:
 
-- [ ] `https://haloframe.app/privacy` returns 200 (not a Vercel
+- [ ] `https://gethaloframe.com/privacy` returns 200 (not a Vercel
       placeholder)
-- [ ] `https://haloframe.app/terms` returns 200
-- [ ] `https://haloframe.app/support` returns 200
+- [ ] `https://gethaloframe.com/terms` returns 200
+- [ ] `https://gethaloframe.com/support` returns 200
 - [ ] Sign in to TestFlight Internal build → consent modal renders
       → "I understand" lets you upload
 - [ ] Composite shows "✨ AI-generated" badge in lightbox
 - [ ] Settings → Restore Purchases is visible (native only)
 - [ ] Settings → Manage Subscription deep-links out
-- [ ] `reviewer@haloframe.app` can sign in with the 1Password
+- [ ] `reviewer@gethaloframe.com` can sign in with the 1Password
       credential
 - [ ] `STORE_LISTINGS.md` §6 (Day-13 final pre-flight) checklist
       reads end-to-end with no missing values

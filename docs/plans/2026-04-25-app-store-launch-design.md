@@ -45,13 +45,13 @@ Repo state confirmed at `.worktrees/prod-ready` on branch `prod-ready/main`:
 8. Privacy/Terms placeholder fills + 2026 store-policy clauses (fal.ai disclosure, GDPR/CCPA, retention SLA)
 9. Public hosted privacy/terms URLs
 10. App icon, splash, screenshots
-11. Domain (`haloframe.app`), DNS, support email
+11. Domain (`gethaloframe.com`), DNS, support email
 12. RevenueCat dashboard products (server expects them; dashboard not configured)
 13. App Store Connect app + IAP product config
 14. Play Console app + IAP product config
 15. Codemagic CI for iOS (no-Mac build pipeline)
 16. Beta tester recruits (12+ for Google Closed Testing)
-17. Demo account for App Review (`reviewer@haloframe.app`)
+17. Demo account for App Review (`reviewer@gethaloframe.com`)
 
 ---
 
@@ -62,7 +62,7 @@ Repo state confirmed at `.worktrees/prod-ready` on branch `prod-ready/main`:
 | Mac access | None | iOS archives go through Codemagic CI (free tier 500 min/mo) |
 | Timeline | Balanced 5-6 weeks, both stores | Two-track parallel; Day 14 dual submission |
 | Account state | Apple Developer + Google Play + RevenueCat all active | $0 additional account spend |
-| Domain | Not registered | Day 0 task — `haloframe.app` (~$15) |
+| Domain | Not registered | Day 0 task — `gethaloframe.com` (~$15) |
 | Legal review | Use existing template + my fills, no lawyer | Saves ~1-2 weeks; standard for solopreneur launch |
 | Beta testers | Self-recruit | Day 0 task — 18 DMs sent, target 12 active |
 | AI safety badge | Always-visible "✨ AI-generated" | Maximizes approval probability; minor UX cost |
@@ -99,7 +99,7 @@ The two tracks meet on **Day 14 (Sat 2026-05-09)** — a single dual-submit day 
 - Web stays on Stripe (browser, no IAP requirement). iOS/Android route subscription purchases through RevenueCat SDK → Apple IAP / Google Play Billing. RC webhook hits the existing `/api/subscription/webhook` and grants credits via the same `grant_credits` RPC.
 - Stripe stays for canvas prints on all 3 surfaces (physical-goods exception).
 - AI-safety surface is new: consent modal, watermark, "✨ AI-generated" badge, user-reporting sheet.
-- Privacy/Terms hosted at public URLs (`haloframe.app/privacy`, `/terms`); in-app `LegalScreen.tsx` keeps its template form for in-app reading.
+- Privacy/Terms hosted at public URLs (`gethaloframe.com/privacy`, `/terms`); in-app `LegalScreen.tsx` keeps its template form for in-app reading.
 
 ---
 
@@ -109,7 +109,7 @@ The two tracks meet on **Day 14 (Sat 2026-05-09)** — a single dual-submit day 
 
 | Day | Date | Track A | Track B |
 |---|---|---|---|
-| 0 | Sat Apr 25 | Register `haloframe.app` (Cloudflare); Cloudflare Email Routing → Gmail; **send 18 beta DMs** | Branch off `prod-ready/main` → `appstore-launch`; install `@revenuecat/purchases-capacitor` + `@capacitor/assets` |
+| 0 | Sat Apr 25 | Register `gethaloframe.com` (Cloudflare); Cloudflare Email Routing → Gmail; **send 18 beta DMs** | Branch off `prod-ready/main` → `appstore-launch`; install `@revenuecat/purchases-capacitor` + `@capacitor/assets` |
 | 1 | Sun Apr 26 | Apply DB migration `20260425000001_app_store_compliance.sql` (dev); Aqil supplies `{{COMPANY_LEGAL_NAME}}` + `{{JURISDICTION}}` | Build `purchases.ts` + `useRevenueCat()` hook + branched PaywallScreen |
 | 2 | Mon Apr 27 | DNS propagating; SSL verified; legal docs drafted with 2026 fills | Build AIConsentModal + consent.ts + useConsent hook + wire to flows |
 | 3 | Tue Apr 28 | Apply prod DB migration; deploy `/privacy` + `/terms` live; confirm support email reachable; **Day-3 follow-up DMs** | Build AIBadge + bake into Editor + MyTributes; build ReportContentSheet + `/api/report` route |
@@ -194,7 +194,7 @@ Total: ~1300 LOC across ~35 files (15 new, 20 modified).
 
 | File | Change |
 |---|---|
-| `apps/api/src/services/watermark.ts` | NEW ~80 LOC: takes composite buffer, overlays bottom-right "✨ AI-generated · haloframe.app" via sharp.composite |
+| `apps/api/src/services/watermark.ts` | NEW ~80 LOC: takes composite buffer, overlays bottom-right "✨ AI-generated · gethaloframe.com" via sharp.composite |
 | `apps/api/src/routes/spike.ts` (or `tribute.ts`) | MODIFY ~10 LOC: pipe composite through `applyWatermark()` before signed-URL upload |
 | `apps/api/src/routes/report.ts` | NEW ~50 LOC: POST `/api/report`, validates body (zod), updates `tributes.flagged_at`, fires Sentry tag, emails admin via Resend |
 | `apps/api/src/index.ts` | MODIFY ~3 LOC: register `reportRouter` |
@@ -245,7 +245,7 @@ Total: ~1300 LOC across ~35 files (15 new, 20 modified).
 
 ### I. Demo account seeder — ~60 LOC
 
-`scripts/seed-reviewer-account.mjs` — idempotent script creating `reviewer@haloframe.app` + 4 sample portrait photos.
+`scripts/seed-reviewer-account.mjs` — idempotent script creating `reviewer@gethaloframe.com` + 4 sample portrait photos.
 
 ### J. Tests — ~150 LOC
 
@@ -280,18 +280,18 @@ Total: ~1300 LOC across ~35 files (15 new, 20 modified).
 ## 8. Outside-code work (Section 3 detail)
 
 ### 8.1 Domain, DNS, support email — Day 1, ~30 min, $15
-- Cloudflare Registrar: `haloframe.app`
-- DNS TTL 300: A `haloframe.app` → Vercel; CNAME `www` → Vercel; CNAME `api` → Railway
-- Cloudflare Email Routing: `support@haloframe.app` → Gmail; Gmail filter "haloFrame" label
+- Cloudflare Registrar: `gethaloframe.com`
+- DNS TTL 300: A `gethaloframe.com` → Vercel; CNAME `www` → Vercel; CNAME `api` → Railway
+- Cloudflare Email Routing: `support@gethaloframe.com` → Gmail; Gmail filter "haloFrame" label
 
 ### 8.2 Legal docs — Day 1-2, ~3 hours, $0
-**Aqil supplies:** `{{COMPANY_LEGAL_NAME}}`, `{{CONTACT_EMAIL}}` = `support@haloframe.app`, `{{JURISDICTION}}` (your state).
+**Aqil supplies:** `{{COMPANY_LEGAL_NAME}}`, `{{CONTACT_EMAIL}}` = `support@gethaloframe.com`, `{{JURISDICTION}}` (your state).
 
 **Privacy doc additions (research-cited):** explicit fal.ai/AI partner paragraph; "We never train AI on your photos"; 30-day deletion SLA; GDPR Art. 15/17 + CCPA §1798.100/.105 callouts; processor list (Supabase, fal.ai, Stripe, Resend, Vercel, Railway, RevenueCat, Sentry); retention schedule; "no ad tracking" section.
 
 **Terms doc additions:** auto-renewal disclosure with Apple-required wording; acceptable-use prohibitions on deepfakes-of-others / sexually explicit / defamatory; AI-accuracy disclaimer; user content license grant (non-exclusive, royalty-free, only for processing); arbitration clause (binding, individual, in your state).
 
-**Hosting:** `scripts/build-legal.mjs` extracts content arrays from `LegalScreen.tsx`, writes `apps/web/public/privacy.html` + `terms.html` + `support.html`. Vercel serves at `https://haloframe.app/privacy`, `/terms`, `/support`.
+**Hosting:** `scripts/build-legal.mjs` extracts content arrays from `LegalScreen.tsx`, writes `apps/web/public/privacy.html` + `terms.html` + `support.html`. Vercel serves at `https://gethaloframe.com/privacy`, `/terms`, `/support`.
 
 ### 8.3 RevenueCat dashboard — Day 2-3, ~2 hours, $0
 1. New project "haloFrame" (separate from existing Lumore)
@@ -304,13 +304,13 @@ Total: ~1300 LOC across ~35 files (15 new, 20 modified).
    - `haloframe_topup_single` — ~$2.49 non-renewing
 4. Entitlement `tributes` — attach all subscription products
 5. Offering `default` — packages: monthly_keepsake, monthly_heritage, annual_heritage, topups
-6. Webhook: `https://api.haloframe.app/api/subscription/webhook`, Authorization header = `REVENUECAT_WEBHOOK_AUTH_HEADER` env on Railway
+6. Webhook: `https://api.gethaloframe.com/api/subscription/webhook`, Authorization header = `REVENUECAT_WEBHOOK_AUTH_HEADER` env on Railway
 7. API keys (iOS public, Android public) → `apps/web/.env` as `VITE_RC_IOS_KEY` / `VITE_RC_ANDROID_KEY`
 
 ### 8.4 App Store Connect — Day 3-5, ~3 hours, $0
 1. Apple Developer Portal → register `com.haloframe.app` App ID with In-App Purchase capability
 2. New App: `haloFrame`, bundle `com.haloframe.app`, SKU `haloframe-ios-001`
-3. App Information: subtitle "Memorial portraits, made with care", category Photo & Video (primary) / Lifestyle (secondary)
+3. App Information: subtitle "Honor loved ones in one photo" (29ch — original `Memorial portraits, made with care` was 34ch, over Apple's 30ch limit), category Photo & Video (primary) / Lifestyle (secondary)
 4. App Privacy questionnaire:
    - Data: Photos, Email, User ID, Purchase History, Crash Data
    - Use: App Functionality, Analytics, Product Personalization
@@ -319,7 +319,7 @@ Total: ~1300 LOC across ~35 files (15 new, 20 modified).
 5. Subscription group "tributes" → 3 auto-renewing + 2 non-renewing products
 6. Each subscription: localized display name + description, review screenshot
 7. ASC API key (Users and Access → Keys, role App Manager) → upload p8 + issuer ID + key ID to RC
-8. Listing: description (4000ch), promotional text (170ch), keywords (100ch), Support URL `https://haloframe.app/support`, Privacy Policy URL `https://haloframe.app/privacy`
+8. Listing: description (4000ch), promotional text (170ch), keywords (100ch), Support URL `https://gethaloframe.com/support`, Privacy Policy URL `https://gethaloframe.com/privacy`
 9. Age Rating questionnaire — expected 4+
 10. App Review Information: paste from `docs/REVIEWER_NOTES.md`
 
@@ -358,15 +358,15 @@ Total: ~1300 LOC across ~35 files (15 new, 20 modified).
 - Day 5 + Day 10 reminder DMs
 
 ### 8.9 Demo account seeding — Day 5, ~30 min
-Run `node scripts/seed-reviewer-account.mjs` against prod Supabase. Creates `reviewer@haloframe.app` with strong random password (saved to 1Password + ASC App Access fields + Play Console App Access fields) and 4 sample portrait photos.
+Run `node scripts/seed-reviewer-account.mjs` against prod Supabase. Creates `reviewer@gethaloframe.com` with strong random password (saved to 1Password + ASC App Access fields + Play Console App Access fields) and 4 sample portrait photos.
 
 ### 8.10 Existing accounts — verify
 | Service | What to confirm |
 |---|---|
-| Vercel | Web app at `haloframe.app`; main branch auto-deploy |
-| Railway | API at `api.haloframe.app`; env vars complete |
-| Stripe | Live keys, products, webhook `https://api.haloframe.app/api/webhook/stripe`, `STRIPE_WEBHOOK_SECRET` |
-| Resend | Domain verified, `RESEND_FROM=orders@haloframe.app` |
+| Vercel | Web app at `gethaloframe.com`; main branch auto-deploy |
+| Railway | API at `api.gethaloframe.com`; env vars complete |
+| Stripe | Live keys, products, webhook `https://api.gethaloframe.com/api/webhook/stripe`, `STRIPE_WEBHOOK_SECRET` |
+| Resend | Domain verified, `RESEND_FROM=orders@gethaloframe.com` |
 | Supabase | OAuth (Google, Apple) enabled; anonymous sign-ins enabled; new migration applied |
 | Sentry | Optional — `SENTRY_DSN` (Railway) + `VITE_SENTRY_DSN` (Vercel) |
 
@@ -385,7 +385,7 @@ Run `node scripts/seed-reviewer-account.mjs` against prod Supabase. Creates `rev
 | 7 | **Google Closed Testing 14-day rule failed** | **Medium** | Testers didn't actually use app | Add 3 more testers, ask all to open + generate one tribute, restart 14-day clock. **+14d ⚠** |
 | 8 | Google Data Safety form mismatch | Low | Form vs privacy mismatch | Update form. +24-48h |
 | 9 | Codemagic build failure | Medium | Cert/signing/pod | Iterate via logs; Day 11-12 buffer. No timeline impact if caught week 2 |
-| 10 | Domain registration surprise | Very low | `haloframe.app` taken | Fallback `haloframe.io` / `gethaloframe.com`. +1h |
+| 10 | Domain registration surprise | Very low | `gethaloframe.com` taken | Fallback `haloframe.io` / `gethaloframe.com`. +1h |
 | 11 | Beta tester dropout | Medium | <12 active in 14d window | Recruited 15-18 buffer; Reddit/FB if short. No timeline impact if caught Day 5-10 |
 | 12 | fal.ai outage during demo/review | Low | 500 mid-test | Backend surfaces clearly; reviewer retries. Mock-mode env-flag if chronic. +4h |
 | 13 | ASC/Google service account expiry | Very low | Keys rotate | Calendar reminder 1 month pre-expiry; rotate manually |

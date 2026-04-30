@@ -2,7 +2,7 @@
 // Render Privacy + Terms + Support pages from LegalScreen content arrays
 // to static HTML in apps/web/public/. Run as a prebuild step. The output
 // HTML is what App Store reviewers and Play Store reviewers see at
-// haloframe.app/{privacy,terms,support} — they have to be reachable
+// gethaloframe.com/{privacy,terms,support} — they have to be reachable
 // without launching the app.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -92,15 +92,15 @@ writeFileSync(
 
 const SUPPORT_BODY = `
 <section>
-  <p>Need help? Email <a href="mailto:support@haloframe.app">support@haloframe.app</a> — we reply within 24 hours.</p>
+  <p>Need help? Email <a href="mailto:support@gethaloframe.com">support@gethaloframe.com</a> — we reply within 24 hours.</p>
 </section>
 <section>
   <h2>Frequently asked</h2>
   <p><strong>How do I delete my account?</strong> Open Settings → Delete Account in the app. We remove all your photos and data within 30 days.</p>
   <p><strong>How do I cancel my subscription?</strong> iOS: Settings → [your name] → Subscriptions → haloFrame → Cancel. Android: Play Store → Subscriptions → haloFrame → Cancel. Web: contact support.</p>
   <p><strong>How is my photo data used?</strong> See the <a href="/privacy">Privacy Policy</a>. Briefly: photos are sent to fal.ai for AI processing only, never used to train models, never shared.</p>
-  <p><strong>How do I report a bug?</strong> Email <a href="mailto:support@haloframe.app">support@haloframe.app</a> with a screenshot if you have one.</p>
-  <p><strong>I want a refund.</strong> Email <a href="mailto:support@haloframe.app">support@haloframe.app</a> within 14 days of the charge. We honor the platform store's refund policy and do our best to resolve quickly.</p>
+  <p><strong>How do I report a bug?</strong> Email <a href="mailto:support@gethaloframe.com">support@gethaloframe.com</a> with a screenshot if you have one.</p>
+  <p><strong>I want a refund.</strong> Email <a href="mailto:support@gethaloframe.com">support@gethaloframe.com</a> within 14 days of the charge. We honor the platform store's refund policy and do our best to resolve quickly.</p>
 </section>
 `.trim();
 

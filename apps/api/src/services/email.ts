@@ -32,7 +32,7 @@ async function sendViaResend(args: SendArgs): Promise<{ delivered: boolean }> {
     process.stderr.write(`\n[email:stub] TO: ${args.to}\nSUBJECT: ${args.subject}\nBODY:\n${args.html}\n\n`);
     return { delivered: false };
   }
-  const from = env.RESEND_FROM ?? 'HaloFrame <orders@haloframe.app>';
+  const from = env.RESEND_FROM ?? 'HaloFrame <orders@gethaloframe.com>';
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

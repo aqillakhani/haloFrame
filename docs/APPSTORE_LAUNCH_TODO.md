@@ -16,7 +16,7 @@ and `{{JURISDICTION}}` strings. Fill them before tagging `v1.0.0-rc1`.
 | `{{COMPANY_LEGAL_NAME}}` | Privacy "Who we are"; Terms "Welcome", "Our content" | The legal-entity name on file with Apple Developer + Google Play (e.g. "Aqil Lakhani Sole Proprietorship" or your registered LLC) |
 | `{{JURISDICTION}}` | Terms "Disputes — binding arbitration" | The state/province whose courts handle disputes (typically your home state for a sole prop, or where the LLC is registered) |
 
-`{{CONTACT_EMAIL}}` was already filled with `support@haloframe.app`.
+`{{CONTACT_EMAIL}}` was already filled with `support@gethaloframe.com`.
 
 ### One-shot replacement
 
@@ -48,7 +48,7 @@ plus anything new from this session.)
   Data Collected → Photos & User Content → linked to identity → not used
   for tracking
 - Google Play Console: data-safety form should reference the same
-  Privacy Policy URL (`haloframe.app/privacy`)
+  Privacy Policy URL (`gethaloframe.com/privacy`)
 - TestFlight Internal: validate native picker (iOS); confirm RevenueCat
   Sandbox shows the four products
 

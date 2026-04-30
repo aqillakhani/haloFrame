@@ -255,7 +255,7 @@ clock. Could you open it once today? It's a single tap.
 ```
 🙏 Closed beta is wrapping. Couldn't have submitted without you.
 Your Lifetime Heritage tier just landed on the account you used —
-sign in at haloframe.app to verify.
+sign in at gethaloframe.com to verify.
 
 If anyone you know would benefit from it, the Play Store goes
 live ~June 1. Word of mouth is the entire launch plan, so even

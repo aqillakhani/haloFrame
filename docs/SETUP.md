@@ -97,7 +97,7 @@ Wired in Phase F. User actions:
    env as `STRIPE_PUBLISHABLE_KEY` and `STRIPE_SECRET_KEY`.
 4. Developers → Webhooks → add endpoint:
    ```
-   https://api.haloframe.app/api/webhook/stripe
+   https://api.gethaloframe.com/api/webhook/stripe
    ```
    Events to listen for:
    - `checkout.session.completed`
@@ -113,7 +113,7 @@ Used for order notifications + customer receipts.
 
 1. [resend.com](https://resend.com) → sign up, verify your domain.
 2. API key → copy into Railway env as `RESEND_API_KEY`.
-3. From address — use something like `orders@haloframe.app`.
+3. From address — use something like `orders@gethaloframe.com`.
 
 The order-notification email goes to `ORDER_NOTIFICATION_EMAIL` (default
 `aqil.lakhani8@gmail.com`).
@@ -129,7 +129,7 @@ The order-notification email goes to `ORDER_NOTIFICATION_EMAIL` (default
 2. Copy every env var in `.env.example` that isn't a `VITE_` or `EXPO_`
    value into Railway's environment.
 3. Railway auto-detects the Dockerfile; first deploy takes ~3-5 min.
-4. Attach a custom domain (e.g. `api.haloframe.app`) once DNS is in place.
+4. Attach a custom domain (e.g. `api.gethaloframe.com`) once DNS is in place.
 
 ### 4.2 Web — Vercel
 
@@ -142,7 +142,7 @@ The order-notification email goes to `ORDER_NOTIFICATION_EMAIL` (default
 
 ### 4.3 DNS
 
-Point `api.haloframe.app` → Railway's public URL (CNAME). Point the apex
+Point `api.gethaloframe.com` → Railway's public URL (CNAME). Point the apex
 and `www` → Vercel via `A` record + `CNAME` as Vercel's DNS guide shows.
 
 ---

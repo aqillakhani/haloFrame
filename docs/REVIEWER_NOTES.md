@@ -9,7 +9,7 @@ blocks — those are the exact strings reviewers see. Edit only the
 metadata around them (e.g. password retrieval path) before pasting.
 
 > **Reviewer credential note.** The literal password is **not committed
-> to git**. Retrieve it from `1Password → haloFrame → reviewer@haloframe.app`
+> to git**. Retrieve it from `1Password → haloFrame → reviewer@gethaloframe.com`
 > (or from the value of `REVIEWER_PASSWORD` you used when you ran
 > `node scripts/seed-reviewer-account.mjs` — the seeder run already
 > created the account and uploaded 4 sample portraits). Paste the
@@ -22,7 +22,7 @@ metadata around them (e.g. password retrieval path) before pasting.
 ### Demo account (App Access section)
 
 ```
-Username: reviewer@haloframe.app
+Username: reviewer@gethaloframe.com
 Password: <paste from 1Password — do not commit literal>
 ```
 
@@ -82,7 +82,7 @@ CONSENT (Apple 5.1.2(i) — third-party AI disclosure)
 - The user's consent timestamp is stored on `profiles.ai_consent_at`
   and confirmed on every first-of-flow upload.
 - The full data flow is in our Privacy Policy at
-  https://haloframe.app/privacy (section "Third-party AI").
+  https://gethaloframe.com/privacy (section "Third-party AI").
 
 CONTENT MODERATION (Google AI Content Policy)
 - Every composite is rendered with a small "✨ AI-generated" mark
@@ -122,7 +122,7 @@ ACCOUNT DELETION (Apple 5.1.1 + Google equivalent)
   auth.users row, cascades to profiles, tributes, credit_ledger,
   reports, and all storage objects under the user's prefix.
 - Web (separate from this app, mandatory): the app's web build at
-  https://haloframe.app exposes the same Settings → Delete Account
+  https://gethaloframe.com exposes the same Settings → Delete Account
   flow, accessible without the iOS app.
 
 OTA UPDATES
@@ -150,12 +150,12 @@ Reviewer account credits: 22 (2 lifetime free + 20 top-up). Plenty for
 the test path above.
 
 CONTACT
-Email: support@haloframe.app
+Email: support@gethaloframe.com
 Phone (escalation only): provided on the App Review Information form
 
-Privacy Policy: https://haloframe.app/privacy
-Terms of Use:   https://haloframe.app/terms
-Support:        https://haloframe.app/support
+Privacy Policy: https://gethaloframe.com/privacy
+Terms of Use:   https://gethaloframe.com/terms
+Support:        https://gethaloframe.com/support
 ```
 
 ---
@@ -165,7 +165,7 @@ Support:        https://haloframe.app/support
 ### App content → App access → Instructions for testing
 
 ```
-Username: reviewer@haloframe.app
+Username: reviewer@gethaloframe.com
 Password: <paste from 1Password — do not commit literal>
 
 Sign-in is required. The account above is pre-loaded with 22
@@ -206,7 +206,7 @@ AI CONTENT MODERATION (Google AI Content Policy compliance)
   "I understand."
 
 DATA SAFETY (matches Privacy Policy verbatim — see
-https://haloframe.app/privacy)
+https://gethaloframe.com/privacy)
 - Photos: collected, encrypted in transit, shared with fal.ai for
   composite generation, deletable on account deletion.
 - Email: collected for account; not shared.
@@ -222,7 +222,7 @@ In-app: Settings → Delete Account → confirm. Cascades through:
 - all Supabase storage objects under the user's UID prefix
 - all reports rows authored by the user
 
-Web flow (mandatory by Play policy): https://haloframe.app/account/delete
+Web flow (mandatory by Play policy): https://gethaloframe.com/account/delete
 exposes the same flow without requiring the Android app.
 
 NATIVE INTEGRATION
@@ -237,10 +237,10 @@ Asset/JS updates only via Capgo. No native code, no new permissions,
 no new SDKs without going through Play review.
 
 CONTACT
-Email: support@haloframe.app
-Privacy: https://haloframe.app/privacy
-Terms:   https://haloframe.app/terms
-Support: https://haloframe.app/support
+Email: support@gethaloframe.com
+Privacy: https://gethaloframe.com/privacy
+Terms:   https://gethaloframe.com/terms
+Support: https://gethaloframe.com/support
 ```
 
 ---
