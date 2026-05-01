@@ -4,6 +4,7 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci --no-audit --no-fund",
   "framework": "vite",
+  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/(.*)",
