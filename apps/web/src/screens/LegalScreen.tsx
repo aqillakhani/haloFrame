@@ -26,7 +26,7 @@ export const PRIVACY = {
   sections: [
     {
       heading: 'Who we are',
-      body: 'haloFrame is operated by {{COMPANY_LEGAL_NAME}}. We make AI-assisted memorial tributes from photos you choose. This policy explains what we collect, why, and what you can ask us to do with it. Questions? Write to support@gethaloframe.com.',
+      body: 'haloFrame is operated by Keshwani Consultancy Corp. We make AI-assisted memorial tributes from photos you choose. This policy explains what we collect, why, and what you can ask us to do with it. Questions? Write to support@gethaloframe.com.',
     },
     {
       heading: 'What we collect',
@@ -68,7 +68,7 @@ export const TERMS = {
   sections: [
     {
       heading: 'Welcome',
-      body: 'These are the terms that govern your use of haloFrame, operated by {{COMPANY_LEGAL_NAME}}. By creating an account or using the app, you agree to them.',
+      body: 'These are the terms that govern your use of haloFrame, operated by Keshwani Consultancy Corp. By creating an account or using the app, you agree to them.',
     },
     {
       heading: 'What the app does',
@@ -92,7 +92,7 @@ export const TERMS = {
     },
     {
       heading: 'Our content',
-      body: 'The app itself, including the name, logo, UI, template artwork, and underlying software, belongs to {{COMPANY_LEGAL_NAME}}. You may not copy, reverse-engineer, or resell it.',
+      body: 'The app itself, including the name, logo, UI, template artwork, and underlying software, belongs to Keshwani Consultancy Corp. You may not copy, reverse-engineer, or resell it.',
     },
     {
       heading: 'Disclaimers & limits',
@@ -100,7 +100,7 @@ export const TERMS = {
     },
     {
       heading: 'Disputes — binding arbitration',
-      body: 'Any dispute under these terms will be resolved by binding INDIVIDUAL arbitration in {{JURISDICTION}}, except that either party may bring small-claims-court actions individually. You and we both waive the right to a jury trial and the right to participate in class actions.',
+      body: 'Any dispute under these terms will be resolved by binding INDIVIDUAL arbitration in Texas, except that either party may bring small-claims-court actions individually. You and we both waive the right to a jury trial and the right to participate in class actions.',
     },
     {
       heading: 'Changes',
