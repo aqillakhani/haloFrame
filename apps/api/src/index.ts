@@ -183,8 +183,12 @@ if (env.SENTRY_DSN) {
 
 app.use(errorHandler);
 
-const server = app.listen(env.API_PORT, () => {
-  logger.info(`HaloFrame API listening on port ${env.API_PORT}`);
+// Prefer PORT (set dynamically by Railway/Heroku/etc) over API_PORT so the
+// container binds to whatever the platform expects without needing config
+// changes per environment.
+const port = Number.parseInt(process.env.PORT ?? '', 10) || env.API_PORT;
+const server = app.listen(port, () => {
+  logger.info(`HaloFrame API listening on port ${port}`);
 });
 
 // -----------------------------------------------------------------------------

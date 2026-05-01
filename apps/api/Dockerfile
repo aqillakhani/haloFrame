@@ -22,10 +22,10 @@ RUN npm ci --no-audit --no-fund
 FROM node:20-alpine AS build
 WORKDIR /repo
 
+# npm workspaces hoist everything to /repo/node_modules; per-workspace
+# node_modules typically don't exist after `npm ci`, so only copy the
+# hoisted root.
 COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /repo/apps/web/node_modules ./apps/web/node_modules
-COPY --from=deps /repo/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
 
 # Build shared first so the API can consume its compiled output.
