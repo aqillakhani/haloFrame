@@ -116,6 +116,16 @@ provided where helpful).
 - ✅ Task 7 — full smoke green: `/`, `/privacy`, `/terms`, `/support`,
   `www` from Vercel; `/healthz`, `/readyz` from Railway. All 200, legal
   pages contain real Keshwani Consultancy Corp + fal.ai mentions.
+- ✅ Task 10 — RevenueCat dashboard configured via OAuth-authenticated
+  MCP. Project `proj6d70d494` now has 2 real-store apps (iOS + Android,
+  bundle `com.haloframe.app`), 10 products (5 per platform), the
+  `tributes` entitlement (with all 6 sub-products attached), and the
+  `haloframe-default` offering (5 packages, current). Public SDK keys
+  pushed to Vercel.
+- ✅ Task 11 — Webhook integration → `/api/subscription/webhook` with
+  48-byte Bearer auth header. `REVENUECAT_WEBHOOK_AUTH_HEADER` set on
+  Railway. Three-probe smoke confirmed: no/wrong auth → 401, correct
+  auth + valid event → 200.
 
 > Cloudflare credentials for the launch sprint are saved at
 > `.env.cloudflare.local` (gitignored via `.env.*.local` pattern). Two
@@ -366,37 +376,78 @@ Save to `docs/screenshots/{ios,android}/0{1..6}.png`.
 
 ### RevenueCat (Day 4)
 
-#### 10. RevenueCat dashboard — ~90 min
-**Status:** Mostly UNBLOCKED. Webhook URL deferred until Task 6.
-**Blocks:** 11, 18, 22, 31
+#### 10. RevenueCat dashboard — DONE 2026-05-01
+**Status:** ✅ Driven via the RC MCP server (OAuth-authenticated with
+full project_configuration + customer_information scopes). Project
+`haloFrame` (`proj6d70d494`) now contains:
 
-`docs/PLAYSTORE_WALKTHROUGH.md` Phase A4 has step-by-step. Sets up:
-- Project `haloFrame`
-- iOS app `com.haloframe.app` — capture Public SDK key for
-  `VITE_RC_IOS_KEY`
-- Android app `com.haloframe.app` — capture Public SDK key for
-  `VITE_RC_ANDROID_KEY`
-- 5 products (3 subscriptions, 2 non-renewing top-ups)
-- Entitlement `tributes` (attach 3 subscription products)
-- Default offering with 5 packages
-- Webhook URL: leave blank, fill in Task 11 once Railway is up
+- **Apps (2):**
+  - iOS — `app0a91ef1ece` (`app_store`, bundle `com.haloframe.app`).
+    Public SDK key: `appl_dSHXNXeddPvJJZODditwWVhvRZR` → set in Vercel
+    as `VITE_RC_IOS_KEY` (Production + Development envs).
+  - Android — `appda6fc8225e` (`play_store`, package
+    `com.haloframe.app`). Public SDK key:
+    `goog_jyBSiWWmCiZdLqmVrwFPpQPNCgJ` → set in Vercel as
+    `VITE_RC_ANDROID_KEY` (Production + Development envs).
+- **Products (10, 5 per platform):**
+  - Subscriptions: `haloframe_keepsake_monthly`,
+    `haloframe_heritage_monthly`, `haloframe_heritage_annual`. Android
+    productIds use `productId:basePlanId` form
+    (`haloframe_keepsake_monthly:monthly`, etc.).
+  - Non-renewing top-ups: `haloframe_topup_4pack`,
+    `haloframe_topup_single` (iOS = `non_renewing_subscription`,
+    Android = `consumable`).
+- **Entitlement:** `tributes` (`entl69652835d6`) — 6 subscription
+  products attached (3 iOS + 3 Android). Top-ups deliberately NOT
+  attached; they grant one-shot credits via the webhook.
+- **Offering:** `haloframe-default` (`ofrng21efb76404`,
+  `is_current=true`) with 5 packages, each containing iOS + Android
+  product variants:
+  - `$rc_custom_keepsake_monthly` — Keepsake (5 tributes / month)
+  - `$rc_custom_heritage_monthly` — Heritage (20 tributes / month)
+  - `$rc_annual` — Heritage Annual (240 tributes / year)
+  - `$rc_custom_topup_4pack` — 4-Tribute Pack
+  - `$rc_custom_topup_single` — Single Tribute
+- **Onboarding artifacts (cosmetic, not removed):** the RC MCP
+  `archive-*` endpoints all 400 with "Content-Type not
+  application/json" so the original Swift-template entitlement
+  (`haloFrame Pro` / `entlb07c161e4f`), offering (`default` /
+  `ofrng54011e9252`), and 3 test products
+  (`monthly`/`yearly`/`lifetime`) still appear in the project.
+  They're not referenced anywhere — archive via dashboard if desired.
+- **Vercel Preview env gap:** `vercel env add` to Preview kept
+  prompting for git-branch filter (CLI quirk). VITE_RC_* are on
+  Production + Development only. Add via Vercel dashboard if needed
+  for branch previews; doesn't block native builds since Codemagic
+  picks up Capacitor RC keys from its own secret store, not Vercel.
 
-**Success:** Project shows 5 products, 1 entitlement, 1 offering with
-5 packages.
+**Success:** Project shows 2 apps, 10 products, 1 active entitlement,
+1 current offering with 5 packages.
 
 ---
 
-#### 11. RevenueCat webhook URL — ~5 min
-**Blocked by:** 6, 10
-**Blocks:** all IAP testing
+#### 11. RevenueCat webhook URL — DONE 2026-05-01
+**Status:** ✅ Webhook integration `whintgr5a8b0a7d71` (haloFrame API
+(Railway)) → `https://api.gethaloframe.com/api/subscription/webhook`,
+listening for 12 event types (initial_purchase, renewal,
+non_renewing_purchase, cancellation, uncancellation, expiration,
+billing_issue, product_change, transfer, subscription_paused,
+subscription_extended, refund_reversed). Authorization header set on
+both ends to a 48-byte cryptographically-random Bearer secret.
 
-RevenueCat → Project → Integrations → Webhooks.
-- URL: `https://api.<your-domain>/api/subscription/webhook`
-- Authorization header: paste the `REVENUECAT_WEBHOOK_AUTH_HEADER`
-  value from your Railway env (e.g. `Bearer <shared-secret>`).
-- Save.
+`REVENUECAT_WEBHOOK_AUTH_HEADER` is set on Railway (api service) and
+saved locally to `.env.railway.local` (gitignored). The full secret
+is also in the RC dashboard webhook config — keep both in sync if you
+ever rotate.
 
-**Success:** RC's "Send test event" returns 200.
+**Smoke verification (post-deploy):**
+| Probe | Expected | Result |
+| --- | --- | --- |
+| POST /api/subscription/webhook (no Authorization) | 401 | ✅ 401 |
+| POST /api/subscription/webhook (wrong Bearer) | 401 | ✅ 401 |
+| POST /api/subscription/webhook (correct Bearer + CANCELLATION event) | 200 with `applied:false, reason:ignored:CANCELLATION` | ✅ 200 |
+
+So RC's "Send test event" from the dashboard will succeed end-to-end.
 
 ---
 
