@@ -449,8 +449,8 @@ haloframe_heritage_annual   $199/yr   yearly
 Top-ups go under Monetize → Products → In-app products:
 
 ```
-haloframe_topup_4pack    $7.99 consumable  90-day expiry
-haloframe_topup_single   $2.49 consumable  90-day expiry
+haloframe_topup_4pack    $7.99 consumable  no expiry
+haloframe_topup_single   $2.49 consumable  no expiry
 ```
 
 Each subscription needs a localized base plan + benefits list. Use the

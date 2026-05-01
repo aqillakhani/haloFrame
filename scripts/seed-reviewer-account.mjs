@@ -32,8 +32,9 @@ const FIXTURES_DIR = resolve(HERE, 'fixtures/reviewer-photos');
 
 const REVIEWER_EMAIL = 'reviewer@gethaloframe.com';
 const REVIEWER_CREDITS = 20;
-// 1-year top-up window covers a full TestFlight + ASC review cycle.
-const TOPUP_TTL_DAYS = 365;
+// Top-up credits never expire (Apple Guideline 3.1.1: "Any credits or
+// in-game currencies purchased via in-app purchase may not expire").
+// Mirrors the production grant path which now writes null.
 
 // Portrait dimensions match a typical phone capture (4:5 aspect).
 const PORTRAIT_W = 1024;
@@ -133,10 +134,9 @@ async function ensureCredits(supa, userId) {
   // enhance_used + merge_used come from migration 20260421000001 which may
   // not be applied yet on a given environment; falls back to credits-only
   // (mirrors scripts/topup-user.mjs).
-  const expiresAt = new Date(Date.now() + TOPUP_TTL_DAYS * 86_400_000).toISOString();
   const baseUpdate = {
     topup_credits_remaining: REVIEWER_CREDITS,
-    topup_expires_at: expiresAt,
+    topup_expires_at: null,
   };
   const withFlags = { ...baseUpdate, enhance_used: false, merge_used: false };
 
@@ -146,7 +146,7 @@ async function ensureCredits(supa, userId) {
     ({ error } = await supa.from('profiles').update(baseUpdate).eq('id', userId));
   }
   if (error) throw error;
-  console.log(`[seed] credits set to ${REVIEWER_CREDITS} (expires ${expiresAt.slice(0, 10)})`);
+  console.log(`[seed] credits set to ${REVIEWER_CREDITS} (no expiry)`);
 }
 
 async function ensurePhotos(supa, userId) {

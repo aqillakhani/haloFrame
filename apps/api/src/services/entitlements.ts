@@ -78,8 +78,13 @@ interface DbProfileCredit {
 function computeTotalCredits(row: DbProfileCredit): number {
   // Mirror the RPC's stale-topup handling so the snapshot the UI sees lines
   // up with what spend_credits would actually let through on the next call.
+  // Apple Guideline 3.1.1: credits purchased via IAP may not expire, so new
+  // top-ups stamp `topup_expires_at = null`. Null means "never expires" —
+  // legacy non-null rows keep the original time-bounded behavior until they
+  // burn down.
   const topupAlive =
-    row.topup_expires_at && new Date(row.topup_expires_at).getTime() > Date.now();
+    row.topup_expires_at === null ||
+    new Date(row.topup_expires_at).getTime() > Date.now();
   const topup = topupAlive ? row.topup_credits_remaining : 0;
   return topup + row.credits_rollover + row.credits_remaining;
 }

@@ -409,7 +409,7 @@ export const COPY = {
 
     // Top-up section
     topupHeading: 'Add more tributes',
-    topupSubtitle: 'One-time purchase. Credits expire after 90 days.',
+    topupSubtitle: 'One-time purchase. Credits never expire.',
 
     // Fine print — two halves separated by a middle-dot. Settings renders
     // the separator at reduced opacity for a typographic beat.

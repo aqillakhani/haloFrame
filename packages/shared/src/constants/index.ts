@@ -189,7 +189,7 @@ export const SUBSCRIPTION_PLANS_UI: SubscriptionPlanUI[] = [
     rolloverMonths: 0,
     tag: null,
     revenueCatProductId: 'haloframe_topup_4pack',
-    subtitle: 'Expires after 90 days',
+    subtitle: 'Never expires',
   },
   {
     id: 'topup_single',

@@ -71,11 +71,10 @@ if (!profileRows || profileRows.length === 0) {
 const before = profileRows[0];
 console.log('BEFORE:', JSON.stringify(before, null, 2));
 
-const now = new Date();
-const expires = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+// Top-up credits do not expire (Apple 3.1.1). Mirrors prod webhook behavior.
 const patch = {
   topup_credits_remaining: (before.topup_credits_remaining ?? 0) + creditsToAdd,
-  topup_expires_at: expires.toISOString(),
+  topup_expires_at: null,
 };
 
 // enhance_used / merge_used columns come from a migration that may or may

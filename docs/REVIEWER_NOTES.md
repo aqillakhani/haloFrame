@@ -106,8 +106,8 @@ In-App Purchases:
   haloframe_keepsake_monthly  $9.99/mo  — 5 portraits/month
   haloframe_heritage_monthly  $24.99/mo — 20 portraits/month
   haloframe_heritage_annual   $199/yr   — 240 portraits/year
-  haloframe_topup_4pack       $7.99     — 4 portraits, 90-day window
-  haloframe_topup_single      $2.49     — 1 portrait, 90-day window
+  haloframe_topup_4pack       $7.99     — 4 portraits, never expire
+  haloframe_topup_single      $2.49     — 1 portrait, never expires
 
 Free tier: 1 free Reunite + 1 free Enhance per account, lifetime.
 

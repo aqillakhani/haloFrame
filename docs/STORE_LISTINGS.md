@@ -479,8 +479,8 @@ single set; a typo means a free user can't be promoted to paid.
 
 | Product ID | Display name | Description | Price |
 | --- | --- | --- | --- |
-| `haloframe_topup_4pack` | 4-Tribute Pack | 4 extra portraits, expires in 90 days | USD 7.99 |
-| `haloframe_topup_single` | Single Tribute | 1 extra portrait, expires in 90 days | USD 2.49 |
+| `haloframe_topup_4pack` | 4-Tribute Pack | 4 extra portraits, never expire | USD 7.99 |
+| `haloframe_topup_single` | Single Tribute | 1 extra portrait, never expires | USD 2.49 |
 
 > Set both consumables to **Consumable** in Play Console (not
 > entitlement-style). The credit ledger handles consumption server-side

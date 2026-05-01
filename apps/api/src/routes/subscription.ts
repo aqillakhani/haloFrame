@@ -153,8 +153,8 @@ subscriptionRouter.post(
 //
 // Subscription products grant `credits` on initial purchase and on each
 // renewal, and set `planId` + `renewsOn` on the profile. Non-renewing
-// top-ups grant `credits` into the `topup_credits_remaining` bucket with a
-// 90-day expiry window.
+// top-ups grant `credits` into the `topup_credits_remaining` bucket with
+// no expiry (Apple 3.1.1 prohibits expiring IAP credits).
 //
 // Product IDs match the RevenueCat dashboard config documented in
 // memory/project_pricing_strategy.md.
@@ -192,16 +192,16 @@ const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionPlanConfig> = {
 
 interface TopupProductConfig {
   credits: number;
-  expiresInDays: number;
 }
 
-// Every top-up bucket gets a 90-day expiry regardless of product to keep
-// the single-bucket semantics simple. Pricing strategy flagged "—" for
-// single but didn't specify non-expiring; treating it as 90d here and
-// documenting on the paywall is the cleanest trade-off for now.
+// Top-up credits have no expiry. Apple App Store Review Guideline 3.1.1:
+// "Any credits or in-game currencies purchased via in-app purchase may
+// not expire." Credits expiring would be a guaranteed reject. The DB
+// function grant_credits is migrated in 20260501000001 to no longer
+// auto-stamp a 90-day window when p_topup_expires_at is null.
 const TOPUP_PRODUCTS: Record<string, TopupProductConfig> = {
-  haloframe_topup_4pack: { credits: 4, expiresInDays: 90 },
-  haloframe_topup_single: { credits: 1, expiresInDays: 90 },
+  haloframe_topup_4pack: { credits: 4 },
+  haloframe_topup_single: { credits: 1 },
 };
 
 interface RevenueCatEvent {
@@ -317,9 +317,6 @@ subscriptionRouter.post('/webhook', async (req, res, next) => {
       TOPUP_PRODUCTS[productId]
     ) {
       const topup = TOPUP_PRODUCTS[productId];
-      const expiresAt = new Date(
-        Date.now() + topup.expiresInDays * 86_400_000,
-      ).toISOString();
 
       const { error, data } = await supabaseAdmin.rpc('grant_credits', {
         p_user_id: userId,
@@ -327,7 +324,7 @@ subscriptionRouter.post('/webhook', async (req, res, next) => {
         p_action: 'topup_purchase',
         p_plan_id: null,
         p_renews_on: null,
-        p_topup_expires_at: expiresAt,
+        p_topup_expires_at: null,
         p_revenuecat_event_id: eventId ?? null,
       });
       if (error) throw errors.internal('Failed to grant top-up credits', { error });
