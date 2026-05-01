@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build --workspace=@haloframe/shared && npm run build --workspace=@haloframe/web",
-  "outputDirectory": "apps/web/dist",
+  "outputDirectory": "dist",
   "installCommand": "npm ci --no-audit --no-fund",
   "framework": "vite",
   "rewrites": [
