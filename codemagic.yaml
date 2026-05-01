@@ -30,14 +30,16 @@ workflows:
     scripts:
       - name: Install root deps
         script: |
-          # The repo uses pnpm at the workspace root. Codemagic mac runners
-          # ship npm but not pnpm by default; install it explicitly.
-          npm i -g pnpm@9
-          pnpm install --frozen-lockfile
+          # npm workspaces — same install path Vercel uses (vercel.json
+          # `installCommand: npm ci --no-audit --no-fund`).
+          npm ci --no-audit --no-fund
 
       - name: Build web bundle
         script: |
-          pnpm --filter @haloframe/web run build
+          # @haloframe/web depends on the shared package's compiled output;
+          # build shared first to mirror the Vercel build chain.
+          npm run build --workspace=@haloframe/shared
+          npm run build --workspace=@haloframe/web
 
       - name: Capacitor sync (iOS)
         script: |
