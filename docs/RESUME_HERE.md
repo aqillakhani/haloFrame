@@ -97,6 +97,16 @@ provided where helpful).
   provisioned the custom-domain CNAME target yet, so adding the record
   now would point to nothing. Re-run after Task 6 produces the Railway
   custom-domain target.
+- ✅ Task 5 — Vercel deploy live at `https://gethaloframe.com` /
+  `https://www.gethaloframe.com`. Project `halo-frame-web` (scope
+  `orange-panda`), production = commit `c57313c`. Two vercel.json fixes
+  landed during deploy: `outputDirectory` (relative-path bug) and
+  `cleanUrls` (so `/privacy` etc. serve static HTML, not the SPA
+  shell).
+- ✅ Task 7 (partial) — web smoke green: `/`, `/privacy`, `/terms`,
+  `/support`, `www` all 200. Legal pages contain real Keshwani
+  Consultancy Corp + fal.ai mentions. `api.gethaloframe.com` checks
+  pending Task 6.
 
 > Cloudflare credentials for the launch sprint are saved at
 > `.env.cloudflare.local` (gitignored via `.env.*.local` pattern). Two
@@ -200,23 +210,39 @@ sending to `support@gethaloframe.com` lands in Aqil's Gmail.
 
 ### Hosting (Day 1-2)
 
-#### 5. Vercel deploy with custom domain — ~20 min
-**Blocked by:** 1, 4 (domain + DNS)
-**Blocks:** 6, 7, 23 (Privacy URL must be live)
+#### 5. Vercel deploy with custom domain — DONE 2026-05-01
+**Status:** ✅ Live at `https://gethaloframe.com` and
+`https://www.gethaloframe.com`. Project `halo-frame-web` in scope
+`orange-panda` (account `ikeshwani-1172`). Production deploy is
+commit `c57313c`.
 
-Follow `docs/DEPLOY.md` §1.
-
-Env vars (Vercel → Settings → Environment Variables, all 3 envs):
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_RC_IOS_KEY` (set during Task 24)
-- `VITE_RC_ANDROID_KEY` (set during Task 24)
+**Env vars set on Production + Preview + Development:**
+- `VITE_SUPABASE_URL` = `https://uqbckeyoclbhqntawsrz.supabase.co`
+- `VITE_SUPABASE_ANON_KEY` (anon key from Supabase, public)
 - `VITE_API_MODE` = `prod`
+- `VITE_RC_IOS_KEY` + `VITE_RC_ANDROID_KEY` — not yet set (Task 24)
 
-Add custom domain. Trigger redeploy after env vars.
+**Fixes landed during deploy:**
+- `2cf7243` — `vercel.json#outputDirectory` from `apps/web/dist` to
+  `dist` (relative to Root Directory, not repo root).
+- `c57313c` — added `cleanUrls: true` so `/privacy`, `/terms`,
+  `/support` resolve to the static legal HTML before the SPA
+  catch-all rewrite intercepts them.
 
-**Success:** `https://<domain>` returns the app. `/privacy`, `/terms`,
-`/support` return real HTML mentioning fal.ai.
+**Worktree linked** to the Vercel project at
+`apps/web/.vercel/` (gitignored automatically by `vercel link`). Future
+deploys can be triggered with `vercel deploy --prod` from
+`apps/web/`, or by pushing to `appstore-launch` and promoting the
+preview with `vercel promote <url> --scope orange-panda`.
+
+**Production Branch is still `main`** in Vercel's project settings.
+Each `appstore-launch` push builds as **Preview**, then we promote.
+Once everything is merged to `main`, switch Production Branch in
+Settings → Git for cleaner CI/CD.
+
+**Deferred:** `www → apex` 308 redirect for canonical-URL hygiene
+(currently both serve identical content). Add a redirect entry in
+`vercel.json` when convenient.
 
 ---
 
@@ -249,8 +275,21 @@ After deploy, register the Stripe webhook in Stripe dashboard:
 
 ---
 
-#### 7. Verify all public URLs live — ~5 min
-**Blocked by:** 5, 6
+#### 7. Verify all public URLs live — PARTIAL DONE 2026-05-01 (web/legal verified)
+**Status:** ✅ Web smoke matrix passed against `https://gethaloframe.com`:
+
+| URL | HTTP | Bytes | Notes |
+| --- | --- | --- | --- |
+| `/` | 200 | 970 | SPA shell |
+| `/privacy` | 200 | 3821 | mentions fal.ai + Keshwani Consultancy Corp |
+| `/terms` | 200 | 4746 | mentions Keshwani Consultancy Corp |
+| `/support` | 200 | 2024 | mentions fal.ai |
+| `https://www.gethaloframe.com` | 200 | 970 | SPA (no redirect to apex yet) |
+
+⏳ **Remaining for full Task 7 pass:** `https://api.gethaloframe.com/healthz`
++ `/readyz` after Task 6 (Railway).
+
+**Blocked by:** 5 (done), 6 (pending)
 
 ```bash
 for url in https://<domain> https://<domain>/privacy \
