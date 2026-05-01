@@ -93,20 +93,29 @@ provided where helpful).
 - ✅ Task 4 (Routing rule) — `support@gethaloframe.com` →
   `aqil.lakhani8@gmail.com`, enabled, priority 50. Rule tag
   `582dcdd05aa440428a39264fcebe6f16`.
-- ⏳ Task 4 (api CNAME) — deferred until Task 6. Railway hasn't
-  provisioned the custom-domain CNAME target yet, so adding the record
-  now would point to nothing. Re-run after Task 6 produces the Railway
-  custom-domain target.
+- ✅ Task 4 (api CNAME) — applied 2026-05-01 once Railway gave us a
+  target: `CNAME api.gethaloframe.com → oe57m4lf.up.railway.app` plus
+  Railway's TXT verification record `_railway-verify.api`.
 - ✅ Task 5 — Vercel deploy live at `https://gethaloframe.com` /
   `https://www.gethaloframe.com`. Project `halo-frame-web` (scope
   `orange-panda`), production = commit `c57313c`. Two vercel.json fixes
   landed during deploy: `outputDirectory` (relative-path bug) and
   `cleanUrls` (so `/privacy` etc. serve static HTML, not the SPA
-  shell).
-- ✅ Task 7 (partial) — web smoke green: `/`, `/privacy`, `/terms`,
-  `/support`, `www` all 200. Legal pages contain real Keshwani
-  Consultancy Corp + fal.ai mentions. `api.gethaloframe.com` checks
-  pending Task 6.
+  shell). CSP `connect-src` later widened to include
+  `https://api.gethaloframe.com` so the web app can reach the API.
+- ✅ Task 6 — Railway deploy live. Project `halo-frame-api` /
+  service `api`, custom domain `api.gethaloframe.com` (port 8080).
+  Three deploy fixes landed in commit `4b8d2e9`:
+  - Moved `apps/api/railway.json` → repo root (Railway only
+    auto-detects there).
+  - Removed Dockerfile per-workspace `COPY --from=deps` lines (npm
+    workspaces hoist all deps to `/repo/node_modules`, so per-workspace
+    dirs don't exist post-install).
+  - `apps/api/src/index.ts` now binds to `process.env.PORT` (Railway-
+    dynamic) before falling back to `env.API_PORT` (4000 default).
+- ✅ Task 7 — full smoke green: `/`, `/privacy`, `/terms`, `/support`,
+  `www` from Vercel; `/healthz`, `/readyz` from Railway. All 200, legal
+  pages contain real Keshwani Consultancy Corp + fal.ai mentions.
 
 > Cloudflare credentials for the launch sprint are saved at
 > `.env.cloudflare.local` (gitignored via `.env.*.local` pattern). Two
@@ -246,60 +255,66 @@ Settings → Git for cleaner CI/CD.
 
 ---
 
-#### 6. Railway deploy — ~20 min
-**Blocked by:** 1, 4 (domain + DNS)
-**Blocks:** 7, 24 (RC webhook URL)
+#### 6. Railway deploy — DONE 2026-05-01 (modulo deferred secrets)
+**Status:** ✅ Project `halo-frame-api` (id `725a07fd-9df3-44fb-b89f-c309825fc251`),
+service `api`. Deployed to `https://api-production-559b.up.railway.app`
+and to custom domain `https://api.gethaloframe.com` (port 8080). Both
+`/healthz` (200, `{"ok":true}`) and `/readyz` (200, DB probe passes).
 
-Follow `docs/DEPLOY.md` §2.
+**Env vars set on Railway (13 of 19 from .env.example schema):**
+- ✅ Set: `NODE_ENV=production`, `API_PORT=4000`, `LOG_LEVEL=info`,
+  `SPIKE_MODE=false`, `MERGE_SKIP_RESTORE=true`,
+  `DEV_UNLIMITED_CREDITS=false`,
+  `CORS_ORIGINS=https://gethaloframe.com,https://www.gethaloframe.com`,
+  `RESEND_FROM=orders@gethaloframe.com`,
+  `ORDER_NOTIFICATION_EMAIL=aqil.lakhani8@gmail.com`,
+  `FAL_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`.
+- ⏳ Deferred (empty in local .env, server treats empty-as-undefined
+  via `emptyToUndefined` in `apps/api/src/config/env.ts:23`, so the
+  API boots without them):
+  - `REVENUECAT_SECRET_KEY` — paste from RC dashboard (Project → API
+    keys → Secret API key).
+  - `REVENUECAT_WEBHOOK_AUTH_HEADER` — generate a Bearer-prefixed
+    random secret, paste in Railway, then mirror it in RC dashboard
+    (Project → Integrations → Webhooks → auth header) — Task 11.
+  - `STRIPE_SECRET_KEY` — needed only for canvas-print checkout. From
+    Stripe dashboard once products + prices exist.
+  - `STRIPE_WEBHOOK_SECRET` — set AFTER Stripe webhook is registered
+    against `https://api.gethaloframe.com/api/webhook/stripe`. Stripe
+    dashboard → Developers → Webhooks → Add endpoint → URL above →
+    select events → copy signing secret.
+  - `STRIPE_PRICE_*` (9 vars) — paste price IDs once Stripe products
+    are created (`docs/SETUP.md` §2 has the product list).
+  - `RESEND_API_KEY` — server falls back to stderr-logging when
+    unset; safe to leave empty until launch.
+  - `SENTRY_DSN` — optional observability.
 
-Env vars (paste from `.env.example` + your local `.env`, redacted):
-- All `SUPABASE_*` (URL, ANON_KEY, SERVICE_ROLE_KEY)
-- `FAL_KEY`
-- All `STRIPE_*` (secret, webhook, price IDs)
-- `RESEND_API_KEY`, `RESEND_FROM`, `ORDER_NOTIFICATION_EMAIL`
-- `REVENUECAT_SECRET_KEY`
-- `REVENUECAT_WEBHOOK_AUTH_HEADER` (format: `Bearer <random-shared-secret>`)
-- `NODE_ENV=production`, `SPIKE_MODE=false`
-- `CORS_ORIGINS=https://<your-domain>`
-- `MERGE_SKIP_RESTORE=true` (per project memory)
-- DO NOT set `DEV_UNLIMITED_CREDITS=true` in production
+**Credentials:** `.env.railway.local` (worktree root, gitignored)
+holds `RAILWAY_API_TOKEN` (currently invalid — CLI auth via
+machine-wide `railway login` is what's actually working).
 
-Custom domain: `api.<your-domain>`.
+**Known limitation:** Railway CLI 4.44.0 returns 401 on
+`railway domain --custom`, so custom-domain operations need to be done
+via dashboard. Plan-tier or scope issue, unclear which. Other CLI
+commands (init, variables, up, logs) work fine.
 
-After deploy, register the Stripe webhook in Stripe dashboard:
-- Endpoint URL: `https://api.<your-domain>/api/webhook/stripe`
-- Copy signing secret → set `STRIPE_WEBHOOK_SECRET` in Railway → redeploy.
-
-**Success:** `curl https://api.<your-domain>/healthz` returns
-`{"ok":true}`. `/readyz` returns 200 (DB probe passes).
+**Success:** All smoke checks green (see Task 7).
 
 ---
 
-#### 7. Verify all public URLs live — PARTIAL DONE 2026-05-01 (web/legal verified)
-**Status:** ✅ Web smoke matrix passed against `https://gethaloframe.com`:
+#### 7. Verify all public URLs live — DONE 2026-05-01
+**Status:** ✅ Full smoke matrix passed:
 
 | URL | HTTP | Bytes | Notes |
 | --- | --- | --- | --- |
-| `/` | 200 | 970 | SPA shell |
-| `/privacy` | 200 | 3821 | mentions fal.ai + Keshwani Consultancy Corp |
-| `/terms` | 200 | 4746 | mentions Keshwani Consultancy Corp |
-| `/support` | 200 | 2024 | mentions fal.ai |
-| `https://www.gethaloframe.com` | 200 | 970 | SPA (no redirect to apex yet) |
-
-⏳ **Remaining for full Task 7 pass:** `https://api.gethaloframe.com/healthz`
-+ `/readyz` after Task 6 (Railway).
-
-**Blocked by:** 5 (done), 6 (pending)
-
-```bash
-for url in https://<domain> https://<domain>/privacy \
-           https://<domain>/terms https://<domain>/support \
-           https://api.<domain>/healthz https://api.<domain>/readyz; do
-  echo "$url -> $(curl -s -o /dev/null -w '%{http_code}' "$url")"
-done
-```
-
-Expected: all 200.
+| `https://gethaloframe.com/` | 200 | 970 | SPA shell |
+| `https://gethaloframe.com/privacy` | 200 | 3821 | mentions fal.ai + Keshwani Consultancy Corp |
+| `https://gethaloframe.com/terms` | 200 | 4746 | mentions Keshwani Consultancy Corp |
+| `https://gethaloframe.com/support` | 200 | 2024 | mentions fal.ai |
+| `https://www.gethaloframe.com/` | 200 | 970 | SPA (no redirect to apex yet) |
+| `https://api.gethaloframe.com/healthz` | 200 | 11 | `{"ok":true}` |
+| `https://api.gethaloframe.com/readyz` | 200 | 56 | DB probe passes |
 
 ---
 
