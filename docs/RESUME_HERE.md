@@ -126,6 +126,19 @@ provided where helpful).
   48-byte Bearer auth header. `REVENUECAT_WEBHOOK_AUTH_HEADER` set on
   Railway. Three-probe smoke confirmed: no/wrong auth → 401, correct
   auth + valid event → 200.
+- ✅ Compliance fix (2026-05-01) — removed 90-day top-up credit expiry.
+  Apple Guideline 3.1.1 forbids expiring IAP credits. Migration
+  `20260501000001_topup_no_expiry.sql` redefined `grant_credits` (no
+  more 90-day coalesce default) and cleared every `topup_expires_at`
+  row in prod (`uqbckeyoclbhqntawsrz`). Webhook handler in
+  `apps/api/src/routes/subscription.ts` now passes
+  `p_topup_expires_at: null`. Paywall copy + reviewer/seed scripts +
+  `STORE_LISTINGS.md` / `PLAYSTORE_WALKTHROUGH.md` / `REVIEWER_NOTES.md`
+  updated to advertise "Credits never expire". End-to-end smoke green:
+  live `NON_RENEWING_PURCHASE` for `haloframe_topup_4pack` returned
+  `applied:true creditsAfter:26`, DB confirmed `topup_expires_at IS
+  NULL` post-grant. Commit `bd41d42` pushed; Vercel rebuilt; Railway
+  redeployed via `railway up`.
 
 > Cloudflare credentials for the launch sprint are saved at
 > `.env.cloudflare.local` (gitignored via `.env.*.local` pattern). Two
