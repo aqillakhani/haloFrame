@@ -76,6 +76,35 @@ provided where helpful).
   prior `Memorial portraits, made with care` was 34ch and would have
   failed Apple's 30ch limit)
 
+### Legal placeholders + DNS (2026-04-30 / 2026-05-01)
+- ✅ Task 3 — Legal placeholders filled with `Keshwani Consultancy Corp` /
+  Texas, legal HTML regenerated, committed `aa125c2`, pushed to
+  `appstore-launch`.
+- ✅ Task 4 (DNS portion) — applied via Cloudflare API on 2026-05-01:
+  - `A gethaloframe.com → 76.76.21.21` (Vercel apex), proxied off
+  - `CNAME www.gethaloframe.com → cname.vercel-dns.com`, proxied off
+  - Email Routing enabled at zone level; Cloudflare auto-added
+    `MX route1/2/3.mx.cloudflare.net`, SPF (`v=spf1 include:_spf.mx.cloudflare.net ~all`),
+    and DKIM (`cf2024-1._domainkey`).
+  - Both apex + www verified resolving via 1.1.1.1.
+- ✅ Task 4 (Destination address) — `aqil.lakhani8@gmail.com` added via
+  admin token, verified `2026-05-01T00:54:49Z`. Tag
+  `356d41a8c5ca4d84b68d2899430fa33a`.
+- ✅ Task 4 (Routing rule) — `support@gethaloframe.com` →
+  `aqil.lakhani8@gmail.com`, enabled, priority 50. Rule tag
+  `582dcdd05aa440428a39264fcebe6f16`.
+- ⏳ Task 4 (api CNAME) — deferred until Task 6. Railway hasn't
+  provisioned the custom-domain CNAME target yet, so adding the record
+  now would point to nothing. Re-run after Task 6 produces the Railway
+  custom-domain target.
+
+> Cloudflare credentials for the launch sprint are saved at
+> `.env.cloudflare.local` (gitignored via `.env.*.local` pattern). Two
+> tokens are needed because they have complementary scopes —
+> `CF_TOKEN_DNS` for zone-level work, `CF_TOKEN_ADMIN` for account-level
+> Email Routing Addresses. Long-term home is 1Password; rotate + delete
+> once stores publish.
+
 ---
 
 ## Decisions still open (resolve early)
@@ -83,8 +112,8 @@ provided where helpful).
 | Decision | Status | Recommended | Why |
 | --- | --- | --- | --- |
 | Domain | DONE 2026-04-29 | `gethaloframe.com` registered on Cloudflare | `.com` for trust with 35-65+ memorial audience; `get-` prefix is real-app-precedented; `haloframe.app` + `haloframe.com` were taken |
-| `{{COMPANY_LEGAL_NAME}}` placeholder | Open | Your registered legal name (sole-prop, LLC, etc.) | Required for Privacy + Terms — the legal-entity name on file with Apple Dev + Google Play |
-| `{{JURISDICTION}}` placeholder | Open | Your state/province | Required for Terms arbitration clause |
+| `{{COMPANY_LEGAL_NAME}}` placeholder | DONE 2026-04-30 | `Keshwani Consultancy Corp` (committed `aa125c2`) | Required for Privacy + Terms — the legal-entity name on file with Apple Dev + Google Play |
+| `{{JURISDICTION}}` placeholder | DONE 2026-04-30 | `Texas` (committed `aa125c2`) | Required for Terms arbitration clause |
 | App icon | Open | Fiverr ~$50 (3-5 day lead) | Phase 8 generated a placeholder; Play + Apple need a real one |
 | Screenshots | Open | Pixel 7 AVD captures + Figma framing OR Fiverr ~$50 | Both stores need 4-8 phone screenshots |
 | Reviewer password rotation | Open | Rotate to a new strong password before submission | Current literal password is in git history (commit `abc461b`) |
@@ -137,42 +166,35 @@ rendered `apps/web/public/*.html`, and store-listing docs. Bundle ID
 
 ---
 
-#### 3. Fill legal placeholders — Claude does once you provide values, ~5 min
-**Blocked by:** decision on `{{COMPANY_LEGAL_NAME}}` + `{{JURISDICTION}}`
-**Blocks:** 6 (deploy with placeholder is a P0 reviewer rejection)
-
-Tell next-session Claude:
-
-> "Legal name: `<value>`. Jurisdiction: `<value>`. Run the
-> placeholder fill across `apps/web/src/screens/LegalScreen.tsx`,
-> regenerate legal HTML, and commit."
-
-**Success:**
-```bash
-grep -c '{{' apps/web/public/privacy.html apps/web/public/terms.html
-# Expected: both files report 0
-```
+#### 3. Fill legal placeholders — DONE 2026-04-30 (`Keshwani Consultancy Corp`, Texas)
+**Status:** ✅ Committed `aa125c2`, pushed to `appstore-launch`. Legal
+HTML regenerated; `grep -c '{{' apps/web/public/privacy.html
+apps/web/public/terms.html` returns 0/0.
 
 ---
 
-#### 4. Cloudflare DNS + Email Routing — Claude does once you provide token, ~10 min
-**Blocked by:** 1
-**Blocks:** 6, 7
+#### 4. Cloudflare DNS + Email Routing — DONE 2026-05-01 (api CNAME deferred to Task 6)
+**Status:**
+- ✅ DNS records applied via Cloudflare API:
+  - `A gethaloframe.com → 76.76.21.21` (Vercel apex), proxied off
+  - `CNAME www.gethaloframe.com → cname.vercel-dns.com`, proxied off
+- ✅ Email Routing enabled at zone level; MX/SPF/DKIM auto-added.
+- ✅ Destination `aqil.lakhani8@gmail.com` added + verified
+  (`00:54:49Z`), tag `356d41a8c5ca4d84b68d2899430fa33a`.
+- ✅ Rule `support@gethaloframe.com` → forward to
+  `aqil.lakhani8@gmail.com`, tag `582dcdd05aa440428a39264fcebe6f16`,
+  enabled, priority 50.
+- ⏳ Deferred: `CNAME api.gethaloframe.com → <railway-target>` — wait
+  until Task 6 (Railway deploy) provisions the custom-domain target.
 
-Generate API token at `https://dash.cloudflare.com/profile/api-tokens`:
-- Permission: **Zone : DNS : Edit**
-- Permission: **Zone : Email Routing Rules : Edit**
-- Zone Resources: Include → Specific zone → `<your-domain>`
+**Credentials:** `.env.cloudflare.local` (worktree root, gitignored)
+holds `CF_TOKEN_DNS` (zone-level: DNS + Email Routing Rules) and
+`CF_TOKEN_ADMIN` (account-level: Email Routing Addresses). They're
+complementary; both are needed to fully drive Cloudflare ops via API.
 
-Tell next-session Claude:
-
-> "Cloudflare token: `<token>`. Apply DNS for the new domain:
-> A `<domain>` → Vercel, CNAME `www` → Vercel, CNAME `api` →
-> Railway. Plus Email Routing rule `support@<domain>` → my Gmail
-> (`aqil.lakhani8@gmail.com`)."
-
-**Success:** `dig <domain>` returns Vercel's IP; sending an email to
-`support@<domain>` lands in your Gmail.
+**Success:** `Resolve-DnsName gethaloframe.com -Server 1.1.1.1` returns
+`76.76.21.21`; `www.gethaloframe.com` CNAMEs to `cname.vercel-dns.com`;
+sending to `support@gethaloframe.com` lands in Aqil's Gmail.
 
 ---
 
