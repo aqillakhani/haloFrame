@@ -126,6 +126,16 @@ provided where helpful).
   48-byte Bearer auth header. `REVENUECAT_WEBHOOK_AUTH_HEADER` set on
   Railway. Three-probe smoke confirmed: no/wrong auth → 401, correct
   auth + valid event → 200.
+- ✅ Vercel Preview env (2026-05-01) — added `VITE_RC_IOS_KEY` +
+  `VITE_RC_ANDROID_KEY` to Preview on the live project
+  `prj_3bkXNoUcXuOwMC4o68kxgXHuAYhK` (`halo-frame-web`). Note: there
+  are **two** Vercel projects on the orange-panda team: the live one
+  (`halo-frame-web`, aliased to `gethaloframe.com`) and an empty stub
+  (`haloframe`, no aliases, no env). The worktree's
+  `.vercel/project.json` was pointed at the stub — now corrected.
+  Preview now has all 5 env vars (`VITE_RC_IOS_KEY`,
+  `VITE_RC_ANDROID_KEY`, `VITE_API_MODE`, `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY`).
 - ✅ Compliance fix (2026-05-01) — removed 90-day top-up credit expiry.
   Apple Guideline 3.1.1 forbids expiring IAP credits. Migration
   `20260501000001_topup_no_expiry.sql` redefined `grant_credits` (no
@@ -162,6 +172,36 @@ provided where helpful).
 
 When any of these are resolved, the next-session Claude can pick up
 the dependent tasks immediately.
+
+### Manual cleanups (low priority — do whenever)
+
+- **RevenueCat dashboard orphans.** Project `proj6d70d494` has a few
+  scaffold-era artifacts that the MCP archive endpoints can't remove
+  (the RC plugin server has a known bug returning `Content-Type not
+  application/json` on every `archive-*` call, regardless of payload).
+  Click-archive in the dashboard:
+  - Entitlement `entlb07c161e4f` "haloFrame Pro"
+  - Offering `ofrng54011e9252` "default"
+  - Test Store products: `prod206b7d617c` lifetime, `prod701db82f87`
+    monthly, `prodbb69899e02` yearly
+  - Test Store app `app9348d2a6ab` (no archive-app endpoint exists; it
+    becomes inert once the 3 products above are archived)
+
+  None of these affect prod — the app uses entitlement `tributes`
+  (`entl69652835d6`) and offering `haloframe-default`
+  (`ofrng21efb76404`), which are clean.
+
+- **Empty `haloframe` Vercel project.** `prj_iaM9AFnEaM9i6dIf6bqZpzctg7aQ`
+  on the orange-panda team is an empty stub from a prior link attempt.
+  No deployments, no aliases, no env vars. Safe to delete from the
+  Vercel dashboard whenever you want to tidy up.
+
+- **Stripe + Sentry env vars on Railway** — listed in `apps/api/src/config/env.ts`
+  but no callers exist. Stripe service in `apps/api/src/services/stripe.ts`
+  is a stub (no routes import `requireStripe`); Sentry init is gated on
+  `SENTRY_DSN` and runs cleanly without it. Set these only when wiring
+  up web canvas-print checkout (Stripe) or turning on prod error
+  tracking (Sentry). Not a launch blocker.
 
 ---
 
