@@ -17,7 +17,9 @@ workflows:
         # the .xcodeproj directly (there's no top-level .xcworkspace).
         XCODE_PROJECT: apps/web/ios/App/App.xcodeproj
         XCODE_SCHEME: App
-      node: 20
+      # Capacitor 8 CLI requires NodeJS >=22; pinning to 22 keeps the
+      # ios-testflight workflow building on the supported runtime.
+      node: 22
       xcode: latest
 
     triggering:
