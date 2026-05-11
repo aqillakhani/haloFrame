@@ -791,39 +791,55 @@ Policy → App content:
 
 ### Native build pipeline
 
-#### 25. Codemagic dashboard setup (iOS) — ~30 min
-**Blocked by:** 17
-**Blocks:** 28
+#### 25. Codemagic dashboard setup (iOS) — DONE 2026-05-11
+**Status:** ✅ All dashboard wiring complete + tag pushed.
 
-`.codemagic/secrets.md` walks through. Connect repo, create
-integration `haloframe_asc` (App Store Connect API), create env-var
-group `haloframe_secrets` with 4 secrets (KEY_IDENTIFIER, ISSUER_ID,
-PRIVATE_KEY, TEAM_ID).
+- Repo `aqillakhani/haloFrame` connected to Codemagic Personal Account.
+  YAML auto-detected once `codemagic.yaml` reached `main` (commits
+  `41d4938` + `b9d2c49`). Codemagic ran one auto-build on the
+  connection scan (`#1`, status `failed` — expected, because
+  integration didn't exist yet; error was literally `App Store
+  Connect integration "haloframe_asc" does not exist`).
+- Apple Developer Portal integration created in Codemagic Settings →
+  Integrations → Developer Portal (this is the 2025-redesign name for
+  the App Store Connect API integration). Integration name MUST be
+  exactly `haloframe_asc` — that's the string `codemagic.yaml:7`
+  references. Issuer ID + Key ID + `.p8` uploaded, green-dot now lit.
+- Env-var group `haloframe_secrets` created at the **app level**
+  (Applications → haloFrame → gear → Environment variables tab) with
+  all 4 secure variables: `APP_STORE_CONNECT_KEY_IDENTIFIER`,
+  `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_PRIVATE_KEY` (full
+  `.p8` body incl. BEGIN/END lines), `APPLE_TEAM_ID`. All marked
+  Secret.
+- **GOTCHA worth remembering:** Codemagic deprecated **team-level**
+  "Global variables and secrets" for **Personal accounts** in 2025.
+  Banner: "Global variables and secrets will be removed from personal
+  accounts in the future. Existing variables are now read-only and
+  can only be deleted." If you ever spin up a fresh Codemagic project
+  on a Personal Account, **app-level** environment variables (with
+  named groups, referenced by name from `codemagic.yaml`'s
+  `environment.groups`) is the only path that works. Upgrading to a
+  team account would restore team-level globals.
+- Pre-rc1 ASC bootstrap (done via API not dashboard) — see
+  `scripts/asc-bootstrap-testflight.mjs`:
+  - `external testers` beta group on app `6768356716`, group id
+    `22afa6ca-fbf1-413b-98ec-f9943ea9060f`, type EXTERNAL.
+  - Tester `aqil.lakhani8@gmail.com` (id
+    `64686bd6-054a-43ed-bb67-3d878bf3b6c6`) added to the group.
+    Apple sent an invitation email; ignore it for now — there's no
+    build to install yet.
+  - en-US display name fixed from `HaloFrame: Memorial Portraits` to
+    `haloFrame: Memorial Portraits` via PATCH
+    `/v1/appInfoLocalizations/{id}`.
+- Tag `v1.0.0-rc1` created + pushed (`git push origin v1.0.0-rc1`)
+  at end of 2026-05-11 session. Codemagic should auto-build on the
+  tag per `codemagic.yaml:23-28`. Build outcome TBD — see Task 28.
 
-**2026-05-11 status — PARTIAL.** Repo was connected to Codemagic but
-the dashboard did not show the green "Using codemagic.yaml" indicator.
-That session pushed `codemagic.yaml` to `main` (commits `41d4938` +
-`b9d2c49`) so Codemagic's default-branch detection has the file to
-find — needs re-scan or app re-add in Codemagic to take effect.
-**Integration `haloframe_asc` and env-var group `haloframe_secrets`
-have NOT been created yet.** All paste-ready values for both live in
-`.env.codemagic.local` (gitignored).
-
-Per-feedback note: the Codemagic UI was redesigned in 2025 — DON'T
-guess at menu paths or URLs. If the user can't find a button, ask
-them to paste a screenshot.
-
-**Success:** Codemagic dashboard shows the project connected,
-`codemagic.yaml` detected, integration green-dot.
-
-**Also outstanding before tagging rc1:**
-- Create empty `external testers` beta group in ASC
-  (https://appstoreconnect.apple.com/apps/6768356716/testflight)
-  with the user added as a tester. Codemagic's publishing step
-  expects this exact group name.
-- Optional: fix display name capitalization in ASC → App Information
-  → Localizable Information (currently `HaloFrame` capital H, brand
-  is `haloFrame` lowercase h).
+**Re-verification probes (re-run any time):**
+- `node scripts/check-asc-setup.mjs` — auth + bundle ID + app record
+  + beta groups
+- `node scripts/asc-bootstrap-testflight.mjs` — idempotent; will say
+  "already exists" for everything if state is good
 
 ---
 
@@ -875,24 +891,65 @@ opt-in link succeeds.
 
 ---
 
-#### 28. First TestFlight build (iOS) — auto-triggered by tag
-**Blocked by:** 25 (Codemagic ready)
-**Blocks:** 29, 32
+#### 28. First TestFlight build (iOS) — TRIGGERED 2026-05-11, outcome TBD
+**Status:** Tag `v1.0.0-rc1` pushed to `origin` end of 2026-05-11
+session. Codemagic build in flight (no human watching it land).
 
-Tag from local repo:
+**Resume-from-here check (do this FIRST in next session):**
+1. Open `https://codemagic.io/builds?app_id=69f50db033172bbb569e2285`
+   and find the build for tag `v1.0.0-rc1`. Status will be one of:
+   - `Building` / `Publishing` → still in flight, wait
+   - `Finished` → success path, go to step 2
+   - `Failed` → debug path, open the build log; per session-handoff
+     instructions, do NOT touch `apps/web/ios/App/App.xcodeproj`'s
+     `CODE_SIGN_STYLE` (currently `Automatic`) without confirming
+     with user first.
+2. Independent verification — query ASC directly:
+   ```bash
+   cd .worktrees/prod-ready
+   node scripts/check-asc-setup.mjs
+   ```
+   Plus check builds endpoint manually if you want (the probe doesn't
+   list builds — extend it if useful).
+3. ASC dashboard → TestFlight → Internal Testing should show
+   v1.0.0-rc1 as `Ready to Submit` once Apple finishes processing
+   (5-30 min after Codemagic finishes uploading).
+
+**Why this can take a while:** First-ever build for a bundle ID makes
+Apple mint a fresh distribution cert + provisioning profile via the
+ASC API. Subsequent builds reuse them. Cold first-build is ~15-20min
+on the M2 runner; warm subsequent builds drop to ~8-12min.
+
+**Once internal `Ready to Submit` is confirmed:**
+- ASC → TestFlight → External Testing → Submit for Review (manual,
+  one click). Apple beta review then takes anywhere from 24h to 7-30d
+  in the 2026 backlog.
+- Once external review approves, the build auto-distributes to the
+  `external testers` group (currently 1 tester: yourself).
+
+**Tag command for reference (already executed 2026-05-11):**
 ```bash
-cd .worktrees/prod-ready
-git tag -a v1.0.0-rc1 -m "Release candidate 1 — app-store launch dual-submit"
-git push origin appstore-launch
+git tag -a v1.0.0-rc1 -m "Release candidate 1 — first TestFlight build"
 git push origin v1.0.0-rc1
 ```
 
-Codemagic auto-builds + uploads to TestFlight Internal (~12-15 min).
-Then manually submit to External Review:
-- App Store Connect → TestFlight → External Testing → Submit for Review
+The original brief also said to push `appstore-launch` before the
+tag — that branch was already up-to-date with origin so the push
+was a no-op. If a fresh commit lands locally before another rc tag,
+push the branch first.
 
-**Success:** TestFlight shows the build available to external testers
-(may take 7-30 days for review).
+**Bumping for rc2 (if rc1 fails / needs respin):**
+```bash
+git tag -a v1.0.0-rc2 -m "Release candidate 2 — <reason>"
+git push origin v1.0.0-rc2
+```
+The `agvtool` step in `codemagic.yaml` strips `-rc.N` so marketing
+version stays `1.0.0`; build number auto-increments via
+`$BUILD_NUMBER`.
+
+**Success:** TestFlight Internal Testing shows the v1.0.0-rc1 build
+as "Ready to Submit." (Apple's external-review may take 7-30 days
+after manual submit.)
 
 ---
 
