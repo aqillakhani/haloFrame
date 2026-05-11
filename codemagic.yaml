@@ -70,8 +70,17 @@ workflows:
 
       - name: Fetch + create signing files
         script: |
+          # Codemagic's --create requires a private key to generate the CSR
+          # Apple signs into a distribution cert. The CLI does NOT auto-
+          # generate one in non-interactive mode (build fails with
+          # "Cannot save Signing Certificates without certificate private
+          # key"). We persist a single key in the haloframe_secrets group
+          # so Apple keeps issuing the same cert across builds (vs. burning
+          # through Apple's 2-cert-per-team quota).
+          # Key was provisioned via scripts/codemagic-add-signing-key.mjs.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
 
       - name: Add certs to keychain
