@@ -126,6 +126,19 @@ provided where helpful).
   48-byte Bearer auth header. `REVENUECAT_WEBHOOK_AUTH_HEADER` set on
   Railway. Three-probe smoke confirmed: no/wrong auth → 401, correct
   auth + valid event → 200.
+- ✅ ASC API key + agreements + bundle ID + app record (2026-05-10/11) —
+  `.p8` saved at `~/Downloads/AuthKey_LVW5G7W6H4.p8` (back up to
+  1Password). Same creds also at `.env.codemagic.local` (gitignored).
+  - Key ID: `LVW5G7W6H4`
+  - Issuer ID: `586e56ea-7635-4608-ad8e-1480b9e4c16d`
+  - Team ID: `UUN86D9JLT`
+  - Free + Paid Applications agreements signed 2026-05-10
+  - Bundle ID `com.haloframe.app` registered with IAP capability (id `Q82LY2C86Y`)
+  - ASC app record exists (id `6768356716`, en-US, SKU `haloframe-ios-001`)
+  - Re-runnable verification probe: `node scripts/check-asc-setup.mjs`
+  - codemagic.yaml fixed (npm not pnpm) + cherry-picked to main as
+    `41d4938` / `b9d2c49` so Codemagic's default-branch auto-detect
+    has it to find.
 - ✅ Vercel Preview env (2026-05-01) — added `VITE_RC_IOS_KEY` +
   `VITE_RC_ANDROID_KEY` to Preview on the live project
   `prj_3bkXNoUcXuOwMC4o68kxgXHuAYhK` (`halo-frame-web`). Note: there
@@ -787,8 +800,30 @@ integration `haloframe_asc` (App Store Connect API), create env-var
 group `haloframe_secrets` with 4 secrets (KEY_IDENTIFIER, ISSUER_ID,
 PRIVATE_KEY, TEAM_ID).
 
+**2026-05-11 status — PARTIAL.** Repo was connected to Codemagic but
+the dashboard did not show the green "Using codemagic.yaml" indicator.
+That session pushed `codemagic.yaml` to `main` (commits `41d4938` +
+`b9d2c49`) so Codemagic's default-branch detection has the file to
+find — needs re-scan or app re-add in Codemagic to take effect.
+**Integration `haloframe_asc` and env-var group `haloframe_secrets`
+have NOT been created yet.** All paste-ready values for both live in
+`.env.codemagic.local` (gitignored).
+
+Per-feedback note: the Codemagic UI was redesigned in 2025 — DON'T
+guess at menu paths or URLs. If the user can't find a button, ask
+them to paste a screenshot.
+
 **Success:** Codemagic dashboard shows the project connected,
 `codemagic.yaml` detected, integration green-dot.
+
+**Also outstanding before tagging rc1:**
+- Create empty `external testers` beta group in ASC
+  (https://appstoreconnect.apple.com/apps/6768356716/testflight)
+  with the user added as a tester. Codemagic's publishing step
+  expects this exact group name.
+- Optional: fix display name capitalization in ASC → App Information
+  → Localizable Information (currently `HaloFrame` capital H, brand
+  is `haloFrame` lowercase h).
 
 ---
 
