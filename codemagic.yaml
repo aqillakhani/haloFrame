@@ -43,8 +43,14 @@ workflows:
 
       - name: Capacitor sync (iOS)
         script: |
-          cd apps/web
-          npx cap sync ios
+          # `npx cap` from inside apps/web fails on npm 10 + workspaces:
+          # @capacitor/cli is hoisted to <root>/node_modules/.bin/cap, but npx
+          # doesn't reliably walk up across workspace boundaries and falls back
+          # to a registry lookup ("could not determine executable to run").
+          # `npm run --workspace` uses npm's own resolver, which traverses the
+          # workspace .bin chain correctly (same mechanism that makes Step 3's
+          # `tsc -b && vite build` work).
+          npm run sync:ios --workspace=@haloframe/web
 
       - name: Set Xcode build + marketing version
         script: |
