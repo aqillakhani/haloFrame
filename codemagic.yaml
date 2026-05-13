@@ -106,3 +106,84 @@ workflows:
         submit_to_testflight: true
         beta_groups:
           - external testers
+
+  android-internal:
+    name: Android · Play Internal Testing
+    instance_type: linux_x2
+    max_build_duration: 60
+
+    environment:
+      groups:
+        # Bundles the four CM_KEYSTORE_* signing vars (CM_KEY_ALIAS,
+        # CM_KEYSTORE_PASSWORD, CM_KEY_PASSWORD, CM_KEYSTORE_BASE64) plus
+        # an optional GCLOUD_SERVICE_ACCOUNT_CREDENTIALS for the Play
+        # publish step. Group is shared with the iOS workflow.
+        - haloframe_secrets
+      vars:
+        PACKAGE_NAME: com.haloframe.app
+      # Same Capacitor 8 NodeJS pin as the iOS workflow.
+      node: 22
+      java: 17
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+
+    scripts:
+      - name: Install root deps
+        script: |
+          npm ci --no-audit --no-fund
+
+      - name: Build web bundle
+        script: |
+          npm run build --workspace=@haloframe/shared
+          npm run build --workspace=@haloframe/web
+
+      - name: Capacitor sync (Android)
+        script: |
+          # Same workspace-resolver fix as the iOS Capacitor sync step —
+          # see ios-testflight for why `npx cap` from inside apps/web
+          # fails on npm 10 + workspaces.
+          npm run sync:android --workspace=@haloframe/web
+
+      - name: Decode upload keystore
+        script: |
+          # CM_KEYSTORE_BASE64 holds the entire .keystore file (base64).
+          # Land it in a deterministic path and expose CM_KEYSTORE_PATH for
+          # apps/web/android/app/build.gradle's signingConfigs block.
+          echo "$CM_KEYSTORE_BASE64" | base64 --decode > /tmp/upload.keystore
+          echo 'CM_KEYSTORE_PATH=/tmp/upload.keystore' >> $CM_ENV
+
+      - name: Set Android version
+        script: |
+          # versionCode = Codemagic's monotonic counter (same value the iOS
+          # workflow feeds into agvtool).
+          echo "VERSION_CODE=$BUILD_NUMBER" >> $CM_ENV
+          # versionName = tag stripped of leading `v` and `-rc.N` suffix.
+          MARKETING="$(echo "$CM_TAG" | sed 's/^v//' | sed 's/-rc.*//')"
+          echo "VERSION_NAME=$MARKETING" >> $CM_ENV
+
+      - name: Build .aab
+        script: |
+          cd apps/web/android
+          ./gradlew bundleRelease
+
+    artifacts:
+      - apps/web/android/app/build/outputs/bundle/release/*.aab
+      - apps/web/android/app/build/outputs/mapping/**/mapping.txt
+
+    # Auto-publish to Play is intentionally commented until Task 24 (Play
+    # service-account JSON in Codemagic's haloframe_secrets group as
+    # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS) lands. With the block enabled
+    # but the env var missing, Codemagic fails the build at the publish
+    # step. Until then, download the .aab artifact from Codemagic and
+    # upload it to Play Console → Internal Testing manually.
+    #
+    # publishing:
+    #   google_play:
+    #     credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+    #     track: internal
+    #     in_app_update_priority: 0
