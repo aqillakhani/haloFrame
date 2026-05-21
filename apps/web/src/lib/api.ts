@@ -12,7 +12,18 @@ import type {
   Tribute,
   TributeTemplate,
 } from '@haloframe/shared';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
+
+// On Capacitor native, the WebView's origin is `capacitor://localhost`, so
+// relative `/api/...` paths resolve to a non-existent server. We prepend
+// VITE_API_URL (e.g. https://api.gethaloframe.com, baked in at build time)
+// on native, and stay relative on the web build where same-origin /api/
+// already routes via Vercel.
+const API_BASE: string =
+  Capacitor.isNativePlatform() && import.meta.env.VITE_API_URL
+    ? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '')
+    : '';
 
 // Router-mode flag. `prod` (default) enables the /api/tribute/* bridge for
 // list/delete/save. `spike` disables it — useful for AI-only local iteration
@@ -75,7 +86,7 @@ async function readJson<T>(res: Response): Promise<T> {
 }
 
 async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -88,7 +99,7 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
 }
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: await getAuthHeader(),
     signal,
   });
@@ -287,7 +298,7 @@ export async function deleteTribute(
   signal?: AbortSignal,
 ): Promise<boolean> {
   if (!isTributeBridgeEnabled()) return false;
-  const res = await fetch(`/api/tribute/${encodeURIComponent(tributeId)}`, {
+  const res = await fetch(`${API_BASE}/api/tribute/${encodeURIComponent(tributeId)}`, {
     method: 'DELETE',
     headers: await getAuthHeader(),
     signal,
@@ -334,7 +345,7 @@ export async function exportMyData(signal?: AbortSignal): Promise<unknown> {
 }
 
 export async function deleteMyAccount(signal?: AbortSignal): Promise<boolean> {
-  const res = await fetch('/api/me', {
+  const res = await fetch(`${API_BASE}/api/me`, {
     method: 'DELETE',
     headers: await getAuthHeader(),
     signal,
