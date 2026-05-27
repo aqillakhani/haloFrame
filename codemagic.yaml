@@ -173,6 +173,7 @@ workflows:
       - name: Build .aab
         script: |
           cd apps/web/android
+          chmod +x ./gradlew
           ./gradlew bundleRelease
 
     artifacts:
