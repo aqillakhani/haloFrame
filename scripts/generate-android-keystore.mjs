@@ -70,7 +70,12 @@ console.log('Using keytool:', KEYTOOL);
 // 24-char base64url passwords; same alphabet [A-Za-z0-9_-]. keytool accepts
 // these without escaping concerns.
 const storePassword = randomBytes(18).toString('base64url');
-const keyPassword = randomBytes(18).toString('base64url');
+// PKCS12 (keytool's default store type since JDK 9) protects the private key
+// with the STORE password and silently ignores a separate -keypass. Using a
+// different keyPassword produces a keystore whose key can only be read with
+// the store password — Gradle's signingConfig then fails with "Given final
+// block not properly padded". Keep them identical.
+const keyPassword = storePassword;
 
 // ---- Run keytool --------------------------------------------------------
 console.log('Generating keystore...');
