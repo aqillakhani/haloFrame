@@ -158,16 +158,17 @@ async function cmdStepLog(buildId, stepId) {
   console.log(txt);
 }
 
-async function cmdTrigger(ref) {
-  if (!ref) throw new Error('Usage: trigger <tag-or-branch>');
+async function cmdTrigger(ref, workflow) {
+  if (!ref) throw new Error('Usage: trigger <tag-or-branch> [workflowId]');
+  const wf = workflow || WORKFLOW_ID;
   // Heuristic: ref starting with `v` and containing a digit = tag; else = branch.
   const isTag = /^v\d/.test(ref);
   const body = {
     appId: APP_ID,
-    workflowId: WORKFLOW_ID,
+    workflowId: wf,
     ...(isTag ? { tag: ref } : { branch: ref }),
   };
-  console.log(`Triggering ${WORKFLOW_ID} on ${isTag ? 'tag' : 'branch'} ${ref}...`);
+  console.log(`Triggering ${wf} on ${isTag ? 'tag' : 'branch'} ${ref}...`);
   const j = await apiJson('/builds', { method: 'POST', body: JSON.stringify(body) });
   console.log(`Triggered build: ${j.buildId}`);
   console.log(`Dashboard: https://codemagic.io/app/${APP_ID}/build/${j.buildId}`);

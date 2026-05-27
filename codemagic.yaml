@@ -109,7 +109,10 @@ workflows:
 
   android-internal:
     name: Android · Play Internal Testing
-    instance_type: linux_x2
+    # mac_mini_m2 (same as iOS) — linux_x2 is not on the current Codemagic
+    # billing plan ("instance type not available"). Android builds fine on
+    # the macOS image (Gradle + Android SDK preinstalled).
+    instance_type: mac_mini_m2
     max_build_duration: 60
 
     environment:
@@ -163,7 +166,8 @@ workflows:
           # workflow feeds into agvtool).
           echo "VERSION_CODE=$BUILD_NUMBER" >> $CM_ENV
           # versionName = tag stripped of leading `v` and `-rc.N` suffix.
-          MARKETING="$(echo "$CM_TAG" | sed 's/^v//' | sed 's/-rc.*//')"
+          # Falls back to 1.0.0 when built from a branch (no CM_TAG).
+          MARKETING="$(echo "${CM_TAG:-v1.0.0}" | sed 's/^v//' | sed 's/-rc.*//')"
           echo "VERSION_NAME=$MARKETING" >> $CM_ENV
 
       - name: Build .aab
