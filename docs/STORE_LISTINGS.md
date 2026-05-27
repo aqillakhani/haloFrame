@@ -88,8 +88,8 @@ Free — 1 Reunite + 1 Enhance, lifetime
 Keepsake — $9.99 per month, 5 portraits per month
 Heritage — $24.99 per month, 20 portraits per month
 Heritage Annual — $199 per year, 240 portraits across the year
-Single Tribute — $2.49, 1 extra portrait, 90-day window
-Tribute 4-Pack — $7.99, 4 extra portraits, 90-day window
+Single Tribute — $2.49, 1 extra portrait that never expires
+Tribute 4-Pack — $7.99, 4 extra portraits that never expire
 
 All paid plans renew automatically. Manage or cancel anytime in
 Settings → Subscriptions, or in the iOS Settings app.
@@ -192,11 +192,11 @@ plus two one-time top-ups attached to the same app.
 
 #### `haloframe_topup_4pack` — Non-renewing, ~$7.99
 - **Display name:** `4-Tribute Pack`
-- **Description:** `4 extra portraits, 90-day window.`
+- **Description:** `4 extra portraits — never expire.`
 
 #### `haloframe_topup_single` — Non-renewing, ~$2.49
 - **Display name:** `Single Tribute`
-- **Description:** `1 extra portrait, 90-day window.`
+- **Description:** `1 extra portrait — never expires.`
 
 ### 1.11 Subscription Privacy / Auto-Renewal Disclosure
 
@@ -319,8 +319,8 @@ Free — 1 Reunite + 1 Enhance, lifetime
 Keepsake — $9.99 per month, 5 portraits per month
 Heritage — $24.99 per month, 20 portraits per month
 Heritage Annual — $199 per year, 240 portraits across the year
-Single Tribute — $2.49, 1 extra portrait, 90-day window
-Tribute 4-Pack — $7.99, 4 extra portraits, 90-day window
+Single Tribute — $2.49, 1 extra portrait that never expires
+Tribute 4-Pack — $7.99, 4 extra portraits that never expire
 
 All paid plans renew automatically. Manage or cancel anytime in
 Settings or the Google Play Subscriptions screen.

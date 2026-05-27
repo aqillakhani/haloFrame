@@ -215,8 +215,8 @@ already have one (per Lumore reference in memory).
    | `haloframe_keepsake_monthly` | Subscription | Keepsake | 5 tributes per month |
    | `haloframe_heritage_monthly` | Subscription | Heritage | 20 tributes per month + rollover |
    | `haloframe_heritage_annual` | Subscription | Heritage Annual | 240 tributes per year |
-   | `haloframe_topup_4pack` | Non-renewing purchase | 4-Tribute Pack | 4 portraits, 90-day window |
-   | `haloframe_topup_single` | Non-renewing purchase | Single Tribute | 1 portrait, 90-day window |
+   | `haloframe_topup_4pack` | Non-renewing purchase | 4-Tribute Pack | 4 portraits, never expire |
+   | `haloframe_topup_single` | Non-renewing purchase | Single Tribute | 1 portrait, never expires |
 
    Attach each product to BOTH the iOS app and the Android app.
 
