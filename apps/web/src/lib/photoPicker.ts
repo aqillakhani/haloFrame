@@ -14,10 +14,18 @@ import { Capacitor } from '@capacitor/core';
 export interface PickedPhoto {
   /** A URL the browser can render — capacitor://, blob:, or http://. */
   url: string;
-  /** The actual bytes if available. Web always provides; native fetches via webPath. */
+  /** The actual bytes if available. Web always provides; native loads via Filesystem. */
   blob?: Blob;
   /** MIME or extension hint, when known. */
   format?: string;
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const bin = atob(base64);
+  const buf = new ArrayBuffer(bin.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return buf;
 }
 
 export async function pickPhoto(): Promise<PickedPhoto | null> {
@@ -27,13 +35,36 @@ export async function pickPhoto(): Promise<PickedPhoto | null> {
     const photo = result.photos[0];
     if (!photo) return null;
     let blob: Blob | undefined;
-    try {
-      const res = await fetch(photo.webPath);
-      blob = await res.blob();
-    } catch {
-      // The webPath may be inaccessible on some platforms; caller can still
-      // render via the URL or re-fetch later.
-      blob = undefined;
+    // Native primary: read bytes directly via Filesystem. We avoid
+    // fetch(photo.webPath) because CapacitorHttp.enabled (see
+    // capacitor.config.ts) patches the global fetch to route through the
+    // native HTTP bridge, which does not understand the capacitor://
+    // scheme that PHPicker returns. When that fetch failed silently the
+    // callers' `if (!photo?.blob) return;` bailed and the user's tap did
+    // nothing — the TestFlight gallery-upload regression. Filesystem talks
+    // to its own native plugin and is unaffected.
+    if (photo.path) {
+      try {
+        const { Filesystem } = await import('@capacitor/filesystem');
+        const file = await Filesystem.readFile({ path: photo.path });
+        const data = typeof file.data === 'string' ? file.data : '';
+        if (data) {
+          const mime = photo.format ? `image/${photo.format}` : 'image/jpeg';
+          blob = new Blob([base64ToArrayBuffer(data)], { type: mime });
+        }
+      } catch {
+        // Fall through to the fetch fallback below.
+      }
+    }
+    // Fallback: fetch(webPath). Works for web-rendered paths and any
+    // future platform where CapacitorHttp isn't intercepting fetch.
+    if (!blob) {
+      try {
+        const res = await fetch(photo.webPath);
+        blob = await res.blob();
+      } catch {
+        blob = undefined;
+      }
     }
     return { url: photo.webPath, blob, format: photo.format };
   }
