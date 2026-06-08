@@ -12,18 +12,28 @@ import type {
   Tribute,
   TributeTemplate,
 } from '@haloframe/shared';
-import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
 
-// On Capacitor native, the WebView's origin is `capacitor://localhost`, so
-// relative `/api/...` paths resolve to a non-existent server. We prepend
-// VITE_API_URL (e.g. https://api.gethaloframe.com, baked in at build time)
-// on native, and stay relative on the web build where same-origin /api/
-// already routes via Vercel.
-const API_BASE: string =
-  Capacitor.isNativePlatform() && import.meta.env.VITE_API_URL
-    ? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '')
-    : '';
+// Resolve the Express API base URL.
+//   • Native (Capacitor): the WebView origin is `capacitor://localhost`, so a
+//     relative `/api/...` would hit a non-existent server — the absolute
+//     VITE_API_URL (baked in at build time by Codemagic) is required.
+//   • Web (Vercel): the SPA is served from gethaloframe.com but the API lives
+//     on a SEPARATE origin (api.gethaloframe.com). There is no Vercel reverse
+//     proxy for /api, so the web build also needs the absolute VITE_API_URL.
+//     The backend CORS-allows the web origin and the CSP connect-src
+//     whitelists api.gethaloframe.com. (Proxying /api through Vercel was
+//     rejected: the ~60-70s Reunite merge would hit a gateway timeout.)
+//   • Local dev: VITE_API_URL is unset, so API_BASE stays '' and requests go
+//     to same-origin /api/..., which Vite's dev server proxies to
+//     http://localhost:4000 (see vite.config.ts server.proxy).
+//
+// Rule: if VITE_API_URL is set, use it; otherwise stay same-origin. The prior
+// `Capacitor.isNativePlatform() && …` guard wrongly excluded the web build, so
+// the deployed site called gethaloframe.com/api/* (404) and nothing worked.
+const API_BASE: string = import.meta.env.VITE_API_URL
+  ? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '')
+  : '';
 
 // Router-mode flag. `prod` (default) enables the /api/tribute/* bridge for
 // list/delete/save. `spike` disables it — useful for AI-only local iteration
@@ -31,7 +41,12 @@ const API_BASE: string =
 // aren't mounted. See docs/plans/2026-04-21-production-ready-progress.md
 // (Phase B scope decision).
 export const API_MODE: 'prod' | 'spike' =
-  (import.meta.env.VITE_API_MODE as 'prod' | 'spike' | undefined) ?? 'prod';
+  // Default to 'prod' for ANY value other than the explicit string 'spike' —
+  // including '' and undefined. A Vercel env var set to "" slips through
+  // `?? 'prod'` (?? only replaces null/undefined), which would leave
+  // API_MODE = '' and silently disable the /api/tribute/* bridge in
+  // production. Found exactly that on the live deploy (2026-06-08).
+  import.meta.env.VITE_API_MODE === 'spike' ? 'spike' : 'prod';
 
 export const isTributeBridgeEnabled = (): boolean => API_MODE === 'prod';
 
