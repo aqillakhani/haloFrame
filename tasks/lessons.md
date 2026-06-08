@@ -81,3 +81,45 @@ Two compounding bugs:
    - **RULE:** Build-time env vars that are required for the app to function
      belong in a deploy checklist that is *verified post-deploy* (grep the
      deployed bundle / hit a live endpoint), not assumed from "I set it once."
+
+---
+
+## 2026-06-08 (cont.) — Deploy-time addendum: three MORE prod-only bugs
+
+Shipping the fix surfaced three additional bugs invisible to local dev and to
+every static check — each found ONLY by driving the real `gethaloframe.com`
+flow in a browser and reading the console + network. This is rule #1 in action.
+
+1. **BOM injected into env vars by a PowerShell pipe.** `"value" | vercel env
+   add NAME production` in Windows PowerShell 5.1 prepends a UTF-8 BOM (U+FEFF)
+   to stdin. The build baked `API_BASE = "﻿https://api.gethaloframe.com"`,
+   so `fetch("﻿https://…")` resolved same-origin → `308 → 404` (HTML) and
+   threw "Invalid value" on others. curl worked because the URL was typed clean.
+   - **RULE:** Never pipe a value to a native CLI through a PS 5.1 pipe. Use
+     Bash `printf '%s' "$v" | cmd`, or a BOM-less file. After setting a
+     build-time env var, GREP THE DEPLOYED BUNDLE for the value and check the
+     character right before it (a quote `34`, not the BOM `65279`).
+
+2. **A literal newline inside `VITE_SUPABASE_ANON_KEY`.** The prod anon key had
+   an LF at char 131 (set in a prior session). A newline in a header value is
+   illegal, so `supabase.auth.signInAnonymously()`'s fetch threw "Invalid
+   value" → every visitor silently failed to get an anonymous session (in the
+   old bundle too). The minifier rendered the key as a template literal
+   (backtick) — the tell that a string contains a newline.
+   - **RULE:** Treat "fetch Invalid value" as a corrupted URL/header value
+     (BOM, newline, non-Latin-1 char), not a logic bug. Instrument
+     `window.fetch` to log the throwing args. Re-set secrets from a known-good
+     source with whitespace stripped (`tr -d '\r\n'`).
+
+3. **CSP blocked the AI result images.** `img-src`/`connect-src` allowed
+   `https://v3.fal.media`, but fal serves results from `https://v3b.fal.media`
+   (and other subdomains). Renders succeeded (`apply` → 200) but the `<img>`s
+   were CSP-blocked → blank. Local dev applies no CSP, so this was invisible.
+   - **RULE:** Allowlist provider domains by wildcard (`https://*.fal.media`),
+     never a single subdomain. CSP only applies on the deployed host — image/
+     connect failures must be checked against the live CSP, not local dev.
+
+**Meta-lesson:** API base, BOM, anon-key newline, and CSP were ALL prod-only
+failures that local dev, typecheck, unit tests, and the build every one passed.
+Only driving the real production URL in a browser caught them. Do that after
+EVERY deploy, before saying "it works."
