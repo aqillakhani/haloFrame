@@ -99,3 +99,4 @@ test-*.png
 /badge-*.png
 /subhead-*.png
 apps/web/public/test-inputs/
+.vercel
