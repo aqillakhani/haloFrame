@@ -77,6 +77,56 @@ describe('pickPhoto', () => {
     expect(result?.blob?.size).toBeGreaterThan(0);
   });
 
+  it('derives a Filesystem path from webPath when `path` is absent (native)', async () => {
+    // Defense in depth: some iOS/plugin versions may return only `webPath`.
+    // pickPhoto unwraps capacitor://localhost/_capacitor_file_<abs> to
+    // file://<abs> and reads that — a second independent route to the bytes
+    // so a single missing field can't strand the upload.
+    isNativeMock.mockReturnValue(true);
+    pickImagesMock.mockResolvedValue({
+      photos: [
+        {
+          webPath:
+            'capacitor://localhost/_capacitor_file_/var/mobile/Containers/Data/Application/abc/tmp/img.jpg',
+          format: 'jpeg',
+          // no `path` field
+        },
+      ],
+    });
+    readFileMock.mockResolvedValue({ data: 'eA==' }); // base64 of 'x'
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('TypeError: Load failed'));
+    const { pickPhoto } = await import('./photoPicker');
+    const result = await pickPhoto();
+    expect(readFileMock).toHaveBeenCalledWith({
+      path: 'file:///var/mobile/Containers/Data/Application/abc/tmp/img.jpg',
+    });
+    expect(result?.blob).toBeDefined();
+    expect(result?.blob?.size).toBeGreaterThan(0);
+  });
+
+  it('returns a blob-less photo (not null) when every read route fails on native', async () => {
+    // A picked-but-unreadable photo must be distinguishable from a cancel:
+    // callers show a visible "couldn't read that photo" error on the former
+    // and stay silent on the latter (null).
+    isNativeMock.mockReturnValue(true);
+    pickImagesMock.mockResolvedValue({
+      photos: [
+        {
+          webPath: 'capacitor://localhost/_capacitor_file_/var/mobile/tmp/img.jpg',
+          path: 'file:///var/mobile/tmp/img.jpg',
+          format: 'jpeg',
+        },
+      ],
+    });
+    readFileMock.mockRejectedValue(new Error('read failed'));
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('TypeError: Load failed'));
+    const { pickPhoto } = await import('./photoPicker');
+    const result = await pickPhoto();
+    expect(result).not.toBeNull(); // a photo WAS picked (not a cancel)
+    expect(result?.blob).toBeUndefined(); // but its bytes couldn't be read
+    expect(result?.url).toContain('img.jpg');
+  });
+
   it('returns null on native when user cancels', async () => {
     isNativeMock.mockReturnValue(true);
     pickImagesMock.mockResolvedValue({ photos: [] });

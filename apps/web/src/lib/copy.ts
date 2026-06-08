@@ -241,6 +241,8 @@ export const COPY = {
       'Something went wrong loading your styles \u2014 let\u2019s try again.',
     uploadPhoto:
       'That photo didn\u2019t upload \u2014 try again or pick a different one.',
+    readPhoto:
+      'We couldn\u2019t read that photo \u2014 please choose another from your library.',
   },
 
   myTributes: {

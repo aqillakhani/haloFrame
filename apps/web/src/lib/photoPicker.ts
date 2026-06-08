@@ -28,36 +28,66 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return buf;
 }
 
+// Derive a Filesystem-readable `file://` path from a Capacitor webPath.
+// PHPicker's webPath looks like
+//   capacitor://localhost/_capacitor_file_/var/mobile/.../img.jpg
+// while the bytes live at file:///var/mobile/.../img.jpg. This lets us read
+// the file even on an iOS/plugin version that returns webPath but omits the
+// documented `path` field — a second independent route to the same bytes.
+function nativePathFromWebPath(webPath: string | undefined): string | null {
+  if (!webPath) return null;
+  const marker = '_capacitor_file_';
+  const i = webPath.indexOf(marker);
+  if (i === -1) return null;
+  const abs = webPath.slice(i + marker.length);
+  return abs.startsWith('/') ? `file://${abs}` : null;
+}
+
 export async function pickPhoto(): Promise<PickedPhoto | null> {
   if (Capacitor.isNativePlatform()) {
     const { Camera } = await import('@capacitor/camera');
     const result = await Camera.pickImages({ limit: 1, quality: 90 });
     const photo = result.photos[0];
-    if (!photo) return null;
+    if (!photo) return null; // user cancelled the picker
+
+    const mime = photo.format ? `image/${photo.format}` : 'image/jpeg';
+
+    // Read the bytes via @capacitor/filesystem, NOT fetch(photo.webPath).
+    // CapacitorHttp.enabled (capacitor.config.ts) patches the global fetch to
+    // route through the native HTTP bridge, which doesn't understand the
+    // capacitor:// scheme PHPicker returns — fetch(webPath) fails silently,
+    // blob stays undefined, and every caller bailed at
+    // `if (!photo?.blob) return;`. The user's tap did nothing: the TestFlight
+    // gallery-upload bug. Filesystem talks to its own native plugin and is
+    // unaffected.
+    //
+    // Try the documented `path` first, then a path derived from `webPath`, so
+    // a single missing or unreadable field can't strand the upload again.
     let blob: Blob | undefined;
-    // Native primary: read bytes directly via Filesystem. We avoid
-    // fetch(photo.webPath) because CapacitorHttp.enabled (see
-    // capacitor.config.ts) patches the global fetch to route through the
-    // native HTTP bridge, which does not understand the capacitor://
-    // scheme that PHPicker returns. When that fetch failed silently the
-    // callers' `if (!photo?.blob) return;` bailed and the user's tap did
-    // nothing — the TestFlight gallery-upload regression. Filesystem talks
-    // to its own native plugin and is unaffected.
-    if (photo.path) {
-      try {
-        const { Filesystem } = await import('@capacitor/filesystem');
-        const file = await Filesystem.readFile({ path: photo.path });
-        const data = typeof file.data === 'string' ? file.data : '';
-        if (data) {
-          const mime = photo.format ? `image/${photo.format}` : 'image/jpeg';
-          blob = new Blob([base64ToArrayBuffer(data)], { type: mime });
+    const candidates: string[] = [];
+    if (photo.path) candidates.push(photo.path);
+    const fromWeb = nativePathFromWebPath(photo.webPath);
+    if (fromWeb && fromWeb !== photo.path) candidates.push(fromWeb);
+
+    if (candidates.length > 0) {
+      const { Filesystem } = await import('@capacitor/filesystem');
+      for (const path of candidates) {
+        try {
+          const file = await Filesystem.readFile({ path });
+          const data = typeof file.data === 'string' ? file.data : '';
+          if (data) {
+            blob = new Blob([base64ToArrayBuffer(data)], { type: mime });
+            break;
+          }
+        } catch {
+          // Try the next candidate path.
         }
-      } catch {
-        // Fall through to the fetch fallback below.
       }
     }
-    // Fallback: fetch(webPath). Works for web-rendered paths and any
-    // future platform where CapacitorHttp isn't intercepting fetch.
+
+    // Last resort: fetch(webPath). Broken when CapacitorHttp patches fetch
+    // (the bug above), but harmless to try, and works on any platform where
+    // fetch isn't intercepted.
     if (!blob) {
       try {
         const res = await fetch(photo.webPath);
@@ -66,6 +96,9 @@ export async function pickPhoto(): Promise<PickedPhoto | null> {
         blob = undefined;
       }
     }
+
+    // Return a blob-less photo when every read failed — callers surface a
+    // visible "couldn't read that photo" error instead of bailing silently.
     return { url: photo.webPath, blob, format: photo.format };
   }
 

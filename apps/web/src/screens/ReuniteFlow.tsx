@@ -16,7 +16,7 @@ import { SavedModal } from '../components/SavedModal';
 import { AIConsentModal } from '../components/AIConsentModal';
 import { useConsent } from '../hooks/useConsent';
 import { hasConsented as hasConsentedSync } from '../lib/consent';
-import { pickPhoto } from '../lib/photoPicker';
+import { pickPhoto, type PickedPhoto } from '../lib/photoPicker';
 import { heroText, cardReveal } from '../lib/motion';
 import { Editor } from './Editor';
 
@@ -609,12 +609,29 @@ function UploadCard({
   onFile,
   onClear,
 }: UploadCardProps) {
+  // Local error for a pick that opened but couldn't produce bytes — without
+  // it a failed read bailed silently and the user's tap did nothing (the
+  // TestFlight gallery-upload bug's UX symptom).
+  const [pickError, setPickError] = useState<string | null>(null);
+
   // Platform-aware picker: native uses Capacitor's out-of-process picker
   // (Apple 5.1.1(iii)); web falls back to <input type=file>. The wrapper
   // returns a Blob we wrap in a File so onFile's contract is unchanged.
   const openPicker = async () => {
-    const photo = await pickPhoto();
-    if (!photo?.blob) return;
+    setPickError(null);
+    let photo: PickedPhoto | null = null;
+    try {
+      photo = await pickPhoto();
+    } catch (err) {
+      console.error('[ReuniteFlow] photo picker failed', err);
+      setPickError(COPY.errors.readPhoto);
+      return;
+    }
+    if (!photo) return; // user cancelled
+    if (!photo.blob) {
+      setPickError(COPY.errors.readPhoto);
+      return;
+    }
     const ext = photo.format?.includes('png') ? 'png' : 'jpg';
     const file = new File([photo.blob], `upload.${ext}`, {
       type: photo.format ?? 'image/jpeg',
@@ -669,6 +686,15 @@ function UploadCard({
           >
             {uploadLabel}
           </button>
+          {pickError && (
+            <div
+              className="reunite-inline-error"
+              role="alert"
+              aria-live="polite"
+            >
+              {pickError}
+            </div>
+          )}
         </div>
       )}
     </div>
