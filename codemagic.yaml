@@ -222,16 +222,24 @@ workflows:
           npm run build --workspace=@haloframe/web
       - name: Capacitor sync (iOS)
         script: npm run sync:ios --workspace=@haloframe/web
-      - name: Create + boot simulator
+      - name: Boot simulator
         script: |
           set -e
-          RUNTIME=$(xcrun simctl list runtimes available -j | python3 -c "import sys,json;r=[x for x in json.load(sys.stdin)['runtimes'] if x.get('isAvailable') and 'iOS' in x['name']];print(sorted(r,key=lambda x:[int(n) for n in x['version'].split('.')])[-1]['identifier'])")
-          DEVTYPE=$(xcrun simctl list devicetypes -j | python3 -c "import sys,json;d=[x for x in json.load(sys.stdin)['devicetypes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimDeviceType.iPhone')];print(d[-1]['identifier'])")
-          echo "runtime=$RUNTIME"
-          echo "devtype=$DEVTYPE"
-          UDID=$(xcrun simctl create "e2e-iphone" "$DEVTYPE" "$RUNTIME")
+          echo "=== available devices ==="
+          xcrun simctl list devices available | head -50
+          # Prefer a PRE-CREATED iPhone under the newest iOS runtime (guaranteed
+          # compatible). Only create one if none exist — and then from the
+          # runtime's OWN supportedDeviceTypes so it can't be an incompatible
+          # pairing (the iPhone-6s-Plus + iOS 26 "Incompatible device" failure).
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import sys,json,re; d=json.load(sys.stdin)['devices']; ios=sorted([k for k in d if 'iOS' in k], key=lambda s:[int(n) for n in re.findall(r'\d+',s)]); devs=d[ios[-1]] if ios else []; iph=[x for x in devs if 'iPhone' in x['name']]; print((iph[-1] if iph else (devs[0] if devs else {'udid':''}))['udid'])")
+          if [ -z "$UDID" ]; then
+            echo "no pre-created sim; creating one from the runtime's supported device types"
+            SEL=$(xcrun simctl list runtimes available -j | python3 -c "import sys,json,re; rts=[x for x in json.load(sys.stdin)['runtimes'] if x.get('isAvailable') and 'iOS' in x['name']]; rt=sorted(rts,key=lambda x:[int(n) for n in x['version'].split('.')])[-1]; ips=[t for t in rt.get('supportedDeviceTypes',[]) if 'iPhone' in t.get('name','')]; sc=lambda t:(int(re.search(r'iPhone (\\d+)',t['name']).group(1)) if re.search(r'iPhone (\\d+)',t['name']) else 0); dev=sorted(ips,key=sc)[-1]; print(rt['identifier']+'|'+dev['identifier'])")
+            UDID=$(xcrun simctl create "e2e-iphone" "${SEL##*|}" "${SEL%%|*}")
+          fi
+          echo "chosen UDID=$UDID"
           echo "UDID=$UDID" | tee -a $CM_ENV
-          xcrun simctl boot "$UDID"
+          xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
       - name: Build app for simulator (no signing)
         script: |
