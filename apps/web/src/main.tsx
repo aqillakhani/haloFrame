@@ -44,3 +44,10 @@ createRoot(root).render(
     </NavigationProvider>
   </StrictMode>,
 );
+
+// CI-only: the Codemagic `ios-sim-diagnostic` workflow builds with
+// VITE_E2E_DIAG=1 to exercise the native upload pipeline on a simulator and
+// report exactly where it breaks. Dynamic import → absent from normal builds.
+if (import.meta.env.VITE_E2E_DIAG === '1') {
+  void import('./lib/e2eDiag').then((m) => m.runE2EDiag());
+}

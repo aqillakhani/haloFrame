@@ -194,3 +194,76 @@ workflows:
     #     credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
     #     track: internal
     #     in_app_update_priority: 0
+
+  ios-sim-diagnostic:
+    name: iOS · Simulator upload diagnostic
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        # Provides VITE_SUPABASE_URL/ANON_KEY + VITE_API_URL so the diagnostic
+        # exercises the SAME baked config a real TestFlight build gets — if the
+        # anon key or API URL is malformed in Codemagic, this surfaces it too.
+        - haloframe_secrets
+      vars:
+        VITE_E2E_DIAG: "1"
+        BUNDLE_ID: com.haloframe.app
+      node: 22
+      xcode: latest
+    # No `triggering:` — API/manual only (node scripts/codemagic-probe.mjs
+    # trigger <branch> ios-sim-diagnostic). Never auto-builds, never signs,
+    # never touches TestFlight.
+    scripts:
+      - name: Install root deps
+        script: npm ci --no-audit --no-fund
+      - name: Build web bundle (E2E diagnostic mode)
+        script: |
+          npm run build --workspace=@haloframe/shared
+          npm run build --workspace=@haloframe/web
+      - name: Capacitor sync (iOS)
+        script: npm run sync:ios --workspace=@haloframe/web
+      - name: Create + boot simulator
+        script: |
+          set -e
+          RUNTIME=$(xcrun simctl list runtimes available -j | python3 -c "import sys,json;r=[x for x in json.load(sys.stdin)['runtimes'] if x.get('isAvailable') and 'iOS' in x['name']];print(sorted(r,key=lambda x:[int(n) for n in x['version'].split('.')])[-1]['identifier'])")
+          DEVTYPE=$(xcrun simctl list devicetypes -j | python3 -c "import sys,json;d=[x for x in json.load(sys.stdin)['devicetypes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimDeviceType.iPhone')];print(d[-1]['identifier'])")
+          echo "runtime=$RUNTIME"
+          echo "devtype=$DEVTYPE"
+          UDID=$(xcrun simctl create "e2e-iphone" "$DEVTYPE" "$RUNTIME")
+          echo "UDID=$UDID" | tee -a $CM_ENV
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+      - name: Build app for simulator (no signing)
+        script: |
+          set -eo pipefail
+          cd apps/web/ios/App
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination "id=$UDID" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tail -50
+      - name: Launch + run diagnostic + capture
+        script: |
+          set +e
+          APP=$(find apps/web/ios/App/build/Build/Products -name "App.app" -type d | head -1)
+          echo "APP=$APP"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl spawn "$UDID" log stream --level debug --style compact \
+            --predicate 'eventMessage CONTAINS "E2E_DIAG"' > sim-e2e-log.txt 2>&1 &
+          LOGPID=$!
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          echo "launched; waiting 80s for the diagnostic to run..."
+          sleep 80
+          xcrun simctl io "$UDID" screenshot e2e-diag.png || true
+          kill $LOGPID 2>/dev/null
+          CONTAINER=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data 2>/dev/null)
+          echo "container=$CONTAINER"
+          echo "========== e2e-result.txt =========="
+          cat "$CONTAINER/Documents/e2e-result.txt" 2>/dev/null || echo "(no result file written)"
+          echo ""
+          echo "========== E2E_DIAG console log =========="
+          head -120 sim-e2e-log.txt 2>/dev/null || echo "(no console log)"
+          echo "========== end =========="
+    artifacts:
+      - e2e-diag.png
+      - sim-e2e-log.txt
