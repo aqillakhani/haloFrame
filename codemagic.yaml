@@ -206,7 +206,10 @@ workflows:
         # anon key or API URL is malformed in Codemagic, this surfaces it too.
         - haloframe_secrets
       vars:
-        VITE_E2E_DIAG: "1"
+        # '2' = REAL system photo picker proof (Camera.pickImages → read →
+        # upload → segment), driven by Maestro tapping a seeded photo. Use '1'
+        # for the synthetic post-pick pipeline test instead.
+        VITE_E2E_DIAG: "2"
         BUNDLE_ID: com.haloframe.app
       node: 22
       xcode: latest
@@ -241,6 +244,13 @@ workflows:
           echo "UDID=$UDID" | tee -a $CM_ENV
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+          # Seed the photo library so the system picker (PHPicker) has photos to
+          # tap. Many images → the upper-left grid region is reliably a cell.
+          SEEDED=0
+          for f in apps/web/public/samples/*.jpg; do
+            xcrun simctl addmedia "$UDID" "$f" && SEEDED=$((SEEDED+1))
+          done
+          echo "seeded $SEEDED photos into the simulator library"
       - name: Build app for simulator (no signing)
         script: |
           set -eo pipefail
@@ -250,28 +260,52 @@ workflows:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
             build 2>&1 | tail -50
-      - name: Launch + run diagnostic + capture
+      - name: Install Maestro (UI driver for the picker tap)
         script: |
           set +e
+          # Maestro drives the out-of-process system photo picker via coordinate
+          # taps. idb_companion is its iOS-simulator backend.
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "PATH=$HOME/.maestro/bin:$PATH" >> $CM_ENV
+          export PATH="$HOME/.maestro/bin:$PATH"
+          "$HOME/.maestro/bin/maestro" --version || echo "(maestro --version failed)"
+          brew install idb-companion 2>&1 | tail -3 || \
+            { brew tap facebook/fb && brew install idb-companion 2>&1 | tail -3; } || \
+            echo "(idb-companion install issue — Maestro may still drive the sim)"
+      - name: Install app + drive REAL picker + capture
+        script: |
+          set +e
+          export PATH="$HOME/.maestro/bin:$PATH"
           APP=$(find apps/web/ios/App/build/Build/Products -name "App.app" -type d | head -1)
           echo "APP=$APP"
           xcrun simctl install "$UDID" "$APP"
+
+          # Capture console (best-effort; the Documents/e2e-result.txt file is the
+          # reliable evidence channel).
           xcrun simctl spawn "$UDID" log stream --level debug --style compact \
             --predicate 'eventMessage CONTAINS "E2E_DIAG"' > sim-e2e-log.txt 2>&1 &
           LOGPID=$!
-          xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          echo "launched; waiting 80s for the diagnostic to run..."
-          sleep 80
-          xcrun simctl io "$UDID" screenshot e2e-diag.png || true
+
+          # Maestro launches the app (which auto-opens PHPicker) and taps a
+          # seeded photo. It does NOT wait for the upload pipeline — we sleep for
+          # that and read the result file.
+          export MAESTRO_DRIVER_STARTUP_TIMEOUT=180000
+          maestro --device "$UDID" test .maestro/pick-photo.yaml 2>&1 | tail -60 || \
+            echo "(maestro flow exited non-zero — reading results anyway)"
+
+          echo "picker tapped; waiting 30s for read → upload → segment..."
+          sleep 30
+          xcrun simctl io "$UDID" screenshot "$CM_BUILD_DIR/e2e-pick.png" || true
           kill $LOGPID 2>/dev/null
+
           CONTAINER=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data 2>/dev/null)
           echo "container=$CONTAINER"
           echo "========== e2e-result.txt =========="
           cat "$CONTAINER/Documents/e2e-result.txt" 2>/dev/null || echo "(no result file written)"
           echo ""
-          echo "========== E2E_DIAG console log =========="
-          head -120 sim-e2e-log.txt 2>/dev/null || echo "(no console log)"
+          echo "========== E2E_DIAG console log (tail) =========="
+          tail -60 sim-e2e-log.txt 2>/dev/null || echo "(no console log)"
           echo "========== end =========="
     artifacts:
-      - e2e-diag.png
+      - e2e-pick.png
       - sim-e2e-log.txt

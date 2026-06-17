@@ -45,9 +45,13 @@ createRoot(root).render(
   </StrictMode>,
 );
 
-// CI-only: the Codemagic `ios-sim-diagnostic` workflow builds with
-// VITE_E2E_DIAG=1 to exercise the native upload pipeline on a simulator and
-// report exactly where it breaks. Dynamic import → absent from normal builds.
+// CI-only: the Codemagic `ios-sim-diagnostic` workflow sets VITE_E2E_DIAG to
+// exercise the native flow on a simulator and report exactly where it breaks.
+// Dynamic import → tree-shaken out of normal builds entirely.
+//   '1' = synthetic post-pick pipeline (Filesystem→upload→segment)
+//   '2' = REAL system photo picker (Camera.pickImages→read→upload→segment)
 if (import.meta.env.VITE_E2E_DIAG === '1') {
   void import('./lib/e2eDiag').then((m) => m.runE2EDiag());
+} else if (import.meta.env.VITE_E2E_DIAG === '2') {
+  void import('./lib/e2eDiag').then((m) => m.runE2EPickDiag());
 }

@@ -1,0 +1,24 @@
+# Drives the REAL iOS system photo picker on the simulator.
+#
+# The app is built with VITE_E2E_DIAG=2, so on launch it auto-opens
+# Camera.pickImages (PHPicker) after a short session wait. PHPicker runs
+# OUT OF PROCESS (privacy isolation), so its cells are not in the app's
+# accessibility tree — we must use a COORDINATE tap, not element selection.
+# selectionLimit=1 (from pickImages({limit:1})) dismisses the picker on a
+# single valid tap. We tap repeatedly over ~12s so a tap lands once the
+# picker has finished presenting; the photo library is pre-seeded with many
+# images, so the upper-left grid region is reliably a photo cell. Stray taps
+# after dismissal hit the (non-interactive) diagnostic panel — harmless.
+appId: com.haloframe.app
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 6000
+- repeat:
+    times: 10
+    commands:
+      - tapOn:
+          point: '22%,40%'
+      - waitForAnimationToEnd:
+          timeout: 1200

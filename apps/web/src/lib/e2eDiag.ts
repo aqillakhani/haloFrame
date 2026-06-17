@@ -60,6 +60,28 @@ function makeTestJpeg(): File {
   });
 }
 
+// Mirror of photoPicker.ts's nativePathFromWebPath — derive a Filesystem-
+// readable file:// path from a Capacitor webPath. Kept in sync deliberately so
+// the diagnostic can report WHICH route (photo.path vs webPath-derived) yields
+// bytes on a real iOS picker result — exactly the rc6→rc7 difference.
+function nativePathFromWebPath(webPath: string | undefined): string | null {
+  if (!webPath) return null;
+  const marker = '_capacitor_file_';
+  const i = webPath.indexOf(marker);
+  if (i === -1) return null;
+  const abs = webPath.slice(i + marker.length);
+  return abs.startsWith('/') ? `file://${abs}` : null;
+}
+
+function ensurePanel(): void {
+  if (panel) return;
+  panel = document.createElement('pre');
+  panel.id = 'e2e-diag';
+  panel.style.cssText =
+    'position:fixed;inset:0;z-index:2147483647;margin:0;padding:14px;background:#fff;color:#111;font:13px/1.45 ui-monospace,monospace;white-space:pre-wrap;overflow:auto;';
+  document.body.appendChild(panel);
+}
+
 async function writeResult(): Promise<void> {
   try {
     const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
@@ -76,11 +98,7 @@ async function writeResult(): Promise<void> {
 }
 
 export async function runE2EDiag(): Promise<void> {
-  panel = document.createElement('pre');
-  panel.id = 'e2e-diag';
-  panel.style.cssText =
-    'position:fixed;inset:0;z-index:2147483647;margin:0;padding:14px;background:#fff;color:#111;font:13px/1.45 ui-monospace,monospace;white-space:pre-wrap;overflow:auto;';
-  document.body.appendChild(panel);
+  ensurePanel();
 
   log(`START platform=${Capacitor.getPlatform()} native=${Capacitor.isNativePlatform()}`);
   try {
@@ -136,6 +154,128 @@ export async function runE2EDiag(): Promise<void> {
     log(`RESULT: FAIL — ${e?.name || 'Error'}: ${e?.message ?? String(err)}`);
     if (e?.stack) log(`stack: ${e.stack.slice(0, 500)}`);
   } finally {
+    await writeResult();
+    log('DONE');
+    await writeResult();
+  }
+}
+
+// =============================================================================
+// REAL-PICKER diagnostic (VITE_E2E_DIAG === '2'). Unlike runE2EDiag (which
+// synthesizes a JPEG to isolate the post-pick pipeline), this opens the ACTUAL
+// iOS system photo picker via Camera.pickImages — the one link a synthetic test
+// and source-reading can't fully prove. The Codemagic `ios-sim-diagnostic`
+// workflow seeds the simulator photo library and uses Maestro to tap a photo
+// (PHPicker is out-of-process, so a coordinate tap, not element selection).
+//
+// It then runs the EXACT read-candidate loop photoPicker.ts ships, logging
+// which route (photo.path = rc6, or webPath-derived file:// = rc7) actually
+// yields bytes — answering both "does the real picker work?" and "would rc6
+// alone have worked?".
+// =============================================================================
+export async function runE2EPickDiag(): Promise<void> {
+  ensurePanel();
+  log(`START pick-mode platform=${Capacitor.getPlatform()} native=${Capacitor.isNativePlatform()}`);
+
+  let pickOk = false;
+  let pipelineOk = false;
+  try {
+    // Wait briefly for the anonymous session (needed for upload, NOT for the
+    // pick/read — so we proceed to pick regardless of the outcome here).
+    log('step0: wait up to 8s for supabase session...');
+    let haveSession = false;
+    for (let i = 0; i < 16; i++) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        haveSession = true;
+        log(`  session present uid=${data.session.user.id.slice(0, 8)}`);
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    if (!haveSession) log('  session NONE (upload may fail; pick/read still tested)');
+
+    // 1. Open the REAL system photo picker. Race a watchdog so a missed tap
+    //    writes a useful timeout result instead of hanging the whole build.
+    log('step1: opening REAL photo picker (Camera.pickImages)...');
+    log('  (waiting for Maestro to tap a seeded photo — PHPicker is on screen)');
+    const { Camera } = await import('@capacitor/camera');
+    const pickP = Camera.pickImages({ limit: 1, quality: 90 });
+    const timeoutP = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('PICK_TIMEOUT — no photo selected within 75s (UI tap likely missed the cell)')),
+        75000,
+      ),
+    );
+    const result = await Promise.race([pickP, timeoutP]);
+    const photo = result.photos[0];
+    log(`  pickImages resolved: photos.length=${result.photos.length}`);
+    if (!photo) throw new Error('picker returned no photo (cancelled / empty selection)');
+    log(`  photo.path    = ${photo.path ?? '(undefined)'}`);
+    log(`  photo.webPath = ${photo.webPath ?? '(undefined)'}`);
+    log(`  photo.format  = ${photo.format ?? '(undefined)'}`);
+
+    // 2. The SHIPPED read-candidate loop, instrumented per-route.
+    const mime = photo.format ? `image/${photo.format}` : 'image/jpeg';
+    const candidates: Array<{ label: string; path: string }> = [];
+    if (photo.path) candidates.push({ label: 'photo.path (rc6 route)', path: photo.path });
+    const fromWeb = nativePathFromWebPath(photo.webPath);
+    if (fromWeb && fromWeb !== photo.path) {
+      candidates.push({ label: 'webPath-derived file:// (rc7 route)', path: fromWeb });
+    }
+    log(`  read candidates: ${candidates.length}`);
+
+    const { Filesystem } = await import('@capacitor/filesystem');
+    let blob: Blob | undefined;
+    let winningRoute = 'none';
+    for (const c of candidates) {
+      try {
+        const file = await Filesystem.readFile({ path: c.path });
+        const data = typeof file.data === 'string' ? file.data : '';
+        log(`    [${c.label}] readFile ok base64Len=${data.length}`);
+        if (data && !blob) {
+          const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+          blob = new Blob([bytes], { type: mime });
+          winningRoute = c.label;
+        }
+      } catch (e) {
+        log(`    [${c.label}] readFile FAILED: ${String((e as Error)?.message ?? e)}`);
+      }
+    }
+    if (!blob) {
+      log('  all Filesystem routes failed; trying fetch(webPath) [expected broken by CapacitorHttp]...');
+      try {
+        const r = await fetch(photo.webPath);
+        blob = await r.blob();
+        winningRoute = 'fetch(webPath)';
+        log(`    fetch ok size=${blob.size}`);
+      } catch (e) {
+        log(`    fetch FAILED: ${String((e as Error)?.message ?? e)}`);
+      }
+    }
+    if (!blob) throw new Error('NO BYTES — the real picker produced no blob (this would be the upload bug)');
+    pickOk = true;
+    log(`  ✅ PICK PROOF: blob via "${winningRoute}", size=${blob.size}`);
+
+    // 3. Prove the rest end-to-end (needs the session for auth).
+    const file = new File([blob], 'pick.jpg', { type: mime });
+    log('step2: uploadFile...');
+    try {
+      const up = await uploadFile(file);
+      log(`  upload OK url=${(up.url || '').slice(0, 64)} bytes=${up.sizeBytes}`);
+      log('step3: segmentImage...');
+      const seg = await segmentImage(up.url, true);
+      log(`  segment OK subjects=${seg.subjects.length} dims=${seg.imageWidth}x${seg.imageHeight}`);
+      pipelineOk = true;
+    } catch (e) {
+      log(`  upload/segment failed (likely no anon session in CI): ${String((e as Error)?.message ?? e)}`);
+    }
+  } catch (err) {
+    const e = err as { name?: string; message?: string; stack?: string };
+    log(`ERROR: ${e?.name || 'Error'}: ${e?.message ?? String(err)}`);
+    if (e?.stack) log(`stack: ${e.stack.slice(0, 500)}`);
+  } finally {
+    log(`RESULT: pick=${pickOk ? 'PASS' : 'FAIL'} pipeline=${pipelineOk ? 'PASS' : 'FAIL/SKIP'}`);
     await writeResult();
     log('DONE');
     await writeResult();
