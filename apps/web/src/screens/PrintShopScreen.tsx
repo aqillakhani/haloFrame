@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { COPY } from '../lib/copy';
 import { useNavigation } from '../lib/navigation';
+import { useTributes } from '../hooks/useTributes';
 
 type CanvasGroup = 'small' | 'medium' | 'large';
 type Filter = 'all' | CanvasGroup;
@@ -54,8 +55,24 @@ function swatchDimensions(option: CanvasOption): { width: number; height: number
 
 export function PrintShopScreen() {
   const nav = useNavigation();
+  const { tributes } = useTributes();
   const [filter, setFilter] = useState<Filter>('all');
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Which generated image to preview on the canvas mockups.
+  //   • From Editor/Reunite "Order canvas": the exact image they're looking at,
+  //     handed over as a nav param (always directly loadable).
+  //   • From the Prints tab (no param): fall back to the most-recent saved
+  //     tribute's signed image URL. Sorted client-side by createdAt so we don't
+  //     depend on the list endpoint's ordering.
+  const fallbackUrl = useMemo(() => {
+    const newest = [...tributes]
+      .filter((t) => Boolean(t.signedImageUrl))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    return newest?.signedImageUrl ?? null;
+  }, [tributes]);
+
+  const previewUrl = nav.params.imageUrl ?? fallbackUrl;
   // Retained so the coming-soon modal can announce which size triggered
   // it in `aria-describedby`, and so focus can return to that specific
   // card's Order button on close.
@@ -126,14 +143,27 @@ export function PrintShopScreen() {
           <div
             className="print-shop-wall"
             role="img"
-            aria-label="Your tribute shown hanging on a warm painted wall"
+            aria-label={
+              previewUrl
+                ? COPY.printShop.heroAriaWithTribute
+                : COPY.printShop.heroAriaEmpty
+            }
           >
             <span className="print-shop-sconce" aria-hidden />
             <span className="print-shop-rail" aria-hidden />
             <div className="print-shop-canvas-mount">
               <div className="print-shop-canvas-face">
+                {previewUrl ? (
+                  <img
+                    className="print-shop-canvas-photo"
+                    src={previewUrl}
+                    alt=""
+                    aria-hidden
+                  />
+                ) : (
+                  <div className="print-shop-canvas-silhouette" aria-hidden />
+                )}
                 <div className="print-shop-canvas-halo" aria-hidden />
-                <div className="print-shop-canvas-silhouette" aria-hidden />
               </div>
               <span className="print-shop-canvas-corner print-shop-canvas-corner--tl" aria-hidden />
               <span className="print-shop-canvas-corner print-shop-canvas-corner--tr" aria-hidden />
@@ -150,6 +180,23 @@ export function PrintShopScreen() {
             </div>
           </div>
           <p className="print-shop-hero-caption">{COPY.printShop.heroCaption}</p>
+          {!previewUrl && (
+            <div className="print-shop-hero-empty">
+              <span className="print-shop-hero-empty-eyebrow">
+                {COPY.printShop.emptyPreviewEyebrow.toUpperCase()}
+              </span>
+              <p className="print-shop-hero-empty-body">
+                {COPY.printShop.emptyPreviewBody}
+              </p>
+              <button
+                type="button"
+                className="print-shop-hero-empty-cta"
+                onClick={() => nav.setTab('HOME')}
+              >
+                {COPY.printShop.emptyPreviewCta}
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="print-shop-section-head" aria-labelledby="print-shop-size-heading">
@@ -219,12 +266,21 @@ export function PrintShopScreen() {
                   <span className="print-shop-swatch-thread" aria-hidden />
                   <div
                     className="print-shop-swatch"
+                    data-has-photo={previewUrl ? 'true' : undefined}
                     style={{
                       ['--sw-w' as string]: `${width}px`,
                       ['--sw-h' as string]: `${height}px`,
                     }}
                     aria-hidden
                   >
+                    {previewUrl && (
+                      <img
+                        className="print-shop-swatch-photo"
+                        src={previewUrl}
+                        alt=""
+                        loading="lazy"
+                      />
+                    )}
                     <span className="print-shop-swatch-corner print-shop-swatch-corner--tr" />
                     <span className="print-shop-swatch-corner print-shop-swatch-corner--bl" />
                   </div>

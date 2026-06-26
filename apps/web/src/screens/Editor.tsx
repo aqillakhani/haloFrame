@@ -27,8 +27,12 @@ export interface EditorProps {
   imageWidth?: number;
   imageHeight?: number;
   templates: TributeTemplate[];
-  /** Navigate to the Print Shop ("Order Canvas" button). */
-  onOrderCanvas: () => void;
+  /**
+   * Navigate to the Print Shop ("Order Canvas" button). Receives the
+   * currently-displayed image URL so the Print Shop can preview that exact
+   * image on the canvas mockups.
+   */
+  onOrderCanvas: (imageUrl: string) => void;
   /**
    * Navigate to the Paywall. Called when the user taps Save and the current
    * (mocked) credit balance can't cover the action. The real credits ledger
@@ -637,7 +641,7 @@ export function Editor({
           <button
             type="button"
             className="editor-btn editor-btn--ghost"
-            onClick={onOrderCanvas}
+            onClick={() => onOrderCanvas(displayUrl)}
             disabled={isSaving}
           >
             {COPY.editor.orderCanvas}

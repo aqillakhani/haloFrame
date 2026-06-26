@@ -327,7 +327,7 @@ export function ReuniteFlow() {
 
   const handleOrderCanvas = () => {
     setSavedModalOpen(false);
-    nav.push('PRINT_SHOP');
+    nav.push('PRINT_SHOP', mergedUrl ? { imageUrl: mergedUrl } : undefined);
   };
 
   const handleStartAnother = () => {
@@ -348,7 +348,7 @@ export function ReuniteFlow() {
           PLACEMENT_SUBJECT_DESCRIPTION[placement][lovedIsPet ? 'pet' : 'person']
         }
         placement={placement}
-        onOrderCanvas={() => nav.push('PRINT_SHOP')}
+        onOrderCanvas={(imageUrl) => nav.push('PRINT_SHOP', { imageUrl })}
         onPaywall={() => nav.push('PAYWALL')}
         onBack={handleBack}
       />

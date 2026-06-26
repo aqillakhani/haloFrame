@@ -364,6 +364,15 @@ export function MyTributesScreen() {
               exit={{ y: 24, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 420, damping: 36 }}
             >
+              {printPicker.signedImageUrl && (
+                <div className="my-tributes-print-preview">
+                  <img
+                    src={printPicker.signedImageUrl}
+                    alt={printPicker.state.textOverlay?.name ?? 'Your tribute'}
+                    loading="lazy"
+                  />
+                </div>
+              )}
               <h3>Choose a canvas size</h3>
               <p>A museum-quality wrapped canvas, shipped in 5–7 business days.</p>
               {printError && <p className="auth-error" role="alert">{printError}</p>}

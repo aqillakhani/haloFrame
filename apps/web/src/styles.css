@@ -3914,6 +3914,19 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   filter: blur(1px);
 }
 
+/* The user's actual tribute, filling the canvas face. Clipped by the face's
+   own overflow:hidden + radius; the warm halo + gold corners stay layered on
+   top. object-position favors the top so portrait crops keep the face. */
+.print-shop-canvas-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  border-radius: 2px;
+}
+
 .print-shop-canvas-corner {
   position: absolute;
   width: 18px;
@@ -3970,6 +3983,53 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   text-align: center;
   margin-top: 6px;
 }
+
+/* Empty preview affordance — shown on the hero when there is no tribute to
+   show yet (e.g. the Prints tab opened cold). Keeps the placeholder canvas
+   above and invites the user to create one. */
+.print-shop-hero-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.print-shop-hero-empty-eyebrow {
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--c-gold-base);
+}
+
+.print-shop-hero-empty-body {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 13.5px;
+  color: var(--c-ink-_3);
+  max-width: 30ch;
+}
+
+.print-shop-hero-empty-cta {
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid var(--c-terracotta-base);
+  border-radius: var(--r-btn);
+  padding: 9px 18px;
+  background: transparent;
+  color: var(--c-terracotta-ink);
+  transition: background 150ms var(--e-standard), transform 80ms var(--e-standard);
+}
+
+.print-shop-hero-empty-cta:hover { background: rgba(160, 80, 60, 0.08); }
+.print-shop-hero-empty-cta:active { transform: translateY(1px); }
+.print-shop-hero-empty-cta:focus-visible { outline: 2px solid var(--c-terracotta-base); outline-offset: 2px; }
 
 /* --- Section head (italic-underlined "Pick a size") + filter chips --- */
 .print-shop-section-head {
@@ -4183,6 +4243,24 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
     linear-gradient(160deg, #F1D9AE 0%, #D9AF72 55%, #B07B44 100%);
 }
 
+/* Tribute fills the swatch, aspect-cropped to each size's ratio via the
+   parent's --sw-w/--sw-h. z-index:0 keeps it under the gold corner accents. */
+.print-shop-swatch-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+/* Hide the decorative gradient sheen once a real photo covers the swatch. */
+.print-shop-swatch[data-has-photo] {
+  background: #2a231b;
+}
+
 .print-shop-swatch::before,
 .print-shop-swatch::after {
   content: "";
@@ -4190,6 +4268,7 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   width: 10px;
   height: 10px;
   border: 1px solid var(--c-gold-base);
+  z-index: 1;
 }
 
 .print-shop-swatch::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
@@ -4200,6 +4279,7 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
   width: 10px;
   height: 10px;
   border: 1px solid var(--c-gold-base);
+  z-index: 1;
 }
 
 .print-shop-swatch-corner--tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
@@ -6154,6 +6234,28 @@ input[type="range"].reunite-size-slider::-moz-range-thumb {
 
 .my-tributes-confirm-danger:hover {
   background: #882e28;
+}
+
+/* Thumbnail of the tribute being ordered, shown atop the size picker so the
+   user can see what they're putting on canvas. Gold hairline + soft shadow
+   echo the gallery framing. */
+.my-tributes-print-preview {
+  align-self: center;
+  width: 120px;
+  aspect-ratio: 4 / 5;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(212, 169, 92, 0.55),
+    0 10px 24px -14px rgba(42, 35, 27, 0.4);
+}
+
+.my-tributes-print-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  display: block;
 }
 
 .my-tributes-print-sizes {

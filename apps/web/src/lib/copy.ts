@@ -481,6 +481,15 @@ export const COPY = {
     modalKeepCta: 'Keep my tribute',
     modalCloseAria: 'Close',
     comingSoon: 'Checkout is coming soon.',
+    // Accessible label for the hero canvas mockup, swapped by whether a
+    // tribute is being previewed on the wall.
+    heroAriaWithTribute: 'Your tribute shown framed on a warm painted wall',
+    heroAriaEmpty: 'A gallery canvas on a warm painted wall, waiting for your tribute',
+    // Shown on the hero canvas when there's no tribute to preview yet
+    // (e.g. the Prints tab opened before anything has been created).
+    emptyPreviewEyebrow: 'Nothing to preview yet',
+    emptyPreviewBody: 'Create a tribute and it will appear here, framed and ready.',
+    emptyPreviewCta: 'Create a tribute',
   },
 
   tabs: {

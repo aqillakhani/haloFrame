@@ -137,7 +137,7 @@ export function EnhanceFlow() {
         imageHeight={segmentation.imageHeight}
         templates={templates}
         isPet={isSubjectPet(segmentation.subjects, selectedSubjectIndex ?? 0)}
-        onOrderCanvas={() => nav.push('PRINT_SHOP')}
+        onOrderCanvas={(imageUrl) => nav.push('PRINT_SHOP', { imageUrl })}
         onPaywall={() => nav.push('PAYWALL')}
         onBack={handleBack}
       />
