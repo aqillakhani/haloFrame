@@ -123,3 +123,110 @@ flow in a browser and reading the console + network. This is rule #1 in action.
 failures that local dev, typecheck, unit tests, and the build every one passed.
 Only driving the real production URL in a browser caught them. Do that after
 EVERY deploy, before saying "it works."
+
+---
+
+## 2026-06-08 (cont.) — A code fix that never shipped to TestFlight
+
+### What happened
+User: "the app on TestFlight doesn't let me upload — I thought we already
+solved it?" We HAD solved it in code: the native gallery-upload fix
+(`Filesystem.readFile` instead of the CapacitorHttp-broken `fetch`) was
+committed 2026-06-01 (rc6, `4919206`). But it never reached an installable
+build. TestFlight build #9 was uploaded 2026-06-01 **10:49 PDT — five minutes
+after** the fix commit (10:44 PDT). An iOS Codemagic build (`npm ci` → web
+build → `cap sync` → Xcode → sign → upload) takes far longer than 5 min, so #9
+was built from a *pre-fix* commit. rc6 was tagged but no build from it ever
+shipped. Every installable build (#7–#9) had the old, broken picker.
+
+### Root cause of the process miss
+We treated "committed + tagged" as "shipped." There is no automatic link
+between a commit and what testers can install — that needs tag → Codemagic
+build → ASC upload → TestFlight, any step of which can silently not happen.
+
+### Rules
+1. **Code-fixed ≠ shipped (native).** A fix isn't real until it's in an
+   installable build. After a native fix, push a `v*` tag (triggers Codemagic
+   `ios-testflight` + `android-internal`) and VERIFY the new build lands:
+   `node scripts/asc-build-status.mjs` lists TestFlight builds with numbers +
+   upload times. Confirm a build *newer than the fix* exists before claiming
+   it's fixed for the user.
+2. **Correlate build ⟷ commit by timing, not assumption.** A build that
+   uploaded minutes after a commit cannot contain it. When unsure, ship a fresh
+   tag rather than assume the latest build has the fix.
+3. **Make native failures loud.** On-device flows can't be tested from CI/
+   Windows. A silent bail (`if (!photo?.blob) return;`) gives zero signal when
+   it fails in the field — surface a visible error so the user can report it.
+
+### Fix shipped
+Hardened `photoPicker` (two independent Filesystem read routes: `photo.path`
+AND a path derived from `webPath`; + visible error in both Enhance & Reunite),
+committed `ee0e522`, tagged `v1.0.0-rc7` → Codemagic build #10 to TestFlight.
+46/46 unit + typecheck + web build green; web prod re-verified live (upload +
+segment 200, 0 console errors). On-device upload = user confirms on build #10.
+
+---
+
+## 2026-06-09 — Correction + the real diagnosis (upload "still broken")
+
+### Correcting the 2026-06-08 entry above
+That entry concluded "every installable build (#7–#9) had the old broken
+picker / #9 was built from a pre-fix commit." **That is wrong.** Verified this
+session via `codemagic-probe`: ASC build **#9 = Codemagic build `6a1dc50f` =
+tag `v1.0.0-rc6` = commit `4919206`**, which **does** contain the basic
+Filesystem fix. The earlier "uploaded 5 min after the commit → too fast"
+reasoning was a timezone artifact (commit/build/upload were all ~17:45–17:49
+UTC = 10:45–10:49 PDT, internally consistent). Lesson: correlate build⟷commit
+with the **Codemagic build's own commit field**, not wall-clock subtraction
+across timezones.
+
+### The actual mechanism (source-confirmed, not guessed)
+`@capacitor/camera` 8.1.0 `returnImages()` (what `pickImages` calls) returns
+`path: fileURL.absoluteString` (a **readable `file://…` URL**) and
+`webPath: portablePath(...)` (`capacitor://…/_capacitor_file_/…`). So the
+ORIGINAL bug was solely `fetch(photo.webPath)` — broken because
+`CapacitorHttp.enabled:true` patches global fetch and doesn't grok the
+`capacitor://` scheme. Reading bytes via `Filesystem.readFile({path})` (rc6) or
+the webPath-derived `file://` route (rc7) both work — the iOS simulator
+diagnostic proved `readFile(file://) → upload → segment` all pass.
+
+### The real lesson: verify WHICH build the user ran before "the fix failed"
+rc6 *should* work per source. The most likely reason the user still saw the bug
+is a **stale TestFlight build** — TestFlight never force-updates; build #8
+(rc5, `8cecec3`) is the original broken `fetch` picker and was the newest build
+for ~8 days before #9. "We fixed it but they never tapped Update" is more
+likely than "the fix failed on device." **Before concluding a shipped fix
+failed: confirm the user's installed build ≥ the fixed build.** ASC
+`internalBuildState/externalBuildState` + upload dates tell you what's
+installable, not what's installed — the latter needs the user.
+
+### Shipped + verified this session
+- **Build #10 (rc7, hardened `ee0e522`) is LIVE in TestFlight** — ASC
+  `processingState: VALID`, `IN_BETA_TESTING` (internal + external), auto-
+  distributed (`submit_to_testflight: true`). Triggered via
+  `node scripts/codemagic-probe.mjs trigger v1.0.0-rc7 ios-testflight`
+  (tag-push webhook still doesn't fire here — must API-trigger).
+- **Web prod fully re-verified** (`zz-smoke.mjs` + `zz-nav.mjs`): upload 200 →
+  segment 200 → editor → 8× apply(generation) 200; all screens render
+  (Home/Reunite/Tributes/Prints/Settings/Paywall); 0 uncaught page errors.
+- Irreducible remaining check: one real-device pick on build #10 (out-of-
+  process PHPicker is the one thing sim/source can't fully close).
+
+### Empirical confirmation (2026-06-17) — real-picker sim proof PASSED
+Built a Codemagic sim test (VITE_E2E_DIAG=2 → runE2EPickDiag) that drives the
+ACTUAL Camera.pickImages on iPhone 16e / iOS 26.4 via a Maestro coordinate-tap
+(PHPicker is out-of-process, so element selection isn't available — seed the
+library with simctl addmedia + tap a grid cell), then runs the shipped read
+loop + upload + segment. Output:
+  photo.path    = file:///.../tmp/photo-1.jpg     (valid, readable — as source predicted)
+  photo.webPath = capacitor://localhost/_capacitor_file_/.../photo-1.jpg
+  [photo.path (rc6 route)] readFile ok base64Len=28988 → blob 21739B → upload OK → segment OK
+  RESULT: pick=PASS pipeline=PASS
+So the rc6 `photo.path` route ALREADY works on a real iOS runtime → rc6 (build
+#9) should have worked → the user's "still broken" was almost certainly a STALE
+BUILD. build #10 (rc7) is strictly more robust. Caveat: simulator, not physical
+hardware — the one residual device-only PHPicker quirk can't be closed without
+the device, but the mechanism is now proven on iOS 26.4. Infra lives on branch
+ci/ios-sim-test @84f6789 (.maestro/pick-photo.yaml + runE2EPickDiag in e2eDiag.ts;
+codemagic `ios-sim-diagnostic` seeds + Maestro-drives + reads e2e-result.txt).
+Reusable for any future native-flow proof.
